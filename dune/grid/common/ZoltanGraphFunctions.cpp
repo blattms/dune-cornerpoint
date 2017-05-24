@@ -277,6 +277,8 @@ void getCpGridWellsEdgeList(void *graphPointer, int sizeGID, int sizeLID,
         {
             const int face  = grid.cellFace(currentCell, local_face);
             int otherCell   = grid.faceCell(face, 0);
+            auto centerDiff   = grid.cellCentroid(currentCell);
+
             if ( otherCell == currentCell || otherCell == -1 )
             {
                 otherCell = grid.faceCell(face, 1);
@@ -289,16 +291,22 @@ void getCpGridWellsEdgeList(void *graphPointer, int sizeGID, int sizeLID,
                 {
                     if ( wellEdges.find(otherCell) == wellEdges.end() )
                     {
+                        centerDiff -= grid.cellCentroid(otherCell);
                         nborGID[idx] = globalID[otherCell];
-                        ewgts[idx++] = graph.transmissibility(face);
+                        using std::abs;
+                        ewgts[idx++] = graph.transmissibility(face) /
+                            abs(centerDiff.two_norm());
                     }
                     continue;
                 }
             }
             if ( wellEdges.find(otherCell) == wellEdges.end() )
             {
+                centerDiff -= grid.cellCentroid(otherCell);
                 nborGID[idx] = globalID[otherCell];
-                ewgts[idx++] = graph.transmissibility(face);
+                using std::abs;
+                ewgts[idx++] = graph.transmissibility(face) /
+                    abs(centerDiff.two_norm());
             }
         }
 #ifndef NDEBUG
