@@ -23,6 +23,7 @@
 #include <opm/grid/common/ZoltanPartition.hpp>
 
 #include <opm/grid/utility/OpmParserIncludes.hpp>
+#include <sstream>
 
 #if defined(HAVE_ZOLTAN) && defined(HAVE_MPI)
 namespace Dune
@@ -44,103 +45,144 @@ zoltanGraphPartitionGridOnRoot(const CpGrid& cpgrid,
     int *importProcs, *importToPart, *exportProcs, *exportToPart;
     int argc=0;
     char** argv = 0 ;
+    bool doLoadBalance = true;
+    std::vector<int> parts(cpgrid.numCells(), cc.rank());
+    std::vector<std::vector<int> > wells_on_proc;
+
     rc = Zoltan_Initialize(argc, argv, &ver);
-    zz = Zoltan_Create(cc);
-    if ( rc != ZOLTAN_OK )
+
+    if ( rc == ZOLTAN_FATAL )
     {
-        OPM_THROW(std::runtime_error, "Could not initialize Zoltan!");
+        OPM_THROW(std::runtime_error, "Zoltan initialization failed with fatal error.");
+    }
+    if ( rc == ZOLTAN_MEMERR )
+    {
+        OPM_THROW(std::runtime_error, "Zoltan initialization failed because of error in memory allocation.");
     }
 
-    Zoltan_Set_Param(zz, "DEBUG_LEVEL", "0");
-    Zoltan_Set_Param(zz, "LB_METHOD", "GRAPH");
-    Zoltan_Set_Param(zz, "LB_APPROACH", "PARTITION");
-    Zoltan_Set_Param(zz, "NUM_GID_ENTRIES", "1");
-    Zoltan_Set_Param(zz, "NUM_LID_ENTRIES", "1");
-    Zoltan_Set_Param(zz, "RETURN_LISTS", "ALL");
-    Zoltan_Set_Param(zz, "CHECK_GRAPH", "2");
-    Zoltan_Set_Param(zz,"EDGE_WEIGHT_DIM","0");
-    Zoltan_Set_Param(zz, "OBJ_WEIGHT_DIM", "0");
-    Zoltan_Set_Param(zz, "PHG_EDGE_SIZE_THRESHOLD", ".35");  /* 0-remove all, 1-remove none */
-
-    // For the load balancer one process has the whole grid and
-    // all others an empty partition before loadbalancing.
-    bool partitionIsEmpty     = cc.rank()!=root;
-    bool partitionIsWholeGrid = !partitionIsEmpty;
-
-    std::shared_ptr<CombinedGridWellGraph> grid_and_wells;
-
-    if( wells )
+    // In principal it should be safe to use all processors during loadbalancing
+    // But for some OpenMPI version errors have been encountered if the whole
+    // graph is stored on one process and the rest has no vertices and no edges.
+    // Therefore we will use only on process for loadbalancing
+#ifndef LOADBALANCE_GRAPH_ALL_PROCS
+    zz = Zoltan_Create(cc);
+#else
+    if ( cc.rank() == 0 )
     {
-        Zoltan_Set_Param(zz,"EDGE_WEIGHT_DIM","1");
-        grid_and_wells.reset(new CombinedGridWellGraph(cpgrid,
-                                                       wells,
-                                                       transmissibilities,
-                                                       partitionIsEmpty));
-        Dune::cpgrid::setCpGridZoltanGraphFunctions(zz, *grid_and_wells,
-                                                    partitionIsEmpty);
+        zz = Zoltan_Create(MPI_COMM_SELF);
     }
     else
     {
-        Dune::cpgrid::setCpGridZoltanGraphFunctions(zz, cpgrid, partitionIsEmpty);
+        doLoadBalance = false;
     }
+#endif
 
-    rc = Zoltan_LB_Partition(zz, /* input (all remaining fields are output) */
-                             &changes,        /* 1 if partitioning was changed, 0 otherwise */
-                             &numGidEntries,  /* Number of integers used for a global ID */
-                             &numLidEntries,  /* Number of integers used for a local ID */
-                             &numImport,      /* Number of vertices to be sent to me */
-                             &importGlobalGids,  /* Global IDs of vertices to be sent to me */
-                             &importLocalGids,   /* Local IDs of vertices to be sent to me */
-                             &importProcs,    /* Process rank for source of each incoming vertex */
-                             &importToPart,   /* New partition for each incoming vertex */
-                             &numExport,      /* Number of vertices I must send to other processes*/
-                             &exportGlobalGids,  /* Global IDs of the vertices I must send */
-                             &exportLocalGids,   /* Local IDs of the vertices I must send */
-                             &exportProcs,    /* Process to which I send each of the vertices */
-                             &exportToPart);  /* Partition to which each vertex will belong */
-    int                         size = cpgrid.numCells();
-    int                         rank  = cc.rank();
-    std::vector<int>            parts(size, rank);
-    std::vector<std::vector<int> > wells_on_proc;
-
-    for ( int i=0; i < numExport; ++i )
+    if ( doLoadBalance )
     {
-        parts[exportLocalGids[i]] = exportProcs[i];
-    }
+        Zoltan_Set_Param(zz, "DEBUG_LEVEL", "0");
+        Zoltan_Set_Param(zz, "LB_METHOD", "GRAPH");
+        Zoltan_Set_Param(zz, "LB_APPROACH", "PARTITION");
+        Zoltan_Set_Param(zz, "NUM_GID_ENTRIES", "1");
+        Zoltan_Set_Param(zz, "NUM_LID_ENTRIES", "1");
+        Zoltan_Set_Param(zz, "RETURN_LISTS", "ALL");
+	std::ostringstream partitions;
+        partitions << cc.size();
+        Zoltan_Set_Param(zz, "NUM_GLOBAL_PARTS", partitions.str().c_str()); // Number of partition requested. Needed for MPI_COMM_SELF
+#ifndef NDEBUG
+        Zoltan_Set_Param(zz, "CHECK_GRAPH", "2");
+#else
+        Zoltan_Set_Param(zz, "CHECK_GRAPH", "0");
+#endif
+        Zoltan_Set_Param(zz,"EDGE_WEIGHT_DIM","0");
+        Zoltan_Set_Param(zz, "OBJ_WEIGHT_DIM", "0");
+        Zoltan_Set_Param(zz, "PHG_EDGE_SIZE_THRESHOLD", ".35");  /* 0-remove all, 1-remove none */
 
-    if( wells && partitionIsWholeGrid )
-    {
-        wells_on_proc =
-            postProcessPartitioningForWells(parts,
-                                            *wells,
-                                            grid_and_wells->getWellConnections(),
-                                            cc.size());
+        // For the load balancer one process has the whole grid and
+        // all others an empty partition before loadbalancing.
+        bool partitionIsEmpty     = cc.rank()!=root;
+        bool partitionIsWholeGrid = !partitionIsEmpty;
+
+        std::shared_ptr<CombinedGridWellGraph> grid_and_wells;
+
+        if( wells )
+        {
+            Zoltan_Set_Param(zz,"EDGE_WEIGHT_DIM","1");
+            grid_and_wells.reset(new CombinedGridWellGraph(cpgrid,
+                                                           wells,
+                                                           transmissibilities,
+                                                           partitionIsEmpty));
+            Dune::cpgrid::setCpGridZoltanGraphFunctions(zz, *grid_and_wells,
+                                                        partitionIsEmpty);
+        }
+        else
+        {
+            Dune::cpgrid::setCpGridZoltanGraphFunctions(zz, cpgrid, partitionIsEmpty);
+        }
+
+        rc = Zoltan_LB_Partition(zz, /* input (all remaining fields are output) */
+                                 &changes,        /* 1 if partitioning was changed, 0 otherwise */
+                                 &numGidEntries,  /* Number of integers used for a global ID */
+                                 &numLidEntries,  /* Number of integers used for a local ID */
+                                 &numImport,      /* Number of vertices to be sent to me */
+                                 &importGlobalGids,  /* Global IDs of vertices to be sent to me */
+                                 &importLocalGids,   /* Local IDs of vertices to be sent to me */
+                                 &importProcs,    /* Process rank for source of each incoming vertex */
+                                 &importToPart,   /* New partition for each incoming vertex */
+                                 &numExport,      /* Number of vertices I must send to other processes*/
+                                 &exportGlobalGids,  /* Global IDs of the vertices I must send */
+                                 &exportLocalGids,   /* Local IDs of the vertices I must send */
+                                 &exportProcs,    /* Process to which I send each of the vertices */
+                                 &exportToPart);  /* Partition to which each vertex will belong */
+        if ( rc == ZOLTAN_FATAL )
+        {
+            OPM_THROW(std::runtime_error, "Loadbalancing failed with fatal error.");
+        }
+        if ( rc == ZOLTAN_MEMERR )
+        {
+            OPM_THROW(std::runtime_error, "Loadbalancing failed because of error in memory allocation.");
+        }
+
+        std::vector<std::vector<int> > wells_on_proc;
+
+        for ( int i=0; i < numExport; ++i )
+        {
+            parts[exportLocalGids[i]] = exportProcs[i];
+        }
+
+        if( wells && partitionIsWholeGrid )
+        {
+            wells_on_proc =
+                postProcessPartitioningForWells(parts,
+                                                *wells,
+                                                grid_and_wells->getWellConnections(),
+                                                cc.size());
 
 #ifndef NDEBUG
-        int index = 0;
-        for( auto well : grid_and_wells->getWellsGraph() )
-        {
-            int part=parts[index];
-            std::set<std::pair<int,int> > cells_on_other;
-            for( auto vertex : well )
+            int index = 0;
+            for( auto well : grid_and_wells->getWellsGraph() )
             {
-                if( part != parts[vertex] )
+                int part=parts[index];
+                std::set<std::pair<int,int> > cells_on_other;
+                for( auto vertex : well )
                 {
-                    cells_on_other.insert(std::make_pair(vertex, parts[vertex]));
+                    if( part != parts[vertex] )
+                    {
+                        cells_on_other.insert(std::make_pair(vertex, parts[vertex]));
+                    }
                 }
+                if ( cells_on_other.size() )
+                {
+                    OPM_THROW(std::domain_error, "Well is distributed between processes, which should not be the case!");
+                }
+                ++index;
             }
-            if ( cells_on_other.size() )
-            {
-                OPM_THROW(std::domain_error, "Well is distributed between processes, which should not be the case!");
-            }
-            ++index;
-        }
 #endif
+        }
+        // free space allocated for zoltan.
+        Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
+        Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
+        Zoltan_Destroy(&zz);
     }
-    // free space allocated for zoltan.
-    Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
-    Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
-    Zoltan_Destroy(&zz);
 
     std::unordered_set<std::string> defunct_well_names;
 
