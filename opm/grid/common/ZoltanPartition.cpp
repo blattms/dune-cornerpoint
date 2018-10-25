@@ -64,7 +64,7 @@ zoltanGraphPartitionGridOnRoot(const CpGrid& cpgrid,
     // But for some OpenMPI version errors have been encountered if the whole
     // graph is stored on one process and the rest has no vertices and no edges.
     // Therefore we will use only on process for loadbalancing
-#ifndef LOADBALANCE_GRAPH_ALL_PROCS
+#ifdef LOADBALANCE_GRAPH_ALL_PROCS
     zz = Zoltan_Create(cc);
 #else
     if ( cc.rank() == 0 )
@@ -85,9 +85,13 @@ zoltanGraphPartitionGridOnRoot(const CpGrid& cpgrid,
         Zoltan_Set_Param(zz, "NUM_GID_ENTRIES", "1");
         Zoltan_Set_Param(zz, "NUM_LID_ENTRIES", "1");
         Zoltan_Set_Param(zz, "RETURN_LISTS", "ALL");
+#ifndef LOADBALANCE_GRAPH_ALL_PROCS
 	std::ostringstream partitions;
         partitions << cc.size();
-        Zoltan_Set_Param(zz, "NUM_GLOBAL_PARTS", partitions.str().c_str()); // Number of partition requested. Needed for MPI_COMM_SELF
+        auto no = partitions.str().c_str();
+        Zoltan_Set_Param(zz, "NUM_GLOBAL_PARTS", no); // Number of partition requested. Needed for MPI_COMM_SELF
+        Zoltan_Set_Param(zz, "NUM_LOCAL_PARTS", no); // Number of partition requested. Needed for MPI_COMM_SELF
+#endif
 #ifndef NDEBUG
         Zoltan_Set_Param(zz, "CHECK_GRAPH", "2");
 #else
@@ -142,11 +146,13 @@ zoltanGraphPartitionGridOnRoot(const CpGrid& cpgrid,
             OPM_THROW(std::runtime_error, "Loadbalancing failed because of error in memory allocation.");
         }
 
-        std::vector<std::vector<int> > wells_on_proc;
-
         for ( int i=0; i < numExport; ++i )
         {
+ #ifdef LOADBALANCE_GRAPH_ALL_PROCS
             parts[exportLocalGids[i]] = exportProcs[i];
+#else
+            parts[exportLocalGids[i]] = exportToPart[i];
+#endif
         }
 
         if( wells && partitionIsWholeGrid )
