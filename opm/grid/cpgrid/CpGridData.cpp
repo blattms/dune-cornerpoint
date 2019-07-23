@@ -523,13 +523,6 @@ void CpGridData::distributeGlobalGrid(const CpGrid& grid,
 #if HAVE_MPI
     Dune::CollectiveCommunication<Dune::MPIHelper::MPICommunicator>& ccobj=ccobj_;
     int my_rank=ccobj.rank();
-#if 0
-    int size=ccobj.size();
-    typedef std::vector<int>::const_iterator Iterator;
-    for(Iterator i=cell_part.begin(); i!= cell_part.end(); ++i)
-        if(*i>=size)
-            OPM_THROW(std::runtime_error, "rank for cell is too big");
-#endif // #ifdef DEBUG
     // vector with the set of ranks that
     std::vector<std::set<int> > overlap;
 
