@@ -666,10 +666,7 @@ void CpGridData::distributeGlobalGrid(const CpGrid& grid,
     {
         typedef boost::iterator_range<const EntityRep<1>*>::iterator RowIter;
         int row_index=i->global();
-        // Somehow g++-4.4 does not find functions of father even if we
-        // change inheritance of OrientedEntityTable to public.
-        // Therfore we use an ugly cast to base class here.
-        const Opm::SparseTable<EntityRep<1> >& c2f=view_data.cell_to_face_;
+        const auto& c2f=view_data.cell_to_face_;
         for(RowIter f=c2f[row_index].begin(), fend=c2f[row_index].end();
             f!=fend; ++f)
         {

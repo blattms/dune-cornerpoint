@@ -156,6 +156,8 @@ namespace Dune
                 return row_type(super_t::operator[](e.index()), e.orientation());
             }
 
+            using Opm::SparseTable<EntityRep<codim_to> >::operator[];
+
             /// @brief Elementwise equality.
             /// @param other The other element
             /// @return Returns true if \b this and the \b other element are equal.
