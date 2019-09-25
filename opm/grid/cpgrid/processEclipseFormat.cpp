@@ -56,6 +56,7 @@
 #include <initializer_list>
 #include <set>
 #include <utility>
+#include <algorithm>
 
 namespace Dune
 {
@@ -293,6 +294,22 @@ namespace cpgrid
 #ifdef VERBOSE
         std::cout << "Done with grid processing." << std::endl;
 #endif
+        for ( int c = 0; c < cell_to_point_.size(); ++c)
+        {
+            const auto& points = cell_to_point_[c];
+            std::array<bool,8> found{};
+            for(const auto& face: cell_to_face_[EntityRep<0>(c, true)])
+                for(const auto& point: face_to_point_[face.index()])
+                {
+                    auto candidate = std::find(points.begin(), points.end(), point);
+                    if(candidate != points.end())
+                        found[candidate-points.begin()] = true;
+                }
+            for(const auto& f: found)
+                if (!f)
+                throw "";
+        }
+        std::cout<<"tested points"<<std::endl;
     }
 
     } // end namespace cpgrid
