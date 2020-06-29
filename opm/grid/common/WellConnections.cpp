@@ -154,8 +154,8 @@ postProcessPartitioningForWells(std::vector<int>& parts,
                 globalConnections.reserve(connections.size());
                 std::map<int, std::vector<int>> tmpRemove;
                 auto &add = addCells[new_owner];
-                auto oldEnd = add.end();
-                std::vector<int> myConnections;
+                auto addOldSize = add.size();
+                std::vector<int> myConnections; // Connections moved from here
                 myConnections.reserve(connections.size());
                 for (auto connection_cell : connections) {
                     const auto &global = globalCell[connection_cell];
@@ -168,6 +168,7 @@ postProcessPartitioningForWells(std::vector<int>& parts,
                     if (new_owner != cc.rank()) // no entry assumed for rank
                         add.push_back(global);
                 }
+                auto oldEnd = add.begin()+addOldSize;
                 std::sort(myConnections.begin(), myConnections.end());
                 std::sort(oldEnd, add.end());
                 exportList.reserve(exportList.size()+myConnections.size()); // We might store new entries
@@ -176,7 +177,7 @@ postProcessPartitioningForWells(std::vector<int>& parts,
 
                 for (auto movedCell = oldEnd; oldEnd != add.end(); ++movedCell) {
                     auto myCandidate = std::lower_bound(myConnections.begin(), myConnections.end(), *movedCell);
-                    if (myCandidate == myConnections.end()){
+                    if (myCandidate == myConnections.end()){ // Not coming from this rank!
                         auto candidate = std::lower_bound(start, middle, *movedCell, Less());
                         assert(candidate != exportList.end());
                         std::get<1>(*candidate) = new_owner;
