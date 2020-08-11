@@ -154,45 +154,34 @@ postProcessPartitioningForWells(std::vector<int>& parts,
                 std::cout << "Manually moving well " << well.name()
                           << " to partition " << new_owner << std::endl;
 
-                std::vector<int> globalConnections;
-                globalConnections.reserve(connections.size());
-                std::map<int, std::vector<int>> tmpRemove;
+                // all cells moving to new_owner. mght already contain cells from
+                // previous wells.
                 auto &add = addCells[new_owner];
-                auto addOldSize = add.size();
-                std::vector<int> myConnections; // Connections moved from here
-                myConnections.reserve(connections.size());
+                auto addOldSize = add.size(); // remember beginning of this well
+
                 for (auto connection_cell : connections) {
                     const auto &global = globalCell[connection_cell];
                     auto old_owner = parts[connection_cell];
-                    if (old_owner != cc.rank()) //otherwise there is not entry
+                    if (old_owner != new_owner) // only parts might be moved
+                    {
                         removeCells[old_owner].push_back(global);
-                    else
-                        myConnections.push_back(global);
-                    parts[connection_cell] = new_owner;
-                    if (new_owner != cc.rank()) // no entry assumed for rank
                         add.push_back(global);
-                }
-                auto oldEnd = add.begin()+addOldSize;
-                std::sort(myConnections.begin(), myConnections.end());
-                std::sort(oldEnd, add.end());
-                exportList.reserve(exportList.size()+myConnections.size()); // We might store new entries
-                auto start  = exportList.begin();
-                auto middle = exportList.end();
-
-                for (auto movedCell = oldEnd; oldEnd != add.end(); ++movedCell) {
-                    auto myCandidate = std::lower_bound(myConnections.begin(), myConnections.end(), *movedCell);
-                    if (myCandidate == myConnections.end()){ // Not coming from this rank!
-                        auto candidate = std::lower_bound(start, middle, *movedCell, Less());
-                        assert(candidate != exportList.end());
-                        std::get<1>(*candidate) = new_owner;
-                        start = candidate;
-                    } else {
-                        // entry was not yet in the list. add it at the end.
-                        exportList.emplace_back(*movedCell, new_owner, AttributeSet::owner);
+                        parts[connection_cell] = new_owner;
                     }
                 }
-                std::sort(middle, exportList.end(), Less());
-                std::inplace_merge(exportList.begin(), middle, exportList.end(), Less());
+                auto oldEnd = add.begin()+addOldSize;
+                std::sort(oldEnd, add.end()); // we need ascending order
+                auto exportCandidate =  exportList.begin();
+
+                for (auto movedCell = oldEnd; movedCell != add.end(); ++movedCell) {
+                    using ELValueT = decltype(*exportList.begin());
+                    exportCandidate = std::lower_bound(exportCandidate, exportList.end(), *movedCell,
+                                                        [](const ELValueT& v1, const int& v2){
+                                                            return std::get<0>(v1) < v2;
+                                                        });
+                    assert(exportCandidate != exportList.end() && std::get<0>(*exportCandidate) == *movedCell);
+                    std::get<1>(*exportCandidate) = new_owner;
+                }
             }
 
             well_indices_on_proc[owner].push_back(well_index);
