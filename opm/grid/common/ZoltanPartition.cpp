@@ -54,6 +54,8 @@ zoltanGraphPartitionGridOnRoot(const CpGrid& cpgrid,
         OPM_THROW(std::runtime_error, "Could not initialize Zoltan!");
     }
     Zoltan_Set_Param(zz, "IMBALANCE_TOL", "1.1");
+    //    if(cc.size()>2)
+    Zoltan_Set_Param(zz, "NUM_GLOBAL_PARTS", "128");
     Zoltan_Set_Param(zz, "DEBUG_LEVEL", "0");
     Zoltan_Set_Param(zz, "LB_METHOD", "GRAPH");
     Zoltan_Set_Param(zz, "LB_APPROACH", "PARTITION");
@@ -116,8 +118,9 @@ zoltanGraphPartitionGridOnRoot(const CpGrid& cpgrid,
 
     for ( int i=0; i < numExport; ++i )
     {
-        parts[exportLocalGids[i]] = exportProcs[i];
-        myExportList[i] = std::make_tuple(exportGlobalGids[i], exportProcs[i], static_cast<char>(AttributeSet::owner));
+        std::cout <<"index="<<i <<"gi="<<exportGlobalGids[i]<<" part="<<exportToPart[i]<<" proc="<<exportProcs[i]<<std::endl;
+        parts[exportLocalGids[i]] = exportToPart[i];
+        myExportList[i] = std::make_tuple(exportGlobalGids[i], exportToPart[i], static_cast<char>(AttributeSet::owner));
     }
 
     for ( int i=0; i < numImport; ++i )
@@ -133,14 +136,14 @@ zoltanGraphPartitionGridOnRoot(const CpGrid& cpgrid,
             myImportList.emplace_back(i, rank, static_cast<char>(AttributeSet::owner), -1 );
         }
     }
-
+    std::unordered_set<std::string> defunct_well_names;
     std::inplace_merge(myImportList.begin(), myImportList.begin() + numImport, myImportList.end());
     std::inplace_merge(myExportList.begin(), myExportList.begin() + numExport, myExportList.end());
     // free space allocated for zoltan.
     Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
     Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
     Zoltan_Destroy(&zz);
-
+    return std::make_tuple(parts, defunct_well_names, myExportList, myImportList);
     if( wells )
     {
         auto gidGetter = [&cpgrid](int i) { return cpgrid.globalIdSet().id(createEntity<0>(cpgrid, i, true));};
@@ -173,8 +176,6 @@ zoltanGraphPartitionGridOnRoot(const CpGrid& cpgrid,
         }
 #endif
     }
-
-    std::unordered_set<std::string> defunct_well_names;
 
     if( wells )
     {

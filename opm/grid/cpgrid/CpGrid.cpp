@@ -199,10 +199,10 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
         //                                                     0);
         // }
 #endif
-
+        /*
         // first create the overlap
         // map from process to global cell indices in overlap
-        std::map<int,std::set<int> > overlap;
+        //std::map<int,std::set<int> > overlap;
         auto noImportedOwner = addOverlapLayer(*this, cell_part, exportList, importList, cc, addCornerCells,
                                                transmissibilities);
         // importList contains all the indices that will be here.
@@ -229,14 +229,14 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
             std::inplace_merge(importList.begin(), importList.begin()+noImportedOwner,
                                importList.end(), compareImport);
         }
-
+        */
         int procsWithZeroCells{};
+        std::map<int,int> ownedCells;
 
         if (cc.rank()==0)
         {
             // Print some statistics without communication
-            std::vector<int> ownedCells(cc.size(), 0);
-            std::vector<int> overlapCells(cc.size(), 0);
+            std::map<int,int> overlapCells;
             for (const auto& entry: exportList)
             {
                 if(std::get<2>(entry) == AttributeSet::owner)
@@ -251,30 +251,34 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
 
             for(const auto& cellsOnProc: ownedCells)
             {
-                procsWithZeroCells += (cellsOnProc == 0);
+                procsWithZeroCells += (cellsOnProc.second == 0);
             }
             std::ostringstream ostr;
             ostr << "\nLoad balancing distributes " << data_->size(0)
                  << " active cells on " << cc.size() << " processes as follows:\n";
             ostr << "  rank   owned cells   overlap cells   total cells\n";
             ostr << "--------------------------------------------------\n";
-            for (int i = 0; i < cc.size(); ++i) {
-                ostr << std::setw(6) << i
-                     << std::setw(14) << ownedCells[i]
-                     << std::setw(16) << overlapCells[i]
-                     << std::setw(14) << ownedCells[i] + overlapCells[i] << "\n";
+            auto overlapPair = overlapCells.begin();
+            for (const auto ownerPair: ownedCells) {
+                ostr << std::setw(6) << ownerPair.first
+                     << std::setw(14) << ownerPair.second
+                     << std::setw(16) << overlapPair->second
+                     << std::setw(14) << ownerPair.second + overlapPair->second << "\n";
             }
             ostr << "--------------------------------------------------\n";
             ostr << "   sum";
+            /*
             auto sumOwned = std::accumulate(ownedCells.begin(), ownedCells.end(), 0);
             ostr << std::setw(14) << sumOwned;
             auto sumOverlap = std::accumulate(overlapCells.begin(), overlapCells.end(), 0);
             ostr << std::setw(16) << sumOverlap;
             ostr << std::setw(14) << (sumOwned + sumOverlap) << "\n";
+            */
             Opm::OpmLog::info(ostr.str());
         }
 
         procsWithZeroCells = cc.sum(procsWithZeroCells);
+        auto parts = cc.sum(ownedCells.size());
 
         if (procsWithZeroCells) {
             if (cc.rank()==0)
@@ -287,6 +291,8 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
             }
         }
 
+        if(parts>cc.size())
+            OPM_THROW(std::runtime_error, "Too many parts");
         distributed_data_.reset(new cpgrid::CpGridData(cc));
         distributed_data_->setUniqueBoundaryIds(data_->uniqueBoundaryIds());
         // Just to be sure we assume that only master knows
