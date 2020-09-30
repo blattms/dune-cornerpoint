@@ -25,6 +25,7 @@
 #include <opm/grid/cpgrid/CpGridData.hpp>
 #include <opm/grid/cpgrid/Entity.hpp>
 #include <algorithm>
+#include <strstream>
 
 #if defined(HAVE_ZOLTAN) && defined(HAVE_MPI)
 namespace Dune
@@ -252,6 +253,9 @@ zoltanSerialGraphPartitionGridOnRoot(const CpGrid& cpgrid,
 
         rc = Zoltan_Initialize(argc, argv, &ver);
         zz = Zoltan_Create(MPI_COMM_SELF);
+    
+        cc.broadcast(&rc, 1, 0);
+
         if ( rc != ZOLTAN_OK )
         {
             OPM_THROW(std::runtime_error, "Could not initialize Zoltan!");
@@ -300,11 +304,26 @@ zoltanSerialGraphPartitionGridOnRoot(const CpGrid& cpgrid,
         // In order to make sense of the rest of  the code, this must be set
         // to 0.
         numImport = 0;
-
-
     }
-    MPI_Barrier(cc);
+    else
+    {
+        cc.broadcast(&rc, 1, 0);
+        if ( rc != ZOLTAN_OK )
+        {
+            OPM_THROW(std::runtime_error, "Zoltan initialization failed!");
+        }
+    }        
+
+    cc.broadcast(&rc, 1, 0);
+
+    if ( rc != ZOLTAN_OK )
+    {
+            OPM_THROW(std::runtime_error, "Zoltan loadbalance failed!");
+    }
+
     std::vector<unsigned int> importGlobalGidsVector;
+    rc = 0;
+
     if (cc.rank() == root) {
         std::vector<int> numberOfExportedVerticesPerProcess(cc.size(), 0);
         for (int i = 0; i < numExport; ++i) {
@@ -319,31 +338,45 @@ zoltanSerialGraphPartitionGridOnRoot(const CpGrid& cpgrid,
                          numberOfExportedVerticesPerProcess.end(), offsets.begin() + 1);
         std::vector<unsigned int> globalIndicesToSend(numExport, 0);
         std::vector<int> currentIndex(cc.size(), 0);
+        std::strstream message;
+
         for (int i = 0; i < numExport; ++i) {
             if (exportToPart[i] >= currentIndex.size()) {
-                OPM_THROW(std::runtime_error, "Something wrong with Zoltan decomposition. "
-                          << "Debug information: exportToPart[i] = "
-                          << exportToPart[i] << ", " << "currentIndex.size() = " << currentIndex.size());
+                message << "Something wrong with Zoltan decomposition. "
+                        << "Debug information: exportToPart[i] = "
+                        << exportToPart[i] << ", " << "currentIndex.size() = " << currentIndex.size();
+                rc = 1;
+                break;
             }
             const auto index = currentIndex[exportToPart[i]]++ + offsets[exportToPart[i]];
 
             if (index >= globalIndicesToSend.size()) {
-                OPM_THROW(std::runtime_error, "Something wrong with Zoltan decomposition. "
-                          << "index " << index << ", " << "globalIndicesToSend.size() = "
-                          << globalIndicesToSend.size()
-                          << "\n\noffsets[exportToPart[i]] = " << offsets[exportToPart[i]]
-                          << "\n\ncurrentIndex[exportToPart[i]] = "<< currentIndex[exportToPart[i]]
-                          <<"\n\nexportToPart[i] = " << exportToPart[i]);
+                message <<"Something wrong with Zoltan decomposition. "
+                        << "index " << index << ", " << "globalIndicesToSend.size() = "
+                        << globalIndicesToSend.size()
+                        << "\n\noffsets[exportToPart[i]] = " << offsets[exportToPart[i]]
+                        << "\n\ncurrentIndex[exportToPart[i]] = "<< currentIndex[exportToPart[i]]
+                        <<"\n\nexportToPart[i] = " << exportToPart[i];
+                rc = 1;
+                break;
             }
 
             globalIndicesToSend[index] = exportGlobalGids[i];
         }
+        cc.broadcast(&rc, 1, 0);
+        if (rc)
+            OPM_THROW(std::runtime_error, message.str());
         std::vector<unsigned int> dummyIndicesForRoot(numExport, 0);
         cc.scatterv<unsigned int>(globalIndicesToSend.data(), numberOfExportedVerticesPerProcess.data(),
                      offsets.data(), dummyIndicesForRoot.data(), 0, root);
     } else {
         cc.scatter<int>(nullptr, &numImport, 1, root);
         importGlobalGidsVector.resize(numImport, 0);
+        cc.broadcast(&rc, 1, 0);
+
+        if (rc)
+            OPM_THROW(std::runtime_error, "");
+
         cc.scatterv<unsigned int>(nullptr, nullptr, nullptr, importGlobalGidsVector.data(),
                          numImport, root);
         importGlobalGids = importGlobalGidsVector.data();
