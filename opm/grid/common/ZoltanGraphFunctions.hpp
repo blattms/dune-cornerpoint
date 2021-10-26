@@ -142,7 +142,8 @@ public:
                           const std::vector<OpmWellType> * wells,
                           const double* transmissibilities,
                           bool pretendEmptyGrid,
-                          EdgeWeightMethod edgeWeightsMethod);
+                          EdgeWeightMethod edgeWeightsMethod,
+			  bool distWells);
 
     /// \brief Access the grid.
     const Dune::CpGrid& getGrid() const
@@ -159,7 +160,11 @@ public:
     {
         return transmissibilities_ ? (1.0e18*transmissibilities_[face_index]) : 1;
     }
-
+    
+    bool allowDistWells() const
+    {
+	return distWells_;
+    }
     double logTransmissibilityWeights(int face_index) const
     {
         double trans = transmissibilities_ ?  transmissibilities_[face_index] : 1; 
@@ -181,6 +186,14 @@ public:
             return logTransmissibilityWeights(face_index);
         else
             return 1.0;
+    }
+
+    double distWellEdgeWeight() const
+    {
+	if (edgeWeightsMethod_ == uniformEdgeWgt)
+	    return 1.0;
+	else
+	    return 0.0;
     }
 private:
 
@@ -227,6 +240,7 @@ private:
     GraphType wellsGraph_;
     const double* transmissibilities_;
     int edgeWeightsMethod_;
+    bool distWells_;
     WellConnections well_indices_;
     double log_min_;
 };
