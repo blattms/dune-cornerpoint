@@ -427,22 +427,16 @@ namespace Dune
                 return false;
             }
 
-            /**
+ /**
              * @brief Refine a single cell with regular intervals.
              * 
              * For each cell to be created, storage must be passed for its corners and the indices. That storage
              * must be externally managed, since the newly created geometry structures only store pointers and do
              * not free them on destruction.
-             * 
-             * @param cells_per_dim The number of sub-cells in each direction.
-             * @param corner_storage A vector of mutable references to storage for the corners of each new cell.
-             * @param indices_storage A vector of mutable references to storage for the indices of each new cell.
-             * @return A vector with the created cells.
-             */
-            /// @brief Refine a single cell with regular intervals.
-            /// @param cells The number of sub-cells in each direction,
-            /// @param[out] refined_geom Geometry Policy for the refined geometries. Those will be added there.
-            /// @param[out] indices_storage A vector of mutable references to storage for the indices of each new cell.
+             **/
+            /// @param      cells_per_dim    The number of sub-cells in each direction,
+            /// @param[out] refined_geom     Geometry Policy for the refined geometries. Those will be added there.
+            /// @param[out] indices_storage  A vector of mutable references to storage for the indices of each new cell.
             /// @todo We do not need to return anything here.
             std::vector<Geometry<3, cdim>> refine(const std::array<int, 3>& cells_per_dim,
                                                   DefaultGeometryPolicy& all_geom,
@@ -457,6 +451,76 @@ namespace Dune
 
                 // @todo Maybe use vector::reserve to prevent allocations (or not), and later use push_back to populate.
 
+                // "global_refined_corners" has size (cells_per_dim[0] + 1)*(cells_per_dim[1] + 1)*(cells_per_dim[2] + 1)
+                //                                   [without repeating corners]
+                // "refined_faces" has size (3 * cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2])
+                //                            + (cells_per_dim[0] * cells_per_dim[1])
+                //                            + (cells_per_dim[0] * cells_per_dim[2])
+                //                            + (cells_per_dim[1] * cells_per_dim[2])   [without repeating faces]
+                // "refined_cells" has size cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]
+                
+                
+                // Refine the unit cube
+                // EntityVariable<cpgrid::Geometry<0, 3>, 3>& refined_reference_corners = all_geom.geomVector(std::integral_constant<int, 3>());
+                std::vector<std::array<double,3>> refined_reference_corners;
+                //refined_reference_corners.reserve((cells_per_dim[0] + 1) *(cells_per_dim[1] + 1) * (cells_per_dim[2] + 1));
+                // To avoid repetition we have 3 for-loops instead of nested for-loops 
+                for (int k = 0; k < cells_per_dim[2] + 1; k++) {
+                    for (auto arr : refined_reference_corners)
+                    {
+                        arr[2] = k/cells_per_dim[2];
+                    }
+                }
+                for (int j = 0; j < cells_per_dim[1] + 1; j++) {
+                    for (auto arr : refined_reference_corners) 
+                    {
+                        arr[1] = j/cells_per_dim[1];
+                    }
+                }
+                for (int i = 0; i < cells_per_dim[0] + 1; i++) {
+                    for (auto arr : refined_reference_corners) {
+                        arrr[0] = i/cells_per_dim[0];
+                    }
+                }
+
+                // Get the global refined corners from the refined reference corners
+                for (const auto& corner : refined_reference_corners) {
+                                // @todo Only push new corners.
+                    if (corner notin parent_corners)  // to exclude {0,0,0},{1,0,0}, ...,{1,1,1}
+                    {
+                        global_refined_corners.push_back(Geometry<0, 3>(this->global(corner)));
+                    }
+                    // @todo add the correct index to indices!
+                } // end corner-for-loop
+
+
+                // Refine reference centers
+                std::vector<std::array<double,3>> refined_reference_centers;
+                // must have size cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]
+                // To avoid repetition we have 3 for-loops instead of nested for-loops 
+                for (int k = 0; k < cells_per_dim[2]; k++) {
+                    for (auto arr : refined_reference_centers)
+                    {
+                        arr[2] = (.5 + k)/cells_per_dim[2];
+                    }
+                }
+                for (int j = 0; j < cells_per_dim[1]; j++) {
+                    for (auto arr : refined_reference_centers) 
+                    {
+                        arr[1] = (.5 + j)/cells_per_dim[1];
+                    }
+                }
+                for (int i = 0; i < cells_per_dim[0]; i++) {
+                    for (auto arr : refined_reference_centers) {
+                        arrr[0] = (.5 + i)/cells_per_dim[0];
+                    }
+                }
+                // Get the global refined centers from the refined reference centers
+                std::vector<std::array<double,3>> global_refined_centers;
+                for (const auto& ref_center : refined_reference_centers) {
+                    global_refined_centers.push_back(Geometry<0, 3>(this->global(ref_center)));
+
+                    
                 // The center of the parent in local coordinates.
                 const Geometry<3, cdim>::LocalCoordinate parent_center(this->local(this->center()));
 
