@@ -59,11 +59,9 @@ namespace Dune
     namespace cpgrid
     {
 
-        //class DefaultGeometryPolicy;
-
-        /// This class encapsulates geometry for both vertices,
-        /// intersections and cells.  The main template is empty,
-        /// the actual dim == 3 (cell), dim == 2 (intersection)
+        /// This class encapsulates geometry for vertices,
+        /// intersections, and cells. The main template is empty,
+        /// the actual dim == 3 (cell), dim == 2 (intersection),
         /// and dim == 0 (vertex) cases have specializations.
         /// For vertices and cells we use the cube type, and provide
         /// constant (vertex) or trilinear (cell) mappings.
@@ -490,6 +488,14 @@ namespace Dune
                 // of that face. This struct defines that edge for each face,
                 // for each of the four possible tetrahedrons that are based on
                 // that face.
+                // In other words, the center of the cell and the center of each
+                // face are fixed. A tetrahedron has six edges. Once we choose a
+                // face to base a tetrahedron on, we choose an edge of that face 
+                // as one of the edges of the tetrahedron. The other five edges
+                // are fixed, since the center of the cell and the center
+                // of the face are fixed too. That's why to identify a tetrahedron
+                // we only need two things: the face it's based on and one of the
+                // four edges of that face.
                 const int tetra_edge_indices[6][4][2] = {
                     {{0, 1}, {0, 2}, {1, 3}, {2, 3}},
                     {{0, 1}, {0, 4}, {1, 5}, {4, 5}},
