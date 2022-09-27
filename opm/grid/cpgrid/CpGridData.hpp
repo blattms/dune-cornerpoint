@@ -19,7 +19,7 @@
 
 /*
   Copyright 2009, 2010 SINTEF ICT, Applied Mathematics.
-  Copyright 2009, 2010, 2013 Statoil ASA.
+  Copyright 2009, 2010, 2013, 2022 Equinor ASA.
   Copyright 2013 Dr. Blatt - HPC-Simulation-Software & Services
 
   This file is part of The Open Porous Media project  (OPM).
@@ -70,6 +70,7 @@
 #include <opm/grid/utility/VariableSizeCommunicator.hpp>
 #endif
 #include <dune/grid/common/gridenums.hh>
+#include <dune/geometry/type.hh>
 
 #include <opm/grid/utility/platform_dependent/reenable_warnings.h>
 
