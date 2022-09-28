@@ -464,66 +464,145 @@ namespace Dune
                 //                            + (cells_per_dim[1] * cells_per_dim[2])   [without repeating faces]
                 // "refined_cells" has size cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]
                 
+
+                /// GLOBAL REFINED CORNERS
+                /// The strategy is to compute the local refined corners
+                /// of the reference cube, and then apply the map global()
                 
-                // Refine the unit cube
-                // EntityVariable<cpgrid::Geometry<0, 3>, 3>& refined_reference_corners = all_geom.geomVector(std::integral_constant<int, 3>());
+                // Refine corners the (local) unit/reference cube
+                // Create a vector to storade the refined corners of the unit/reference cube
+                // such that each entry of this vector is one of them.
                 std::vector<std::array<double,3>> refined_reference_corners;
-                //refined_reference_corners.reserve((cells_per_dim[0] + 1) *(cells_per_dim[1] + 1) * (cells_per_dim[2] + 1));
-                // To avoid repetition we have 3 for-loops instead of nested for-loops 
+                // Determine the right size of the vector containing the refiend corners of the unit/reference cube 
+                refined_reference_corners.resize((cells_per_dim[0] + 1) *(cells_per_dim[1] + 1) * (cells_per_dim[2] + 1));
+                // Vector to storage the indices of the refined corners of the unit/reference cube
+                std::vector<int> refined_ref_corn_idx;
+                // The size of refined_ref_cor_idx is (cells_per_dim[0] + 1) *(cells_per_dim[1] + 1) * (cells_per_dim[2] + 1)
+                // The nummbering starts at the botton, so k=0 (z-axis), and j=0 (y-axis), i=0 (x-axis).
+                // Then, increasing i, followed by increasing j, and finally, increasing k.
+                // "Right[increasing i]-Back[incresing j]-Up[increasing k]"
                 for (int k = 0; k < cells_per_dim[2] + 1; k++) {
-                    for (auto arr : refined_reference_corners)
-                    {
-                        arr[2] = k/cells_per_dim[2];
-                    }
-                }
-                for (int j = 0; j < cells_per_dim[1] + 1; j++) {
-                    for (auto arr : refined_reference_corners) 
-                    {
-                        arr[1] = j/cells_per_dim[1];
-                    }
-                }
-                for (int i = 0; i < cells_per_dim[0] + 1; i++) {
-                    for (auto arr : refined_reference_corners) {
-                        arrr[0] = i/cells_per_dim[0];
-                    }
-                }
+                    for (int j = 0; j < cells_per_dim[1] + 1; j++) {
+                        for (int i = 0; i < cells_per_dim[0] + 1; i++) {
+                            // change int type to double for k,j,i
+                            double kd = k;
+                            double jd = j;
+                            double id = i;
+                            // Compute the index of each refined corner "kji"
+                            int kji_idx = (kd*cells_per_dim[0]*cells_per_dim[1]) + (jd*cells_per_dim[0]) +id;
+                            refined_ref_corn_idx.push_back(kji_idx);
+                            // Compute the 3 (local) coordinates of the "kji" refined corner of the unit/reference cube 
+                            refined_reference_corners[kji_idx][0] = i/cells_per_dim[0];
+                            refined_reference_corners[kji_idx][1] = j/cells_per_dim[1];
+                            refined_reference_corners[kji_idx][2] = k/cells_per_dim[2];
+                        } // end i-for-loop
+                    } // end j-for-loop
+                } // end k-for-loop  
 
                 // Get the global refined corners from the refined reference corners
-                for (const auto& corner : refined_reference_corners) {
-                                // @todo Only push new corners.
-                    if (corner notin parent_corners)  // to exclude {0,0,0},{1,0,0}, ...,{1,1,1}
-                    {
-                        global_refined_corners.push_back(Geometry<0, 3>(this->global(corner)));
-                    }
+                for (const auto& corner : refined_reference_corners) { 
+                    global_refined_corners.push_back(Geometry<0, 3>(this->global(corner)));
                     // @todo add the correct index to indices!
-                } // end corner-for-loop
+                }
 
-
+                
+                /// GLOBAL REFINED CENTERS
+                /// The strategy is to compute the local refined centers
+                /// of the reference cube, and then apply the map global()
+                
                 // Refine reference centers
                 std::vector<std::array<double,3>> refined_reference_centers;
                 // must have size cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]
-                // To avoid repetition we have 3 for-loops instead of nested for-loops 
+                refined_reference_centers.resize(cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]);
+                // We can associate each center with an index
+                // This index can be the same index we create for the new refined cell kji
+                // The numembering follows the rule of starting with
+                // index 0 for the refined cell {0,0,0}, ...,{1/cells_per_dim[0], 1/cells_per_dim[1], 1/cells_per_dim[2]}
+                // then the indices grow first picking the cells in the x-axis (right, i), then y-axis (back, j), and
+                // finally, z-axis (up, k)
+                std::vector<int> refined_cells_indices; // same indices for refined centers!
+                //refined_cells_indices.resize(cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]);
                 for (int k = 0; k < cells_per_dim[2]; k++) {
-                    for (auto arr : refined_reference_centers)
-                    {
-                        arr[2] = (.5 + k)/cells_per_dim[2];
-                    }
-                }
-                for (int j = 0; j < cells_per_dim[1]; j++) {
-                    for (auto arr : refined_reference_centers) 
-                    {
-                        arr[1] = (.5 + j)/cells_per_dim[1];
-                    }
-                }
-                for (int i = 0; i < cells_per_dim[0]; i++) {
-                    for (auto arr : refined_reference_centers) {
-                        arrr[0] = (.5 + i)/cells_per_dim[0];
-                    }
-                }
+                    for (int j = 0; j < cells_per_dim[1]; j++) {
+                        for (int i = 0; i < cells_per_dim[0]; i++) {
+                            // change int type to double for k,j,i
+                            double kd = k;
+                            double jd = j;
+                            double id = i;
+                            // Compute the index of each refined corner "kji"
+                            int kji_idx = (kd*cells_per_dim[0]*cells_per_dim[1]) + (jd*cells_per_dim[0]) +id;
+                            refined_cells_indices.push_back(kji_idx);
+                            // Compute the 3 (local) coordinates of the "kji" refined corner of the unit/reference cube 
+                            refined_reference_centers[kji_idx][0] = (.5 + id)/cells_per_dim[0];
+                            refined_reference_centers[kji_idx][1] = (.5 + jd)/cells_per_dim[1];
+                            refined_reference_centers[kji_idx][2] = (.5 + kd)/cells_per_dim[2];
+                        } // end i-for-loop
+                    } // end j-for-loop
+                } // end k-for-loop            
+               
                 // Get the global refined centers from the refined reference centers
                 std::vector<std::array<double,3>> global_refined_centers;
                 for (const auto& ref_center : refined_reference_centers) {
                     global_refined_centers.push_back(Geometry<0, 3>(this->global(ref_center)));
+                }
+
+                /// GLOBAL REFINED CELLS
+                /// The strategy is to ...
+
+                // We need to populate the variable "refined_cells"
+                // refined_cells has size cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]
+                // We need FOR EACH REFINED CELL "c":
+                // 1. global_refined_center_c  [can be deduced from "global_refined_centers"]
+                // 2. volume_c [done? check Peter's code]  @TODO DOUBLE-CHECK VOLUME COMPUTATION OF REFINED CELL
+                // 3. global_refined_corners_c [can be deduced from "global_refined_corners"]
+                // 4. indices_c indices of its 8 corners [can be deduced from "refined_ref_corn_idx"]
+                //
+                for (int k = 0; k < cells_per_dim[2]; k++) {
+                    for (int j = 0; j < cells_per_dim[1]; j++) {
+                        for (int i = 0; i < cells_per_dim[0]; i++) {
+                            // Index of the "kji" global refined cell
+                            int kji_idx = (k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i;
+                            // 1. Center of the global refined "kji" cell
+                            std::array<double, 3> global_refined_center = global_refined_centers[kji_idx];
+                            // 2. Volume of the global refined "kji" cell
+                            double volume; // TO BE DOUBLE-CHECKED!
+                            // 3. 8 corners of the global refined "kji" cell
+                            std::vector<std::array<double,3>, 8> global_refined_corns = {
+                                global_refined_corners[(k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i], //fake {0,0,0}
+                                global_refined_corners[(k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i+1], //fake {1,0,0}
+                                global_refined_corners[(k*cells_per_dim[0]*cells_per_dim[1]) + ((j+1)*cells_per_dim[0]) +i], //fake {0,1,0}
+                                global_refined_corners[(k*cells_per_dim[0]*cells_per_dim[1]) + ((j+1)*cells_per_dim[0]) +i+1], //fake {1,1,0}
+                                global_refined_corners[((k+1)*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i], //fake {0,0,1}
+                                global_refined_corners[((k+1)*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i+1], //fake {1,0,1}
+                                global_refined_corners[((k+1)*cells_per_dim[0]*cells_per_dim[1]) + ((j+1)*cells_per_dim[0]) +i], //fake {0,1,1}
+                                global_refined_corners[((k+1)*cells_per_dim[0]*cells_per_dim[1]) + ((j+1)*cells_per_dim[0]) +i+1] //fake{1,1,1}
+                            };
+                            // 4. 8 indices of the 8 corners of the global refined "kji" cell
+                            std::vector<int, 8> refined_corns_indices = {
+                                (k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i, // fake 0
+                                (k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i+1, // fake 1
+                                (k*cells_per_dim[0]*cells_per_dim[1]) + ((j+1)*cells_per_dim[0]) +i, // fake 2
+                                (k*cells_per_dim[0]*cells_per_dim[1]) + ((j+1)*cells_per_dim[0]) +i+1, // fake 3
+                                ((k+1)*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i, // fake 4
+                                ((k+1)*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i+1, // fake 5
+                                ((k+1)*cells_per_dim[0]*cells_per_dim[1]) + ((j+1)*cells_per_dim[0]) +i, // fake 6
+                                ((k+1)*cells_per_dim[0]*cells_per_dim[1]) + ((j+1)*cells_per_dim[0]) +i+1 // fake 7
+                            };
+                            
+                            // Construct the Geometry of the refined "kji" cell 
+                            refined_cells.push_back(Geometry<3,cdim>(global_refined_center, volume,
+                                                                     global_refined_corns, refined_corns_indices));
+                        } // end i-for-loop
+                    }  // end j-for-loop
+                } // end k-for-loop
+                
+                    
+                        
+                //  // [...].push_back(Geometry<3, cdim>(
+                //                global_refined_center, volume, global_refined_corners, indices?);
+                
+
+                // ----------------------------------------------------------------------------
 
                     
                 // The center of the parent in local coordinates.
