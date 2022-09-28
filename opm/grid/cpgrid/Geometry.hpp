@@ -113,7 +113,7 @@ namespace Dune
             {
             }
 
-            /// Default constructor, giving a non-valid geometry.
+            /// @brief Default constructor, giving a non-valid geometry.
             Geometry()
                 : pos_(0.0)
             {
@@ -195,7 +195,7 @@ namespace Dune
 
         private:
             GlobalCoordinate pos_;
-        };
+        };  // class Geometry<0,cdim>
 
 
 
@@ -274,6 +274,7 @@ namespace Dune
             /// Note that this does not give a proper space-filling
             /// embedding of the cell complex in the general (faulted)
             /// case. We should therefore revisit this at some point.
+            /// Map g from (local) reference domain to (global) cell
             GlobalCoordinate global(const LocalCoordinate& local_coord) const
             {
                 static_assert(mydimension == 3, "");
@@ -350,7 +351,7 @@ namespace Dune
                 return 8;
             }
 
-            /// The 8 corners of the hexahedral base cell.
+            /// @brief Get the i-th of 8 corners of the hexahedral base cell.
             GlobalCoordinate corner(int cor) const
             {
                 assert(allcorners_ && cor_idx_);
@@ -377,6 +378,8 @@ namespace Dune
             /// J^T_{ij} = (dg_j/du_i)
             /// where g is the mapping from the reference domain,
             /// and {u_i} are the reference coordinates.
+            /// g = g(u) = (g_1(u), g_2(u), g_3(u)), u=(u_1,u_2,u_3)
+            /// g = map from (local) reference domain to global cell
             const JacobianTransposed
             jacobianTransposed(const LocalCoordinate& local_coord) const
             {
@@ -427,17 +430,19 @@ namespace Dune
                 return false;
             }
 
- /**
+            /**
              * @brief Refine a single cell with regular intervals.
              * 
              * For each cell to be created, storage must be passed for its corners and the indices. That storage
              * must be externally managed, since the newly created geometry structures only store pointers and do
              * not free them on destruction.
-             **/
-            /// @param      cells_per_dim    The number of sub-cells in each direction,
-            /// @param[out] refined_geom     Geometry Policy for the refined geometries. Those will be added there.
-            /// @param[out] indices_storage  A vector of mutable references to storage for the indices of each new cell.
-            /// @todo We do not need to return anything here.
+             *
+             * @param      cells_per_dim    The number of sub-cells in each direction,
+             * @param[out] refined_geom     Geometry Policy for the refined geometries. Those will be added there.
+             * @param[out] indices_storage  A vector of mutable references to storage for the indices of each new cell.
+             * @return A vector with the created cells.
+             * @todo We do not need to return anything here.
+             */
             std::vector<Geometry<3, cdim>> refine(const std::array<int, 3>& cells_per_dim,
                                                   DefaultGeometryPolicy& all_geom,
                                                   std::vector<std::array<int, 8>>& indices_storage)
@@ -570,30 +575,44 @@ namespace Dune
                 };
 
 
+                ///    Apart from re-ordering code, there is no substantial change in the rest of the code  [Anto.20.09.2022]///
+
                 std::vector<Geometry<3, cdim>> result;
                 result.reserve(cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]);
 
                 auto pis = indices_storage.begin();
 
                 Geometry<3, cdim>::ctype total_volume = 0.0;
+                // Each refined cell has kji values associated with it, where
+                // k=0, ..., cells_per_dim[2] (z-axis)
+                // j=0, ..., cells_per_dim[1] (y-axis)
+                // i=0, ..., cells_per_dim[0] (x-axis)
+                // We can think as the parent cell as a collection of horizontal
+                // cells_per_dim[2] slices. Each slice has height 1/cells_per_dim[2]
+                // and cell_per_dim[1]*cell_per_dim[0] refined cells.
                 for (int k = 0; k < cells_per_dim[2]; k++) {
                     Geometry<3, cdim>::LocalCoordinate refined_corners[8];
                     Geometry<3, cdim>::LocalCoordinate refined_center(0.0);
 
                     refined_center[2] = (parent_center[2] + k) / cells_per_dim[2];
+                    // 3rd (local) coordinate of the 8 corners of the refined cell kji
                     for (int h = 0; h < 8; h++) {
                         refined_corners[h][2] = (parent_corners[h][2] + k) / cells_per_dim[2];
                     }
                     for (int j = 0; j < cells_per_dim[1]; j++) {
+                        // 2nd coordinate of the center of the refined cell kji
                         refined_center[1] = (parent_center[1] + j) / cells_per_dim[1];
+                        // 2nd (local) coordinate of the 8 corners of the refined cell kji
                         for (int h = 0; h < 8; h++) {
                             refined_corners[h][1] = (parent_corners[h][1] + j) / cells_per_dim[1];
                         }
                         for (int i = 0; i < cells_per_dim[0]; i++) {
+                            // 1st coordinate of the center of the refined cell kji
                             refined_center[0] = (parent_center[0] + i) / cells_per_dim[0];
+                            // 1st coordinate of the 8 corners of the refined cell kji
                             for (int h = 0; h < 8; h++) {
                                 refined_corners[h][0] = (parent_corners[h][0] + i) / cells_per_dim[0];
-                            }
+                            }  // end h-for-lopp
 
                             for (const auto& corner : refined_corners) {
                                 // @todo Only push new corners.
@@ -604,6 +623,7 @@ namespace Dune
                             // The indices must match the order of the constant
                             // arrays containing unit corners, face indices, and
                             // tetrahedron edge indices. Do not reorder.
+                            // Recall that pis = indices_storage.begin()
                             auto& indices = *pis++;
                             // @todo use the correct indices for the corner lookup!
                             // global_refined_corner[indices[0]] has to be the Geometry of the first corner of the cell!
@@ -613,9 +633,10 @@ namespace Dune
                             const Geometry<3, cdim>::GlobalCoordinate global_refined_center(
                                 this->global(refined_center));
 
-                            // Calculate the centers of the 6 faces.
+                            // Get the 8 corners of the global refined cell.
                             const auto& hex_corners = global_refined_corners.data();
                             Geometry<0, 3>::GlobalCoordinate face_centers[6];
+                            // Calculate the centers of the 6 faces.
                             for (int f = 0; f < 6; f++) {
                                 face_centers[f] = hex_corners[face_corner_indices[f][0]].center();
                                 face_centers[f] += hex_corners[face_corner_indices[f][1]].center();
@@ -626,7 +647,7 @@ namespace Dune
 
                             // @todo Calculate face volume and add the face geometries to refined_faces!
 
-                            // Calculate the volume of the cell by adding the 4 tetrahedrons at each face.
+                            // Calculate the volume of the global refined cell by adding the 4 tetrahedrons at each face.
                             Geometry<3, cdim>::ctype volume = 0.0;
                             for (int f = 0; f < 6; f++) {
                                 for (int e = 0; e < 4; e++) {
@@ -643,9 +664,9 @@ namespace Dune
                             // @todo the geometries should go to refined_cells instead
                             result.push_back(Geometry<3, cdim>(
                                 global_refined_center, volume, global_refined_corners, indices.data()));
-                        }
-                    }
-                }
+                        } // end i-for-loop
+                     } // end j-for-loop
+                } // end k-for-loop
 
                 // Rescale all volumes if the sum of volumes does not match the parent.
                 if (std::fabs(total_volume - this->volume())
