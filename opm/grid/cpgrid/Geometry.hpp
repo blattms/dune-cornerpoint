@@ -455,16 +455,20 @@ namespace Dune
                 EntityVariable<cpgrid::Geometry<3, 3>, 0>& refined_cells = all_geom.geomVector(std::integral_constant<int, 0>()); // Put the refined cells here.
 
                 // @todo Maybe use vector::reserve to prevent allocations (or not), and later use push_back to populate.
+                //
+                // @todo What do we storage in indices_storage?? Is it what now we call refined_cells_indices?
+                // @todo When simplifying code grouping stuff according to the kji-for-loops, take into account that
+                //       A. "global_refined_faces_indices" (@todo USE THIS NAME FOR CONSISTENCY) can be used for
+                //           1. "global_refined_faces" (@todo USE THIS NAME FOR CONSISTANCY)
+                //           2. "global_refined_faces_centroids" (@todo USE THIS NAME FOR CONSISTENCY)
+                //           3. "global_refined_faces_areas"
+                //       B. "global_refined_cells_indices" (@todo USE THIS NAME FOR CONSISTENCY) can be used for
+                //           1. "global_refined_cells" (@todo USE THIS NAME FOR CONSISTENCY)
+                //           2. "local_refined_cells_centers" (@todo USE THIS NAME FOR CONSISTENCY)
+                //           3. "global_refined_cells_centers" (@todo USE THIS NAME FOR CONSISTENCY)
+                //           4. "global_refined_cells_volumes" (@todo USE THIS NAME FOR CONSISTENCY)
 
-                // "global_refined_corners" should have size (cells_per_dim[0] + 1)*(cells_per_dim[1] + 1)*(cells_per_dim[2] + 1)
-                //                                   [without repeating corners]
-                // "refined_faces" should have size (3 * cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2])
-                //                            + (cells_per_dim[0] * cells_per_dim[1])
-                //                            + (cells_per_dim[0] * cells_per_dim[2])
-                //                            + (cells_per_dim[1] * cells_per_dim[2])   [without repeating faces]
-                // "refined_cells" should have size cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]
                 
-
                 /// GLOBAL REFINED CORNERS 
                 /// The strategy is to compute the local refined corners
                 /// of the unit/reference cube, and then apply the map global()
@@ -504,7 +508,6 @@ namespace Dune
                 // applying global().
                 for (const auto& corner : refined_reference_corners) { 
                     global_refined_corners.push_back(Geometry<0, 3>(this->global(corner)));
-                    // @todo add the correct index to indices!
                 } // end GLOBAL REFINED CORNERS
 
                 
@@ -633,11 +636,77 @@ namespace Dune
                     } // end k-for-loop
                 }; // end i-for-loop
                 //
-                // TODO: REFINED FACE VOLUME (AREA)
+                // -------------- In progress
+                //
+                // REFINED FACE VOLUME (AREA)
                 // To compute the volume (area) of each face, we divide it in 4 triangles,
-                // compute the volume (area) of those with simple_volume??, sum them up to approximate the volume (area)
-                // of the face... check and correct  with actual volume (area) of face?
-                // [.... todo]
+                // compute the volume (area) of those with "simplex_volume()", where the arguments
+                // are the 4 corners of each triangle. Then, sum them up to get the volume (area)
+                // of the global refined face.
+                // Check and correct with total volume (area) of 'parent faces'.
+                //
+                // Vector to storage all the volumes (areas) of each global refined cell.
+                std::vector<double> global_refined_faces_areas;
+                // Determine the size of "global_refined_faces_areas"
+                // (same as total amount of refined faces and their centroids).
+                global_refined_faces_areass.resize(centroids_refined_faces_size);
+                //
+                // For each face, we construct 4 triangles with
+                // 1. centroid of the face,
+                // 2. one of the edges of the face.
+                // We can re-use "tetra_edge_indices" (defined in VOLUME GLOBAL REFINED CELLS)
+                // which consists in 6 arrays, each of them containing the indices of the
+                // 4 edges of each face of the refined cell.
+                // @todo RECICLE CODE - REDUCE AMOUNT OF FOR-LOOPS
+                // Calculate the area of each face of a global refined cell,
+                // by adding the 4 areas of the triangles partitioning each face
+                // (4x6 = 24 triangles per global refined cell).
+                //
+                // @TODO INCLUDE WHAT WE NEED TO BE ABLE TO DO THE FOR-LOOP
+                // THEN CHECK HOW TO SIMPLIFY THE CODE
+                // 
+                Geometry<3, cdim>::ctype refined_face_area = 0.0;
+                for (int face = 0; face < 6; face++) {
+                    for (int edge = 0; edge < 4; edge++) {
+                        // Construction of each triangle on "face" with one
+                        // of its edges equal to "edge".
+                        const Geometry<0, 3>::GlobalCoordinate trian_corners[3] = {
+                            global_refined_corners[[tetra_edge_indices[face][edge][0]}],
+                            global_refined_corners[[tetra_edge_indices[face][edge][1]]],
+                            refined_faces_centroids[face]};
+                        refined_face_area += std::fabs(simplex_volume(trian_corners));
+                    } // end edge-for-loop
+                } // end face-for-loop
+                //
+                // Rescale all areas if the sum of areas of all the
+                // (0) botton faces areas
+                
+                // (1) front faces areas
+                
+                // (2) left faces areas
+                
+                // (3) right faces areas
+                
+                // (4) back faces areas
+                
+                // (5) top faces areas
+                
+                // do not coincide with the respectively areas of the 6 faces of the 'parent cell'
+                //-----------------------
+                // Sum of all the areas of all the (children) global refined faces.
+                // 
+                /*  double sum_all_volumes_refined_cells = 0.0;
+                for (auto& volume : refined_cells_volume) {
+                    sum_all_volumes_refined_cells += volume;
+                };
+                // Compare the sum of all the volumes of all refined cells with 'parent cell' volume.
+                if (std::fabs(sum_all_volumes_refined_cells - this->volume())
+                    > std::numeric_limits<Geometry<3, cdim>::ctype>::epsilon()) {
+                    Geometry<3, cdim>::ctype correction = this->volume() / sum_all_volumes_refined_cells;
+                    for (auto& volume : global_refined_volumes) {
+                        volume *= correction;
+                    } 
+                    } // end if-statement */
                 // end GLOBAL REFINED FACES
 
 
@@ -779,6 +848,9 @@ namespace Dune
                                  {refined_cell_corns_indices[5], refined_cell_corns_indices[7]},
                                  {refined_cell_corns_indices[6], refined_cell_corns_indices[7]}},
                             };
+                            ///
+                            /// VOLUME GLOBAL REFINED CELL
+                            ///
                             // Calculate the volume of each global refined cell (hexahedron),
                             // by adding the 4 tetrahedra at each face (4x6 = 24 tetrahedra).
                             Geometry<3, cdim>::ctype refined_cell_volume = 0.0;
@@ -818,7 +890,7 @@ namespace Dune
                         volume *= correction;
                     } 
                 } // end if-statement
-            // end VOLUME OF THE GLOBAL REFINED CELL
+            // end VOLUME OF THE GLOBAL REFINED CELLS
                 
                 /// GLOBAL REFINED CELLS
                 //
@@ -856,7 +928,8 @@ namespace Dune
                                                                      global_refined_corners, refined_corns_indices));
                         } // end i-for-loop
                     }  // end j-for-loop
-                } // end k-for-loop 
+                } // end k-for-loop
+                // end GLOBAL REFINED CELLS
 
                 // ----------------------------------------------------------------------------
 
