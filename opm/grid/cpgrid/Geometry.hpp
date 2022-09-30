@@ -456,39 +456,39 @@ namespace Dune
 
                 // @todo Maybe use vector::reserve to prevent allocations (or not), and later use push_back to populate.
 
-                // "global_refined_corners" has size (cells_per_dim[0] + 1)*(cells_per_dim[1] + 1)*(cells_per_dim[2] + 1)
+                // "global_refined_corners" should have size (cells_per_dim[0] + 1)*(cells_per_dim[1] + 1)*(cells_per_dim[2] + 1)
                 //                                   [without repeating corners]
-                // "refined_faces" has size (3 * cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2])
+                // "refined_faces" should have size (3 * cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2])
                 //                            + (cells_per_dim[0] * cells_per_dim[1])
                 //                            + (cells_per_dim[0] * cells_per_dim[2])
                 //                            + (cells_per_dim[1] * cells_per_dim[2])   [without repeating faces]
-                // "refined_cells" has size cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]
+                // "refined_cells" should have size cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]
                 
 
                 /// GLOBAL REFINED CORNERS 
                 /// The strategy is to compute the local refined corners
-                /// of the reference cube, and then apply the map global()
-                
+                /// of the unit/reference cube, and then apply the map global()
+                //
                 // Refine corners the (local) unit/reference cube
-                // Create a vector to storade the refined corners of the unit/reference cube
-                // such that each entry of this vector is one of them.
+                // Create a vector to storage the refined corners of the unit/reference cube
+                // such that each entry is one of the (local) refined corners.
                 std::vector<std::array<double,3>> refined_reference_corners;
                 // Determine the right size of the vector containing the refiend corners of the unit/reference cube 
                 refined_reference_corners.resize((cells_per_dim[0] + 1) *(cells_per_dim[1] + 1) * (cells_per_dim[2] + 1));
-                // Vector to storage the indices of the refined corners of the unit/reference cube
+                // Vector to storage the indices of the (local) refined corners of the unit/reference cube
                 std::vector<int> refined_ref_corn_idx;
-                // The size of refined_ref_cor_idx is (cells_per_dim[0] + 1) *(cells_per_dim[1] + 1) * (cells_per_dim[2] + 1)
+                // The size of "refined_ref_cor_idx" is (cells_per_dim[0] + 1) *(cells_per_dim[1] + 1) * (cells_per_dim[2] + 1)
                 // The nummbering starts at the botton, so k=0 (z-axis), and j=0 (y-axis), i=0 (x-axis).
                 // Then, increasing i, followed by increasing j, and finally, increasing k.
                 // "Right[increasing i]-Back[incresing j]-Up[increasing k]"
                 for (int k = 0; k < cells_per_dim[2] + 1; k++) {
                     for (int j = 0; j < cells_per_dim[1] + 1; j++) {
                         for (int i = 0; i < cells_per_dim[0] + 1; i++) {
-                            // Compute the index of each refined corner "kji"
+                            // Compute the index of each (local) refined corner "kji"
                             int kji_idx = (k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i;
                             // Incorporate the index in "refined_ref_corn_idx"
                             refined_ref_corn_idx.push_back(kji_idx);
-                            // change int type to double for k,j,i 
+                            // Change int type to double for k,j,i 
                             double kd = k;
                             double jd = j;
                             double id = i;
@@ -499,51 +499,51 @@ namespace Dune
                         } // end i-for-loop
                     } // end j-for-loop
                 } // end k-for-loop  
-
-                // Get the global refined corners from the refined reference corners
+                //
+                // Get the global refined corners from the (local) refined reference corners
+                // applying global().
                 for (const auto& corner : refined_reference_corners) { 
                     global_refined_corners.push_back(Geometry<0, 3>(this->global(corner)));
                     // @todo add the correct index to indices!
-                }
+                } // end GLOBAL REFINED CORNERS
 
                 
                 /// GLOBAL REFINED CENTERS
-                /// The strategy is to compute the local refined centers
-                /// of the reference cube, and then apply the map global()
-                
-                // Refine reference centers
+                /// The strategy is to compute the  centers of the refined (local)
+                /// unit/reference cube, and then apply the map global()
+                //
+                // Refined (local) reference centers
                 std::vector<std::array<double,3>> refined_reference_centers;
-                // must have size cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]
+                // Must have size cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]
                 refined_reference_centers.resize(cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]);
-                // We can associate each center with an index
-                // This index can be the same index we create for the new refined cell kji
+                // We can associate each center with an index.
+                // This index can be the same index of the new refined cell kji.
                 // The numembering follows the rule of starting with
                 // index 0 for the refined cell {0,0,0}, ...,{1/cells_per_dim[0], 1/cells_per_dim[1], 1/cells_per_dim[2]}
-                // then the indices grow first picking the cells in the x-axis (right, i), then y-axis (back, j), and
-                // finally, z-axis (up, k)
+                // then the indices grow first picking the cells in the x-axis (Right, i), then y-axis (Back, j), and
+                // finally, z-axis (Up, k)
                 std::vector<int> refined_cells_indices; // same indices for refined centers!
-                //refined_cells_indices.resize(cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]);
+                // "refined_cells_indices"-size is cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]
                 for (int k = 0; k < cells_per_dim[2]; k++) {
                     for (int j = 0; j < cells_per_dim[1]; j++) {
                         for (int i = 0; i < cells_per_dim[0]; i++) {
-                            // Compute the index of each refined corner "kji"
+                            // Compute the index of each refined cell(or its center) "kji"
                             int kji_idx = (k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i;
                             // Incorporate the index in "refined_cells_indices"
                             refined_cells_indices.push_back(kji_idx);
-                            // change int type to double for k,j,i NOT NEEDED double+int->double
-                            // Compute the 3 (local) coordinates of the "kji" refined corner of the unit/reference cube 
+                            // Compute the 3 (local) coordinates of the "kji" refined center of the unit/reference cube 
                             refined_reference_centers[kji_idx][0] = (.5 + i)/cells_per_dim[0];
                             refined_reference_centers[kji_idx][1] = (.5 + j)/cells_per_dim[1];
                             refined_reference_centers[kji_idx][2] = (.5 + k)/cells_per_dim[2];
                         } // end i-for-loop
                     } // end j-for-loop
                 } // end k-for-loop            
-               
+                //
                 // Get the global refined centers from the refined reference centers
                 std::vector<std::array<double,3>> global_refined_centers;
                 for (const auto& ref_center : refined_reference_centers) {
                     global_refined_centers.push_back(Geometry<0, 3>(this->global(ref_center)));
-                }
+                } // end GLOBAL REFINED CENTERS
 
                
                 // GLOBAL REFINED FACES
@@ -553,117 +553,134 @@ namespace Dune
                 //  + (cells_per_dim[0]*cells_per_dim[2]*(cells_per_dim[1]+1)) "front and back faces"
                 //  + (cells_per_dim[1]*cells_per_dim[2]*(cells_per_dim[0]+1))  "left and right faces"
                 // 
-                // To understand the size, think about counting the "horizontal(botton-top)" refined faces on the botton (k=0), that is
-                // cells_per_dim[0]*cells_per_dim[1]. Now, varying k between 0 and cell_per_dim[2] we get the third factor of the
-                // first term. Similar with the second and fisrt terms where we count the "vertical"-faces
-                // front-back(2nd coordinate constant) and left-right(1st coordinate constant) respectively.
+                // To understand the size, count the "horizontal(botton-top)" refined faces on the botton (k=0),
+                // that is cells_per_dim[0]*cells_per_dim[1]. Now, varying k between 0 and cell_per_dim[2] we
+                // get the third factor of the first term. Similar with the second and fisrt terms where we
+                // count the "vertical"-faces front-back(2nd coordinate constant) and left-right(1st coordinate
+                // constant) respectively.
                 //
                 // To create a face as a Geometry<2,3> type object we need its centroid and its volume.
-                // Centroids of the faces of the refined global cells
+                // CENTROIDS of the faces of the refined global cells.
                 // We storage the centroids (and later on the faces) in the following order:
                 // - botton-top faces
                 // - front-back faces
                 // - left-right faces
                 // Vector to storage the centroids of the faces of the global refined cells
                 std::vector<std::array<double,3>> centroids_refined_faces;
-                // Define the size of "centroid_refined_faces"
+                // Determine the size of "centroid_refined_faces".
                 int centroids_refined_faces_size = (cells_per_dim[0]*cells_per_dim[1]*(cells_per_dim[2]+1)) //   "botton and top faces"
                     + (cells_per_dim[0]*cells_per_dim[2]*(cells_per_dim[1]+1)) // "front and back faces"
                     + (cells_per_dim[1]*cells_per_dim[2]*(cells_per_dim[0]+1));  // "left and right faces"
+                // Resize the vector "centroids_refined_faces"'s size.
                 centroids_refined_faces.resize(centroids_refined_faces_size);
                 // Vector to storage refined faces indices (one index per face = one index per centroid)
                 std::vector<int> refined_faces_indices;
-                // Define the size of refined_faces_indices (it's the same as the size of centroids_refined_faces)
-                refined_faces_indices.resize(centroids_refined_faces_size);
-                // Populate "centroids_refined_faces"
-                // - botton-top faces HORIZONTAL 3rd coordinate constant (in each face)
+                // The size of refined_faces_indices (it's the same as the size of centroids_refined_faces),
+                // that is, "refined_faces_indices"-size is equal to "centroids_refined_faces_size".
+                // Populate "centroids_refined_faces".
+                // - BOTTON-TOP faces, horizontal, 3rd coordinate constant (in each face).
                 for (k = 0; k < cells_per_dim[2] + 1; k++) {
                     for (j = 0; j < cells_per_dim[1]; j++) {
                         for (i = 0; i < cells_per_dim[0]; i++) {
-                            // compute the index of the refine face
+                            // Compute the index of the refined face (same index for its centroid).
                             int refined_face_idx = (k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) + i;
-                            // add the index to refined_faces_indices
+                            // Add the index to refined_faces_indices.
                             refined_faces_indices.push_back(refined_face_idx);
-                            // change type int by double (only for k) [double + int -> double]
+                            // Change type int by double (only needed for k).
                             double kd = k;
-                            // centroid of the face of the (local) refined reference cell
+                            // Centroid of the face of the (local) refined reference cell.
                             std::array<double, 3> local_centroid = {
                                 (.5 + i)/cells_per_dim[0], (.5 + j)/cells_per_dim[1], kd/cells_per_dim[2]};
-                            // push back the centroid of the face of the global refined cell
-                            centroids_refined_faces.push_back(Geometry<0, 3>(this->global(local_centroid)));
+                            // Add the centroid of the face of the global refined cell.
+                            centroids_refined_faces[refined_face_idx] = Geometry<0, 3>(this->global(local_centroid));
                         } // end i-for-loop
                     } // end j-for-loop
                 }; // end k-for-loop
-                // - front-back faces VERTICAL 2nd coordinate constant (in each face)
+                // - FRONT-BACK faces, vertical, 2nd coordinate constant (in each face).
                 for (j = 0; j < cells_per_dim[1] + 1; j++) {
                     for (k = 0; k < cells_per_dim[2]; k++) {
                         for (i = 0; i < cells_per_dim[0]; i++) {
-                            // compute the index of the refine face
+                            // Compute the index of the refined face (same index for its centroid).
                             int refined_face_idx = (j*cells_per_dim[0]*cells_per_dim[2]) + (k*cells_per_dim[0]) + i;
-                            // add the index to refined_faces_indices
+                            // Add the index to refined_faces_indices.
                             refined_faces_indices.push_back(refined_face_idx);
-                            // change type int by double (only for j) [double + int -> double]
+                            // Change type int by double (only needed for j).
                             double jd = j;
-                            // centroid of the face of the (local) refined reference cell
+                            // Centroid of the face of the (local) refined reference cell.
                             std::array<double, 3> local_centroid = {
                                 (.5 + i)/cells_per_dim[0], jd/cells_per_dim[1], (.5 + k)/cells_per_dim[2]};
-                            // push back the centroid of the face of the global refined cell
-                            centroids_refined_faces.push_back(Geometry<0, 3>(this->global(local_centroid)));
+                            // Add the centroid of the face of the global refined cell.
+                            centroids_refined_faces[refined_face_idx] = Geometry<0, 3>(this->global(local_centroid));
                         } // end i-for-loop
-                    } // end j-for-loop
-                }; // end k-for-loop
-                // - left-right faces VERTICAL 1nd coordinate constant (in each face)
+                    } // end k-for-loop
+                }; // end j-for-loop
+                // - LEFT-RIGHT faces, VERTICAL, 1nd coordinate constant (in each face).
                 for (i = 0; i < cells_per_dim[0] + 1; i++) {
                     for (k = 0; k < cells_per_dim[2]; k++) {
                         for (j = 0; j < cells_per_dim[1]; j++) {
-                             // compute the index of the refine face
+                             // Compute the index of the refined face (same index for its centroid).
                             int refined_face_idx = (i*cells_per_dim[1]*cells_per_dim[2]) + (k*cells_per_dim[0]) + j;
-                            // add the index to refined_faces_indices
+                            // Add the index to refined_faces_indices.
                             refined_faces_indices.push_back(refined_face_idx);
-                            // change type int by double (only for i) [double + int -> double]
+                            // Change type int by double (only needed for i).
                             double id = i;
-                            // centroid of the face of the (local) refined reference cell
+                            // Centroid of the face of the (local) refined reference cell.
                             std::array<double, 3> local_centroid = {
                                 id/cells_per_dim[0], (.5+j)/cells_per_dim[1], (.5 + k)/cells_per_dim[2]};
-                            // push back the centroid of the face of the global refined cell
-                            centroids_refined_faces.push_back(Geometry<0, 3>(this->global(local_centroid)));
-                        } // end i-for-loop
-                    } // end j-for-loop
-                }; // end k-for-loop
+                            // Add the centroid of the face of the global refined cell.
+                            centroids_refined_faces[refined_face_idx] = Geometry<0, 3>(this->global(local_centroid));
+                        } // end j-for-loop
+                    } // end k-for-loop
+                }; // end i-for-loop
                 //
-                // TODO: REFINED FACE VOLUME
-                // To compute the volume of each face, we divide it in 4 triangles,
-                // compute the volume of those with simple_volume??, sum them up to approximate the volume
-                // of the face... check and correct  with actual volume of face?
+                // TODO: REFINED FACE VOLUME (AREA)
+                // To compute the volume (area) of each face, we divide it in 4 triangles,
+                // compute the volume (area) of those with simple_volume??, sum them up to approximate the volume (area)
+                // of the face... check and correct  with actual volume (area) of face?
+                // [.... todo]
+                // end GLOBAL REFINED FACES
 
 
 
 
                 /// VOLUME OF THE GLOBAL REFINED CELLS
-                /// REMARK: Each global refined cell is an HEXAHEDRON 
-                /// The strategy is to construct 24 tetrahedrons in each refined cell (hexahedron).
-                /// Each tetrahedron is construct with
-                /// 1. the center of the refined cell,
-                /// 2. the middle point of the face the is based on, and
+                /// REMARK: Each global refined cell is a hexahedron. We use "hexahedron" to refer
+                /// to the global refined cell in the computation of its volume.
+                /// 
+                /// The strategy is to construct 24 tetrahedra in each hexahedron.
+                /// Each tetrahedron is built with
+                /// 1. the center of the hexahedron,
+                /// 2. the middle point of the face the tetrahedron is based on, and
                 /// 3. one of the edges of the face mentioned in 2.
-                /// Each face supports 4 TETRAhedrons, we have 6 faces per cell, which
-                /// gives us the 24 TETRAhedrons per "cell" (HEXAHEDRON).
-                /// (B) We take the 6 corners of each TETRAhedron of the refined reference cell, and
-                /// the volume of  with "simplex_volume(@param [TETRAHEdron corners])". Summing up the
-                /// 24 volumes of the 24 TETRAhedrons, we get the volumne of the
-                /// global refined cell (HEXAHEDRON).
+                /// Each face 'supports' 4 tetrahedra, and we have 6 faces per hexahedron, which
+                /// gives us the 24 tetrahedra per "cell" (hexahedron).
                 ///
+                /// To compute the volume of each tetrahedron, we use "simplex_volume()" with 
+                /// the 6 corners of the tetrahedron as arguments. Summing up the 24 volumes,
+                /// we get the volumne of the hexahedorn (global refined cell).
                 ///
-                // Define the total volume of the refined cell (hexahedron)
-                Geometry<3, cdim>::ctype total_volume = 0.0;
-                ///
-                // Construction of the refined reference TETRAhedrons 
+                // Vector to storage the volume of the refined cells.
+                std::vector<double> global_refined_volumes;
+                // Determine the size of "refined_cells_volumes" (same as total amount of refined cells)
+                global_refined_volumes.resize(cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]);
                 //
-                /// For each refined cell (HEXAHEDRON), we create teh 24 TETRAhedrons and their volumes
-                for (k = 0; k < cells_per_dim[2], k++) {
-                    for (j = 0; j < cells_per_dim[1], j++) {
-                        for (i = 0; i < cells_per_dim[0], i++) {
-                            // Indices of the faces of the refined cell (hexahedron) (needed to access face centroids)
+                // For each refined cell (hexahedron), to create 24 tetrahedra and their volumes,
+                // we introduce
+                // 1. "refined_cell_faces_indices" (needed to access face centroids).
+                // 2. "refined_faces_centroids" (one of the 6 corners of all 4 tetrahedra based on that face)
+                // 3. "kji_idx" index of the refined cell (needed to access its center).
+                // 4. "center_refined_cell" the center of the global refined cell (common corner of the 24 tetrahedra).
+                // 5. "refined_cell_corns_indices" indices of the 8 corners of the global refined cell.
+                // 6. "refined_cell_faces_indices" indices of the faces of the global refined cell (5. is used here).
+                //     (6. is implicitly used to see the edges of each face).
+                // 7. "tetra_edge_indices" indices of the 4x6 tetrhedra per cell,
+                //     grouped by the face they are based on (5. is used here).
+                // Then we construct and compute the volume of the 24 tetrahedra with mainly
+                // "refined_faces_centroids" (2.), "center_refined_cell" (4.), and "tetra_edge_indices" (7.).
+                for (k = 0; k < cells_per_dim[2]; k++) {
+                    for (j = 0; j < cells_per_dim[1]; j++) {
+                        for (i = 0; i < cells_per_dim[0]; i++) {
+                            // 1. Indices of the faces of the refined cell (hexahedron) (needed to access face centroids).
                             std::vector<int, 6> refined_cell_faces_indices = {
                                 // index face "0" botton
                                 (k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) + i,
@@ -678,16 +695,17 @@ namespace Dune
                                 // index face "5" top
                                 ((k+1)*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) + i
                                 };
-                            // Centroids of the faces of the refined cell (hexahedron)
+                            // 2. Centroids of the faces of the refined cell (hexahedron).
+                            // (one of the 6 corners of all 4 tetrahedra based on that face).
                             std::vector<std::array<double,3>, 6> refined_faces_centroids;
                             for (auto& idx : refined_cell_faces_indices) {
                                 refined_faces_centroids.push_back(centroids_refined_faces[idx]);
                             }
-                            // Index of the refined cell (hexahedron) (needed to access its center)
+                            // 3. Index of the refined cell (hexahedron) (needed to access its center).
                             int kji_idx = (k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i;
-                            // Center of the refined cell (hexahedron) (common corner for all 24 tetrahedrons)
+                            // 4. Center of the refined cell (hexahedron) (common corner of all 24 tetrahedra).
                             std::array<double, 3> center_refined_cell =  global_refined_centers[kji_idx];
-                            //  Container with the 8 refined corners indices:
+                            // 5. Container with the 8 refined corners indices.
                             std::array<int, 8> refined_cell_corns_indices = {
                                 (k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i, // fake "0"
                                 (k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i+1, // fake "1"
@@ -698,8 +716,7 @@ namespace Dune
                                 ((k+1)*cells_per_dim[0]*cells_per_dim[1]) + ((j+1)*cells_per_dim[0]) +i, // fake "6"
                                 ((k+1)*cells_per_dim[0]*cells_per_dim[1]) + ((j+1)*cells_per_dim[0]) +i+1 // fake "7"
                                 };
-                            //
-                            // Container with the faces-indices of the refined cell
+                            // 6. Container with the faces-indices of the refined cell.
                             std::array<std::array<int, 4>, 6> refined_cell_faces_indices = {
                                 // fake face0 indices (botton), fake "{0, 1, 2, 3}"
                                 { refined_cell_corns_indices[0], refined_cell_corns_indices[1],
@@ -722,13 +739,13 @@ namespace Dune
                             };
                             // A tetrahedron has six edges. Once we choose a face to base a
                             // tetrahedron on, we choose an edge of that face as one of the
-                            // edges of the tetrahedron. The other five edges  are fixed, since
-                            // the center of the cell and the center of the face are fixed too.
+                            // edges of the tetrahedron. The other five edges are fixed, since
+                            // the center of the hexahedron and the center of the face are fixed too.
                             // That's why to identify a tetrahedron we only need two things:
-                            // 1. the face it's based on and
-                            // 2. one of the four edges of that face.
+                            // (1) the face it's based on and
+                            // (2) one of the four edges of that face.
                             //
-                            // Container with indices of the edges of the tetrahedrons per face
+                            // 7. Container with indices of the edges of the 4 tetrahedra per face
                             // [according to description above]
                             const int tetra_edge_indices[6][4][2] = {
                                 // tetra-edge-indices FACE "0" BOTTON
@@ -736,102 +753,94 @@ namespace Dune
                                  {refined_cell_corns_indices[0], refined_cell_corns_indices[2]},
                                  {refined_cell_corns_indices[1], refined_cell_corns_indices[3]},
                                  {refined_cell_corns_indices[2], refined_cell_corns_indices[3]}},
-                               // tetra-edge-indices FACE "1" FRONT
-                              {{refined_cell_corns_indices[0], refined_cell_corns_indices[1]},
-                              {refined_cell_corns_indices[0], refined_cell_corns_indices[4]},
-                              {refined_cell_corns_indices[1], refined_cell_corns_indices[5]},
-                              {refined_cell_corns_indices[4], refined_cell_corns_indices[5]}},
-                              // tetra-edge-indices FACE "2" LEFT
-                              {{refined_cell_corns_indices[0], refined_cell_corns_indices[2]},
-                              {refined_cell_corns_indices[0], refined_cell_corns_indices[4]},
-                              {refined_cell_corns_indices[2], refined_cell_corns_indices[6]},
-                              {refined_cell_corns_indices[4], refined_cell_corns_indices[6]}},
-                              // tetra-edge-indices FACE "3" RIGHT
-                              {{refined_cell_corns_indices[1], refined_cell_corns_indices[3]},
-                              {refined_cell_corns_indices[1], refined_cell_corns_indices[5]},
-                              {refined_cell_corns_indices[3], refined_cell_corns_indices[7]},
-                              {refined_cell_corns_indices[5], refined_cell_corns_indices[7]}},
-                              // tetra-edge-indices FACE "4" BACK
-                             {{refined_cell_corns_indices[2], refined_cell_corns_indices[3]},
-                              {refined_cell_corns_indices[2], refined_cell_corns_indices[6]},
-                              {refined_cell_corns_indices[3], refined_cell_corns_indices[7]},
-                              {refined_cell_corns_indices[6], refined_cell_corns_indices[7]}},
-                             // tetra-edge-indices FACE "5" TOP
-                             {{refined_cell_corns_indices[4], refined_cell_corns_indices[5]},
-                             {refined_cell_corns_indices[4], refined_cell_corns_indices[6]},
-                             {refined_cell_corns_indices[5], refined_cell_corns_indices[7]},
-                             {refined_cell_corns_indices[6], refined_cell_corns_indices[7]}},
+                                // tetra-edge-indices FACE "1" FRONT
+                                {{refined_cell_corns_indices[0], refined_cell_corns_indices[1]},
+                                 {refined_cell_corns_indices[0], refined_cell_corns_indices[4]},
+                                 {refined_cell_corns_indices[1], refined_cell_corns_indices[5]},
+                                 {refined_cell_corns_indices[4], refined_cell_corns_indices[5]}},
+                                // tetra-edge-indices FACE "2" LEFT
+                                {{refined_cell_corns_indices[0], refined_cell_corns_indices[2]},
+                                 {refined_cell_corns_indices[0], refined_cell_corns_indices[4]},
+                                 {refined_cell_corns_indices[2], refined_cell_corns_indices[6]},
+                                 {refined_cell_corns_indices[4], refined_cell_corns_indices[6]}},
+                                // tetra-edge-indices FACE "3" RIGHT
+                                {{refined_cell_corns_indices[1], refined_cell_corns_indices[3]},
+                                 {refined_cell_corns_indices[1], refined_cell_corns_indices[5]},
+                                 {refined_cell_corns_indices[3], refined_cell_corns_indices[7]},
+                                 {refined_cell_corns_indices[5], refined_cell_corns_indices[7]}},
+                                // tetra-edge-indices FACE "4" BACK
+                                {{refined_cell_corns_indices[2], refined_cell_corns_indices[3]},
+                                 {refined_cell_corns_indices[2], refined_cell_corns_indices[6]},
+                                 {refined_cell_corns_indices[3], refined_cell_corns_indices[7]},
+                                 {refined_cell_corns_indices[6], refined_cell_corns_indices[7]}},
+                                // tetra-edge-indices FACE "5" TOP
+                                {{refined_cell_corns_indices[4], refined_cell_corns_indices[5]},
+                                 {refined_cell_corns_indices[4], refined_cell_corns_indices[6]},
+                                 {refined_cell_corns_indices[5], refined_cell_corns_indices[7]},
+                                 {refined_cell_corns_indices[6], refined_cell_corns_indices[7]}},
                             };
-                            //
-                            // Calculate the volume of the global refined cell (hexahedron)
-                            // by adding the 4 tetrahedrons at each face (4x6 = 24 tetrahedrons).
-                            Geometry<3, cdim>::ctype volume = 0.0;
+                            // Calculate the volume of each global refined cell (hexahedron),
+                            // by adding the 4 tetrahedra at each face (4x6 = 24 tetrahedra).
+                            Geometry<3, cdim>::ctype refined_cell_volume = 0.0;
                             for (int face = 0; face < 6; face++) {
                                 for (int edge = 0; edge < 4; edge++) {
+                                    // Construction of each tetrahedron based on "face" with one
+                                    // of its edges equal to "edge".
                                     const Geometry<0, 3>::GlobalCoordinate tetra_corners[4] = {
                                         global_refined_corners[[tetra_edge_indices[face][edge][0]}],
                                         global_refined_corners[[tetra_edge_indices[face][edge][1]]],
-                                        refined_faces_centroids[f],
+                                        refined_faces_centroids[face],
                                         center_refined_cell};
-                                    volume += std::fabs(simplex_volume(tetra_corners));
+                                    refined_cell_volume += std::fabs(simplex_volume(tetra_corners));
                                 } // end edge-for-loop
                             } // end face-for-loop
-                            total_volume += volume;
-                            } // end refined_face-for-loop     
+                            // Sum of the 24 volumes to get the volume of the hexahedron is storaged in "refined_cel_volume"
+                            //
+                            // Add the volume of the refined cell to the container
+                            // of all volumes of all the refined cells. 
+                            global_refined_volumes[kji_idx] = refined_cell_volume;
                         } // end i-for-loop   
                     } // end j-for-lopp
                 } // end k-for-loop
-
-            /*
-@todo: double-check this part of "volume"
- // Rescale all volumes if the sum of volumes does not match the parent.
-                if (std::fabs(total_volume - this->volume())
+                //
+                // Rescale all volumes if the sum of volume of all the global refined cells does not match the
+                // volume of the 'parent cell'.
+                // Sum of all the volumes of all the (children) global refined cells.
+                double sum_all_volumes_refined_cells = 0.0;
+                for (auto& volume : refined_cells_volume) {
+                    sum_all_volumes_refined_cells += volume;
+                };
+                // Compare the sum of all the volumes of all refined cells with 'parent cell' volume.
+                if (std::fabs(sum_all_volumes_refined_cells - this->volume())
                     > std::numeric_limits<Geometry<3, cdim>::ctype>::epsilon()) {
-                    Geometry<3, cdim>::ctype correction = this->volume() / total_volume;
-                    for (auto& r : result) {
-                        r.set_volume(r.volume() * correction);
-                    }
-                }
-
-             */
-
-                // --------------------------------------------
+                    Geometry<3, cdim>::ctype correction = this->volume() / sum_all_volumes_refined_cells;
+                    for (auto& volume : global_refined_volumes) {
+                        volume *= correction;
+                    } 
+                } // end if-statement
+            // end VOLUME OF THE GLOBAL REFINED CELL
                 
-
                 /// GLOBAL REFINED CELLS
-                /// The strategy is to ...
-
+                //
                 // We need to populate the variable "refined_cells"
-                // refined_cells has size cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]
-                // We need FOR EACH REFINED CELL "c":
-                // 1. global_refined_center_c  [can be deduced from "global_refined_centers"]
-                // 2. volume_c [done? check Peter's code]  @TODO DOUBLE-CHECK VOLUME COMPUTATION OF REFINED CELL
-                // 3. global_refined_corners_c [can be deduced from "global_refined_corners"]
-                // 4. indices_c indices of its 8 corners [can be deduced from "refined_ref_corn_idx"]
+                // "refined_cells" should have size cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2]
+                // To build each global refined cell, we need
+                // 1. its global refined center [available in "global_refined_centers"]
+                // 2. its volume [available in "global_refined_volumes"]
+                // 3. all global refined corners [available in "global_refined_corners"]
+                // 4. indices of its 8 corners [available in "refined_ref_corn_idx"]
                 //
                 for (int k = 0; k < cells_per_dim[2]; k++) {
                     for (int j = 0; j < cells_per_dim[1]; j++) {
                         for (int i = 0; i < cells_per_dim[0]; i++) {
-                            // Index of the "kji" global refined cell
+                            // Index of the "kji" global refined cell (needed to acces its center and volume).
                             int kji_idx = (k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i;
                             // 1. Center of the global refined "kji" cell
                             std::array<double, 3> global_refined_center = global_refined_centers[kji_idx];
                             // 2. Volume of the global refined "kji" cell
-                            double volume; // TO BE DOUBLE-CHECKED!
-                            // 3. Global refined corners (all of them! not only the 8 of the kji cell)
-
-                            /* 8 corners of the global refined "kji" cell
-                                std::vector<std::array<double,3>, 8> global_refined_corns = {
-                                global_refined_corners[(k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i], //fake {0,0,0}
-                                global_refined_corners[(k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i+1], //fake {1,0,0}
-                                global_refined_corners[(k*cells_per_dim[0]*cells_per_dim[1]) + ((j+1)*cells_per_dim[0]) +i], //fake {0,1,0}
-                                global_refined_corners[(k*cells_per_dim[0]*cells_per_dim[1]) + ((j+1)*cells_per_dim[0]) +i+1], //fake {1,1,0}
-                                global_refined_corners[((k+1)*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i], //fake {0,0,1}
-                                global_refined_corners[((k+1)*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i+1], //fake {1,0,1}
-                                global_refined_corners[((k+1)*cells_per_dim[0]*cells_per_dim[1]) + ((j+1)*cells_per_dim[0]) +i], //fake {0,1,1}
-                                global_refined_corners[((k+1)*cells_per_dim[0]*cells_per_dim[1]) + ((j+1)*cells_per_dim[0]) +i+1] //fake{1,1,1}
-                                }; */
-                            // 4. 8 indices of the 8 corners of the global refined "kji" cell
+                            double volume = global_refined_volumnes[kji_idx];
+                            // 3. All Global refined corners ("global_refined_corners")
+                            // 4. Indices of the 8 corners of the global refined "kji" cell
                             std::vector<int, 8> refined_corns_indices = {
                                 (k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i, // fake 0
                                 (k*cells_per_dim[0]*cells_per_dim[1]) + (j*cells_per_dim[0]) +i+1, // fake 1
@@ -842,18 +851,12 @@ namespace Dune
                                 ((k+1)*cells_per_dim[0]*cells_per_dim[1]) + ((j+1)*cells_per_dim[0]) +i, // fake 6
                                 ((k+1)*cells_per_dim[0]*cells_per_dim[1]) + ((j+1)*cells_per_dim[0]) +i+1 // fake 7
                             };
-                            
                             // Construct the Geometry of the refined "kji" cell 
                             refined_cells.push_back(Geometry<3,cdim>(global_refined_center, volume,
                                                                      global_refined_corners, refined_corns_indices));
                         } // end i-for-loop
                     }  // end j-for-loop
-                } // end k-for-loop
-                
-                    
-                        
-               
-                
+                } // end k-for-loop 
 
                 // ----------------------------------------------------------------------------
 
