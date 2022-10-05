@@ -450,9 +450,9 @@ namespace Dune
             // @todo QUESTION Why do we need to provide them as arguments? Shall we only return them instead?
             {  
                 // Below are basically std::vector of Geometry. Use resize(), reserve(), push_back(), etc.
-                EntityVariable<cpgrid::Geometry<0, 3>, 3>& global_refined_corners = all_geom.geomVector(std::integral_constant<int, 3>()); // was called corner_storage before
-                EntityVariable<cpgrid::Geometry<2, 3>, 1>& global_refined_faces = all_geom.geomVector(std::integral_constant<int, 1>()); // Missed by Peter, we need to add the faces
-                EntityVariable<cpgrid::Geometry<3, 3>, 0>& global_refined_cells = all_geom.geomVector(std::integral_constant<int, 0>()); // Put the refined cells here.
+                EntityVariableBase<cpgrid::Geometry<0, 3>>& global_refined_corners = all_geom.geomVector(std::integral_constant<int, 3>()); // was called corner_storage before
+                EntityVariableBase<cpgrid::Geometry<2, 3>>& global_refined_faces = all_geom.geomVector(std::integral_constant<int, 1>()); // Missed by Peter, we need to add the faces
+                EntityVariableBase<cpgrid::Geometry<3, 3>>& global_refined_cells = all_geom.geomVector(std::integral_constant<int, 0>()); // Put the refined cells here.
                 
                 // @todo Do we need "indices_storage" now called "global_refined_cell8corners_indices_storage"?
                 // @todo DOUBLE CHECK COMMENTS. REDO THEM IF THEY ARE NOT CLEAR AFTER GROUPING FACE/CELL CODE.

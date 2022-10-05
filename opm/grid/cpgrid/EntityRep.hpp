@@ -231,6 +231,7 @@ namespace Dune
             using V::reserve;
             using V::push_back;
             using V::data;
+            using V::operator[];
 
             /// Default constructor.
             EntityVariableBase()
