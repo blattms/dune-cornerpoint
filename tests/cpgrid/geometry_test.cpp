@@ -426,7 +426,7 @@ void refine_and_check(const cpgrid::Geometry<3, 3>& parent_geometry,
         // Create a grid that is equivalent to the refinement
         Dune::CpGrid equivalent_refined_grid;
         std::array<double, 3> cell_sizes = {1.0, 1.0, 1.0};
-        std::size_t i = 0;
+        int i = 0;
         for (auto& size: cell_sizes)
             size /= cells[i++];
 
@@ -491,10 +491,13 @@ void refine_and_check(const cpgrid::Geometry<3, 3>& parent_geometry,
 
                         decltype(geom.corner(0)) sum_match{}, sum{};
 
-                        for(int i=0; i < geom.corners(); ++i)
+                        // Well our intersections have 0 corners.
+                        // Hence this code checks nothing at all.
+                        // Leaving the code here anyway.
+                        for(i=0; i < geom.corners(); ++i)
                         {
                             sum += geom.corner(i);
-                            sum_match += geom_match.corner(1);
+                            sum_match += geom_match.corner(i);
                         }
                         CHECK_COORDINATES(sum, sum_match);
                         matching_intersection_found = true;
