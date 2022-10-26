@@ -987,6 +987,137 @@ namespace Dune
                 /// --- END REFINED CELLS ---
             } /// --- END of refine()
 
+            // Refine a patch of cells with 'uniform' regular intervals.
+            // (meaning that 'cells_per_dim' argument is the same for each cell of the patch).
+            // @param cells_per_dim                 The number of sub-cells in each direction (for each cell).
+            // @param patch_to_refine               Vector of cpgrid::Geometry<3,3> type with cells to be refined.
+            // @param all_geom                      Geometry Policy for the refined geometries.
+            // @param cell8corners_indices_storage  To store the indices of the 8 corners of each
+            //                                      child cell of all each parent cells.
+            void refine_patch(const std::array<int,3>& cells_per_dim,
+                              // EACH parent cell will have (\Pi_{l=0}^2 cells_per_dim[l]) children cells.
+                              std::vector<cpgrid::Geometry<3,3>> patch_to_refine,
+                              // We assume for now its a 'regular patch' meaning it's a collection/block of
+                              // (connected) cells.
+                              std::vector<int> patch_cells_indices, 
+                              const std::array<int,3>& patch_dim,  // may differ from 'grid size'
+                              // patch_dim[0] = #cells in direction x,
+                              // patch_dim[1] = #cells in direction y,
+                              // patch_dim[2] = #cells in direction z.
+                              // Parent cells, 8 corners -> 'parents_cell_to_point' = 'parents_cell8corners_indices_storage'
+                              std::vector<std::array<int,8>> parents_cell8corners_indices_storage,
+                              DefaultGeometryPolicy& all_geom,
+                              // Old notation 'global_refined_*' changed  by 'children_*'
+                              std::vector<std::array<int,8>>& children_cell8corners_indices_storage,
+                              cpgrid::OrientedEntityTable<0,1>& children_cell_to_face,
+                              Opm::SparseTable<int>& children_face_to_point,
+                              cpgrid::OrientedEntityTable<1,0>& children_face_to_cell,
+                              cpgrid::EntityVariable<enum face_tag, 1>& children_face_tags,
+                              cpgrid::SignedEntityVariable<PointType, 1>& children_face_normals)
+            {
+                /*EntityVariableBase<cpgrid::Geometry<0,3>>& children_corners =
+                    all_geom.geomVector(std::integral_constant<int,3>());
+                EntityVariableBase<cpgrid::Geometry<2,3>>& children_faces =
+                    all_geom.geomVector(std::integral_constant<int,1>());
+                EntityVariableBase<cpgrid::Geometry<3,3>>& children_cells =
+                    all_geom.geomVector(std::integral_constant<int,0>());
+                EntityVariableBase<enum face_tag>& mutable_children_face_tags = children_face_tags;
+                EntityVariableBase<PointType>& mutable_children_face_normals = children_face_normals;*/
+
+                // Get the minimum and maximum of "cell_to_refine_indices"
+                // to find the min_i, max_i, min_j, max_j, min_k, max_k,
+                // to 'cell-ficay' the patch (treating the patch as a 'huge cell')
+                std::vector<int> min_max_indices = {
+                    std::min_element(patch_cells_indices.begin(), patch_cells_indices.end()),
+                    std::max_element(patch_cells_indices.begin(), patch_cells_indices.end())};
+                // Get min/max-ijk indices of 'min/max_idx'
+                std::vector<std::array<int,3>> min_max_ijk_indices;
+                for (auto& idx : min_max_indices) {       // QUESTION: Do we need to convert some integers into double?
+                    int i = idx/patch_dim[0]; // i
+                    int j = ((idx - i)/patch_dim[0])/patch_dim[1]; // j
+                    int k = (((idx - i)/patch_dim[0]) -j)/patch_dim[1]; // k
+                    min_max_ijk_indices.push_back({i,j,k});
+                }
+                // Get indices of 8 key-cells located on the boundary of the patch.
+                // Boundary cell from where corner '0' will be extracted.
+                int cell_boundary0_idx = min_max_indices[0];
+                // Boundary cell from where corner '1' will be extracted: '{max_i, min_j, min_k}'
+                int cell_boundary1_idx = (min_max_ijk_indices[0][2]* patch_dim[0]*patch_dim[1])
+                    + (min_max_ijk_indices[0][1]*patch_dim[0]) + min_max_ijk_indices[1][0];
+                // Bounday cell from where corner '2' will be extracted: '{min_i, max_j, min_k}'
+                int cell_boundary2_idx = (min_max_ijk_indices[0][2]* patch_dim[0]*patch_dim[1])
+                    + (min_max_ijk_indices[1][1]*patch_dim[0]) + min_max_ijk_indices[0][0];
+                // Boundary cell from where corner '3' will be extracted: '{max_i, max_j, min_k}'
+                int cell_boundary3_idx = (min_max_ijk_indices[0][2]* patch_dim[0]*patch_dim[1])
+                    + (min_max_ijk_indices[1][1]*patch_dim[0]) + min_max_ijk_indices[1][0];
+                // Bounday cell from where corner '4' will be extracted: '{min_i, min_j, max_k}'
+                int cell_boundary4_idx = (min_max_ijk_indices[1][2]* patch_dim[0]*patch_dim[1])
+                    + (min_max_ijk_indices[0][1]*patch_dim[0]) + min_max_ijk_indices[0][0];
+                // Boundary cell from where corner '5' will be extracted: '{max_i, min_j, max_k}'
+                int cell_boundary5_idx = (min_max_ijk_indices[1][2]* patch_dim[0]*patch_dim[1])
+                    + (min_max_ijk_indices[0][1]*patch_dim[0]) + min_max_ijk_indices[1][0];
+                // Bounday cell from where corner '6' will be extracted: '{min_i, max_j, max_k}'
+                int cell_boundary6_idx = (min_max_ijk_indices[1][2]* patch_dim[0]*patch_dim[1])
+                    + (min_max_ijk_indices[1][1]*patch_dim[0]) + min_max_ijk_indices[0][0];
+                // Boundary cell from where corner '7' will be extracted.
+                int cell_boundary7_idx = min_max_indices[1]; 
+                //
+                // CELL-FICATION OF THE PATCH
+                // Create 8 cornes (considering one corner of -at maximum- 8 different cells
+                // of the patch located 'in the extremes').
+                // [Assuming access of 8 corners of parent cells is available via their indices]
+                // Container for the 8 corners of the 'cellFIED patch'
+                std::vector<int> cellfied_patch8corners_indices_storage;
+                // (Index of) Corner 0 of cell with index 'min_idx ~ {min_i, min_j, min_k}' // fake {0,0,0}
+                cellfied_patch8corners_indices_storage.push_back(parents_cell8corners_indices_storage[cell_boundary0_idx][0]);
+                // (Index of) Corner 1 of cell with index '{max_i, min_j, min_k}' // fake {1,0,0}
+                cellfied_patch8corners_indices_storage.push_back(parents_cell8corners_indices_storage[cell_boundary1_idx][1]);
+                // (Index of) Corner 2 of cell with index '{min_i, max_j, min_k}' // fake {0,1,0}
+                cellfied_patch8corners_indices_storage.push_back(parents_cell8corners_indices_storage[cell_boundary2_idx][2]);
+                // (Index of) Corner 3 of cell with index '{max_i, max_j, min_k}' // fake {1,1,0}
+                cellfied_patch8corners_indices_storage.push_back(parents_cell8corners_indices_storage[cell_boundary3_idx][3]);
+                // (Index of) Corner 4 of cell with index '{min_i, min_j, max_k}' // fake {0,0,1}
+                cellfied_patch8corners_indices_storage.push_back(parents_cell8corners_indices_storage[cell_boundary4_idx][4]);
+                // (Index of) Corner 5 of cell with index '{max_i, min_j, max_k}' // fake {1,0,1}
+                cellfied_patch8corners_indices_storage.push_back(parents_cell8corners_indices_storage[cell_boundary5_idx][5]);
+                // (Index of) Corner 6 of cell with index '{min_i, max_j, max_k}' // fake {0,1,1}
+                cellfied_patch8corners_indices_storage.push_back(parents_cell8corners_indices_storage[cell_boundary6_idx][6]);
+                // (Index of) Corner 7 of cell with index 'max_idx ~ {max_i, max_j, max_k}' // fake {1,1,1}
+                cellfied_patch8corners_indices_storage.push_back(parents_cell8corners_indices_storage[cell_boundary7_idx][7]);
+                //
+                // Center of the cell'fied' patch
+                GlobalCoordinate cellfied_patch_center;
+                for (auto idx : cellfied_patch8corners_indices_storage) {
+                    cellfied_patch_center += patch_to_refine[idx].center()/8.;
+                }
+                //
+                // Volume of the cell'fied' patch
+                double cellfied_patch_volume;
+                for (auto idx : patch_cells_indices) {
+                    cellfied_patch_volume += patch_to_refine[idx].volume();
+                }
+                //
+                // Create a pointer to the first element of "cellfied_patch8corners_indices_storage"
+                // (required as the fourth argement to construct a Geometry<3,3> type object).
+                // (QUESION: Do we need 'other' corners?)
+                int* cellfied_patch_indices_storage_ptr = cellfied_patch8corners_indices_storage[0];
+                // Construct the Geometry of the CEELfied PATCH.
+                Geometry<3,3> cellfied_patch = Geometry<3,3>(cellfied_patch_center,
+                                                                   cellfied_patch_volume,
+                                                                   all_geom.geomVector(std::integral_constant<int,3>()),
+                                                                   cellfied_patch_indices_storage_ptr);
+                // Refine the cell "cellfied_patch"
+                cellfied_patch.refine({cells_per_dim[0]*patch_dim[0], cells_per_dim[1]*patch_dim[1], cells_per_dim[2]*patch_dim[2]},
+                                      all_geom,
+                                      children_cell8corners_indices_storage,
+                                      children_cell_to_face,
+                                      children_face_to_point,
+                                      children_face_to_cell,
+                                      children_face_tags,
+                                      children_face_normals);
+                
+            } // END refine_patch()--------------------
+
         private:
             GlobalCoordinate pos_;
             double vol_;
