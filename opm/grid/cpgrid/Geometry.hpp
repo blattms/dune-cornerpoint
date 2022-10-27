@@ -987,57 +987,66 @@ namespace Dune
                 /// --- END REFINED CELLS ---
             } /// --- END of refine()
 
-            // Cell-fication of a patch
+            // CELL-FICATION OF A PATCH
+            // This function takes a patch and build a cell out of it.
+            // The function takes a connected patch formed by the product of consecutive cells in each direction, and
+            // returns a Geometry<3,3> object, 'a patch cell', or 'a cellFIED patch'.
+            // Idea: Select 8 corners of the boundary of the patch, compute center and volume.
+            // @param patch_to_refine               Vector of cpgrid::Geometry<3,3> type with cells to be refined.
+            // @param patch_cells_indices           Indices of the cells from the grid that we want to refine, or, equivalently,
+            //                                      indices of the cells that belong to the patch.
+            // @param patch_dim                     We assume for now its a 'regular patch' meaning it's a collection/block of
+            //                                      (connected 'conecutive in each direction') cells.
+            //                                      May differ from 'grid size'
+            //                                      patch_dim[0] = #cells in direction x,
+            //                                      patch_dim[1] = #cells in direction y,
+            //                                      patch_dim[2] = #cells in direction z.
+            // @param parents_cell8corners_indices_storage    Indices of the 8 corners of each parent cell.
+            // @param all_geom                      Geometry Policy for the refined geometries.
             Geometry<3,3> cellfy_a_patch( std::vector<cpgrid::Geometry<3,3>> patch_to_refine,
                                           std::vector<int> patch_cells_indices,
-                                          const std::array<int,3>& patch_dim,  // may differ from 'grid size'
-                                          // patch_dim[0] = #cells in direction x,
-                                          // patch_dim[1] = #cells in direction y,
-                                          // patch_dim[2] = #cells in direction z.
-                                          // Parent cells, 8 corners -> 'parents_cell_to_point' = 'parents_cell8corners_indices_storage'
+                                          const std::array<int,3>& patch_dim,
                                           std::vector<std::array<int,8>> parents_cell8corners_indices_storage,
                                           DefaultGeometryPolicy& all_geom)
             {
-                // Get the minimum and maximum of "cell_to_refine_indices"
+                // Get the minimum and maximum of "patch_cells_indices"
                 // to find the min_i, max_i, min_j, max_j, min_k, max_k,
-                // to 'cell-ficay' the patch (treating the patch as a 'huge cell')
+                // to 'cell-fy' the patch (treating the patch as a 'huge cell')
                 std::array<int,2> min_max_indices = {
                     std::min_element(patch_cells_indices.begin(), patch_cells_indices.end()),
                     std::max_element(patch_cells_indices.begin(), patch_cells_indices.end())};
-                // Get min/max-ijk indices of 'min/max_idx'
+                // Get min/max-ijk indices out of "min_max_indices"
                 std::vector<std::array<int,3>> min_max_ijk_indices;
-                for (auto& idx : min_max_indices) {       // QUESTION: Do we need to convert some integers into double?
+                for (auto& idx : min_max_indices) {
                     int i = idx/patch_dim[0]; // i
                     int j = ((idx - i)/patch_dim[0])/patch_dim[1]; // j
                     int k = (((idx - i)/patch_dim[0]) -j)/patch_dim[1]; // k
                     min_max_ijk_indices.push_back({i,j,k});
                 }
-                // Get indices of 8 key-cells located on the boundary of the patch.
+                // Get indices of (at most) 8 selected cells located on the boundary of the patch.
                 std::array<int,8> selected_boundary_cell_indices = {
-                    // Boundary cell from where corner '0' will be extracted.
+                    // Index of the boundary cell from where corner '0' will be extracted.
                     min_max_indices[0],
-                    // Boundary cell from where corner '1' will be extracted: '{max_i, min_j, min_k}'
+                    // Index of the boundary cell from where corner '1' will be extracted: '{max_i, min_j, min_k}'
                     (min_max_ijk_indices[0][2]* patch_dim[0]*patch_dim[1])
                     + (min_max_ijk_indices[0][1]*patch_dim[0]) + min_max_ijk_indices[1][0],
-                    // Bounday cell from where corner '2' will be extracted: '{min_i, max_j, min_k}'
+                    // Index of the bounday cell from where corner '2' will be extracted: '{min_i, max_j, min_k}'
                     (min_max_ijk_indices[0][2]* patch_dim[0]*patch_dim[1])
                     + (min_max_ijk_indices[1][1]*patch_dim[0]) + min_max_ijk_indices[0][0],
-                    // Boundary cell from where corner '3' will be extracted: '{max_i, max_j, min_k}'
+                    // Index of the boundary cell from where corner '3' will be extracted: '{max_i, max_j, min_k}'
                     (min_max_ijk_indices[0][2]* patch_dim[0]*patch_dim[1])
                     + (min_max_ijk_indices[1][1]*patch_dim[0]) + min_max_ijk_indices[1][0],
-                    // Bounday cell from where corner '4' will be extracted: '{min_i, min_j, max_k}'
+                    // Index of the bounday cell from where corner '4' will be extracted: '{min_i, min_j, max_k}'
                     (min_max_ijk_indices[1][2]* patch_dim[0]*patch_dim[1])
                     + (min_max_ijk_indices[0][1]*patch_dim[0]) + min_max_ijk_indices[0][0],
-                    // Boundary cell from where corner '5' will be extracted: '{max_i, min_j, max_k}'
+                    // Index of the boundary cell from where corner '5' will be extracted: '{max_i, min_j, max_k}'
                     (min_max_ijk_indices[1][2]* patch_dim[0]*patch_dim[1])
                     + (min_max_ijk_indices[0][1]*patch_dim[0]) + min_max_ijk_indices[1][0],
-                    // Bounday cell from where corner '6' will be extracted: '{min_i, max_j, max_k}'
+                    // Index of the bounday cell from where corner '6' will be extracted: '{min_i, max_j, max_k}'
                     (min_max_ijk_indices[1][2]* patch_dim[0]*patch_dim[1])
                     + (min_max_ijk_indices[1][1]*patch_dim[0]) + min_max_ijk_indices[0][0],
-                    // Boundary cell from where corner '7' will be extracted.
+                    // Index of the boundary cell from where corner '7' will be extracted.
                     min_max_indices[1]};
-                //
-                // CELL-FICATION OF THE PATCH
                 // Container for the 8 corner indices of the 'cellFIED patch'
                 std::array<int,8> cellfied_patch8corners_indices_storage;
                 for (int l = 0; l < 8; ++l) {
@@ -1058,34 +1067,41 @@ namespace Dune
                 // (required as the fourth argement to construct a Geometry<3,3> type object).
                 // (QUESION: Do we need 'other' corners?)
                 int* cellfied_patch_indices_storage_ptr = cellfied_patch8corners_indices_storage[0];
-                // Construct the Geometry of the CEELfied PATCH.
+                // Construct (and return) the Geometry of the CEELfied PATCH.
                 return Geometry<3,3>(cellfied_patch_center, cellfied_patch_volume,
                                      all_geom.geomVector(std::integral_constant<int,3>()),
                                      cellfied_patch_indices_storage_ptr);
             }
 
 
-            // Refine a patch of cells with 'uniform' regular intervals.
-            // (meaning that 'cells_per_dim' argument is the same for each cell of the patch).
+            // REFINE A PATCH of CONNECTED (CONSECUTIVE in each direction) cells with 'uniform' regular intervals.
+            // (meaning that the amount of children per cell is the same for all parent cells (cells of the patch).
             // @param cells_per_dim                 The number of sub-cells in each direction (for each cell).
+            //                                      EACH parent cell will have (\Pi_{l=0}^2 cells_per_dim[l]) children cells.
             // @param patch_to_refine               Vector of cpgrid::Geometry<3,3> type with cells to be refined.
+            // @param patch_cells_indices           Indices of the cells from the grid that we want to refine, or, equivalently,
+            //                                      indices of the cells that belong to the patch.
+            // @param patch_dim                     We assume for now its a 'regular patch' meaning it's a collection/block of
+            //                                      (connected 'conecutive in each direction') cells.
+            //                                      May differ from 'grid size'
+            //                                      patch_dim[0] = #cells in direction x,
+            //                                      patch_dim[1] = #cells in direction y,
+            //                                      patch_dim[2] = #cells in direction z.
+            // @param parents_cell8corners_indices_storage    Indices of the 8 corners of each parent cell.
             // @param all_geom                      Geometry Policy for the refined geometries.
-            // @param cell8corners_indices_storage  To store the indices of the 8 corners of each
-            //                                      child cell of all each parent cells.
+            //          ----------  Old notation 'global_refined_*' changed  by 'children_*' ----------
+            // @param children_cell8corners_indices_storage   Indices of the 8 corners of each child.
+            // @param children_cell_to_face         For each child-cell, its 6 faces.
+            // @param children_face_to_point        For each face of each child-cell, its 4 cornes.
+            // @param children_face_to_cell         For each face of each child-cell, its (at most 2) neighboring cell(s).
+            // @param children_face_tags            For each each face of each child-cell, its face tag (I_FACE, J_FACE, K_FACE).
+            // @param children_face_normals         For each face of each child-cell, its normal.
             void refine_patch(const std::array<int,3>& cells_per_dim,
-                              // EACH parent cell will have (\Pi_{l=0}^2 cells_per_dim[l]) children cells.
                               std::vector<cpgrid::Geometry<3,3>> patch_to_refine,
-                              // We assume for now its a 'regular patch' meaning it's a collection/block of
-                              // (connected) cells.
                               std::vector<int> patch_cells_indices,
-                              const std::array<int,3>& patch_dim,  // may differ from 'grid size'
-                              // patch_dim[0] = #cells in direction x,
-                              // patch_dim[1] = #cells in direction y,
-                              // patch_dim[2] = #cells in direction z.
-                              // Parent cells, 8 corners -> 'parents_cell_to_point' = 'parents_cell8corners_indices_storage'
+                              const std::array<int,3>& patch_dim,
                               std::vector<std::array<int,8>> parents_cell8corners_indices_storage,
                               DefaultGeometryPolicy& all_geom,
-                              // Old notation 'global_refined_*' changed  by 'children_*'
                               std::vector<std::array<int,8>>& children_cell8corners_indices_storage,
                               cpgrid::OrientedEntityTable<0,1>& children_cell_to_face,
                               Opm::SparseTable<int>& children_face_to_point,
@@ -1106,7 +1122,6 @@ namespace Dune
                                       children_face_to_cell,
                                       children_face_tags,
                                       children_face_normals);
-
             } // END refine_patch()--------------------
 
         private:
