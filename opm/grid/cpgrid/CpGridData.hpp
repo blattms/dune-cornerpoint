@@ -255,6 +255,72 @@ public:
         ijk[2] = gc / logical_cartesian_size_[1];
     }
 
+    // Refine a (connected block of cells) patch
+    void refine_block_patch(const std::array<int,3>& cells_per_dim,
+                            std::array<int,3> start_ijk, std::array<int,3> end_ijk,
+                            //Dune::CpGrid& refined_grid
+                            DefaultGeometryPolicy& cellfied_patch_geometry,
+                            DefaultGeometryPolicy& children_geometries,
+                            std::vector<std::array<int,8>>& children_cell_to_point,
+                            cpgrid::OrientedEntityTable<0,1>& children_cell_to_face,
+                            Opm::SparseTable<int>& children_face_to_point,
+                            cpgrid::OrientedEntityTable<1,0>& children_face_to_cell,
+                            cpgrid::EntityVariable<enum face_tag,1>& children_face_tags,
+                            cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& children_face_normals)
+    {
+        // Patch information (built from the grid).
+        const std::array<int,3> patch_dim = {end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]};
+        std::vector<int> patch_cells_indices;
+        patch_cells_indices.resize(patch_dim[0]*patch_dim[1]*patch_dim[2]);
+        for (int k = start_ijk[2]; k < end_ijk[2]; ++k) {
+            for (int j = start_ijk[1]; j < end_ijk[1]; ++j) {
+                for (int i = start_ijk[0]; i < end_ijk[0]; ++i) {
+                    patch_cells_indices.push_back(global_cell_[(k*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                                               + (j*logical_cartesian_size_[1]) + i]);
+                } // end i-for-loop
+            } // end j-for-loop
+        } // end k-for-loop
+        std::vector<cpgrid::Geometry<3,3>> patch_to_refine;
+        std::vector<std::array<int,8>> parents_cell_to_point;  // old "parents_cell8corners_indices_storage"
+        patch_to_refine.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
+        parents_cell_to_point.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
+        for (auto idx : patch_cells_indices) {
+            patch_to_refine.push_back((geometry_.geomVector(std::integral_constant<int,3>()))[idx]);
+            parents_cell_to_point.push_back(cell_to_point_[idx]);
+        }
+        // DefaultGeometryPolicy& all_geom // Now, it's "geometry_" (for grid where parents live in)
+        // Children/Refined containers
+        //Dune::CpGrid refined_grid;
+        //  auto& child_view_data = *refined_grid.current_view_data_;
+        /* DefaultGeometryPolicy&             children_geometries;// = child_view_data.geometry_;
+        std::vector<std::array<int,8>>&   children_cell_to_point;// = child_view_data.cell_to_point_;
+        // old children_cell8corners_indices_storage
+        cpgrid::OrientedEntityTable<0,1>& children_cell_to_face;// = child_view_data.cell_to_face_;
+        Opm::SparseTable<int>&             children_face_to_point;// = child_view_data.face_to_point_;
+        cpgrid::OrientedEntityTable<1,0>&  children_face_to_cell;// = child_view_data.face_to_cell_;
+        cpgrid::EntityVariable<enum face_tag,1>& children_face_tag; //= child_view_data.face_tag_;
+        cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& children_face_normals;// = child_view_data.face_normals_;*/
+
+         // Construct the Geometry of the CEELfied PATCH.
+        Dune::cpgrid::Geometry<3,3> cellfied_patch;
+        cellfied_patch.cellfy_a_patch(patch_to_refine,
+                                                      patch_cells_indices,
+                                                      patch_dim,
+                                                      parents_cell_to_point,
+                                                      cellfied_patch_geometry);
+        // Refine the cell "cellfied_patch"
+        cellfied_patch.refine({cells_per_dim[0]*patch_dim[0], cells_per_dim[1]*patch_dim[1], cells_per_dim[2]*patch_dim[2]},
+                              children_geometries,
+                              children_cell_to_point,
+                              children_cell_to_face,
+                              children_face_to_point,
+                              children_face_to_cell,
+                              children_face_tags,
+                              children_face_normals);
+        //   return refined_grid;
+    }
+
+
     // Make unique boundary ids for all intersections.
     void computeUniqueBoundaryIds();
 
