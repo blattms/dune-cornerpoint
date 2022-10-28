@@ -997,7 +997,7 @@ namespace Dune
                 /// --- END GLOBAL REFINED CELLS ---
             } /// --- END of refine()
 
-
+            // Construct a 'huge cell' out of a patch of connected (consecutive in each direction) cells.
             // CELL-FICATION OF A PATCH
             // This function takes a patch and build a cell out of it.
             // The function takes a connected patch formed by the product of consecutive cells in each direction, and
@@ -1024,8 +1024,8 @@ namespace Dune
                 // to find the min_i, max_i, min_j, max_j, min_k, max_k,
                 // to 'cell-fy' the patch (treating the patch as a 'huge cell')
                 std::array<int,2> min_max_indices = {
-                    std::min_element(patch_cells_indices.begin(), patch_cells_indices.end()),
-                    std::max_element(patch_cells_indices.begin(), patch_cells_indices.end())};
+                    *std::min_element(patch_cells_indices.begin(), patch_cells_indices.end()),
+                    *std::max_element(patch_cells_indices.begin(), patch_cells_indices.end())};
                 // Get min/max-ijk indices out of "min_max_indices"
                 std::vector<std::array<int,3>> min_max_ijk_indices;
                 for (auto& idx : min_max_indices) {
@@ -1065,7 +1065,7 @@ namespace Dune
                         parents_cell8corners_indices_storage[selected_boundary_cell_indices[l]][l];
                 }
                 // Center of the cell'fied' patch
-                GlobalCoordinate cellfied_patch_center;
+                Geometry::GlobalCoordinate cellfied_patch_center;
                 for (auto idx : cellfied_patch8corners_indices_storage) {
                     cellfied_patch_center += patch_to_refine[idx].center()/8.;
                 }
@@ -1077,65 +1077,13 @@ namespace Dune
                 // Create a pointer to the first element of "cellfied_patch8corners_indices_storage"
                 // (required as the fourth argement to construct a Geometry<3,3> type object).
                 // (QUESION: Do we need 'other' corners?)
-                int* cellfied_patch_indices_storage_ptr = cellfied_patch8corners_indices_storage[0];
+                int* cellfied_patch_indices_storage_ptr = &cellfied_patch8corners_indices_storage[0];
                 // Construct (and return) the Geometry of the CEELfied PATCH.
                 return Geometry<3,3>(cellfied_patch_center, cellfied_patch_volume,
                                      cellfied_patch_geometry.geomVector(std::integral_constant<int,3>()),
                                      cellfied_patch_indices_storage_ptr);
             }
-
-
-            // REFINE A PATCH of CONNECTED (CONSECUTIVE in each direction) cells with 'uniform' regular intervals.
-            // (meaning that the amount of children per cell is the same for all parent cells (cells of the patch).
-            // @param cells_per_dim                 The number of sub-cells in each direction (for each cell).
-            //                                      EACH parent cell will have (\Pi_{l=0}^2 cells_per_dim[l]) children cells.
-            // @param patch_to_refine               Vector of cpgrid::Geometry<3,3> type with cells to be refined.
-            // @param patch_cells_indices           Indices of the cells from the grid that we want to refine, or, equivalently,
-            //                                      indices of the cells that belong to the patch.
-            // @param patch_dim                     We assume for now its a 'regular patch' meaning it's a collection/block of
-            //                                      (connected 'conecutive in each direction') cells.
-            //                                      May differ from 'grid size'
-            //                                      patch_dim[0] = #cells in direction x,
-            //                                      patch_dim[1] = #cells in direction y,
-            //                                      patch_dim[2] = #cells in direction z.
-            // @param parents_cell8corners_indices_storage    Indices of the 8 corners of each parent cell.
-            // @param all_geom                      Geometry Policy for the refined geometries.
-            //          ----------  Old notation 'global_refined_*' changed  by 'children_*' ----------
-            // @param children_cell8corners_indices_storage   Indices of the 8 corners of each child.
-            // @param children_cell_to_face         For each child-cell, its 6 faces.
-            // @param children_face_to_point        For each face of each child-cell, its 4 cornes.
-            // @param children_face_to_cell         For each face of each child-cell, its (at most 2) neighboring cell(s).
-            // @param children_face_tags            For each each face of each child-cell, its face tag (I_FACE, J_FACE, K_FACE).
-            // @param children_face_normals         For each face of each child-cell, its normal.
-            void refine_patch(const std::array<int,3>& cells_per_dim,
-                              std::vector<cpgrid::Geometry<3,3>> patch_to_refine,
-                              std::vector<int> patch_cells_indices,
-                              const std::array<int,3>& patch_dim,
-                              std::vector<std::array<int,8>> parents_cell8corners_indices_storage,
-                              DefaultGeometryPolicy& cellfied_patch_geometry,
-                              DefaultGeometryPolicy& children_geometries,
-                              std::vector<std::array<int,8>>& children_cell8corners_indices_storage,
-                              cpgrid::OrientedEntityTable<0,1>& children_cell_to_face,
-                              Opm::SparseTable<int>& children_face_to_point,
-                              cpgrid::OrientedEntityTable<1,0>& children_face_to_cell,
-                              cpgrid::EntityVariable<enum face_tag, 1>& children_face_tags,
-                              cpgrid::SignedEntityVariable<PointType, 1>& children_face_normals)
-            {
-                // Construct the Geometry of the CEELfied PATCH.
-                Geometry<3,3> cellfied_patch = cellfy_a_patch(patch_to_refine, patch_cells_indices,
-                                                              patch_dim, parents_cell8corners_indices_storage,
-                                                              cellfied_patch_geometry);
-                // Refine the cell "cellfied_patch"
-                cellfied_patch.refine({cells_per_dim[0]*patch_dim[0], cells_per_dim[1]*patch_dim[1], cells_per_dim[2]*patch_dim[2]},
-                                      children_geometries,
-                                      children_cell8corners_indices_storage,
-                                      children_cell_to_face,
-                                      children_face_to_point,
-                                      children_face_to_cell,
-                                      children_face_tags,
-                                      children_face_normals);
-            } // END refine_patch()--------------------
-
+   
         private:
             GlobalCoordinate pos_;
             double vol_;
