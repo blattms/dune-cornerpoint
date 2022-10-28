@@ -1018,7 +1018,7 @@ namespace Dune
                                           std::vector<int> patch_cells_indices,
                                           const std::array<int,3>& patch_dim,
                                           std::vector<std::array<int,8>> parents_cell8corners_indices_storage,
-                                          DefaultGeometryPolicy& all_geom)
+                                          DefaultGeometryPolicy& cellfied_patch_geometry)
             {
                 // Get the minimum and maximum of "patch_cells_indices"
                 // to find the min_i, max_i, min_j, max_j, min_k, max_k,
@@ -1080,7 +1080,7 @@ namespace Dune
                 int* cellfied_patch_indices_storage_ptr = cellfied_patch8corners_indices_storage[0];
                 // Construct (and return) the Geometry of the CEELfied PATCH.
                 return Geometry<3,3>(cellfied_patch_center, cellfied_patch_volume,
-                                     all_geom.geomVector(std::integral_constant<int,3>()),
+                                     cellfied_patch_geometry.geomVector(std::integral_constant<int,3>()),
                                      cellfied_patch_indices_storage_ptr);
             }
 
@@ -1112,7 +1112,8 @@ namespace Dune
                               std::vector<int> patch_cells_indices,
                               const std::array<int,3>& patch_dim,
                               std::vector<std::array<int,8>> parents_cell8corners_indices_storage,
-                              DefaultGeometryPolicy& all_geom,
+                              DefaultGeometryPolicy& cellfied_patch_geometry,
+                              DefaultGeometryPolicy& children_geometries,
                               std::vector<std::array<int,8>>& children_cell8corners_indices_storage,
                               cpgrid::OrientedEntityTable<0,1>& children_cell_to_face,
                               Opm::SparseTable<int>& children_face_to_point,
@@ -1123,10 +1124,10 @@ namespace Dune
                 // Construct the Geometry of the CEELfied PATCH.
                 Geometry<3,3> cellfied_patch = cellfy_a_patch(patch_to_refine, patch_cells_indices,
                                                               patch_dim, parents_cell8corners_indices_storage,
-                                                              all_geom);
+                                                              cellfied_patch_geometry);
                 // Refine the cell "cellfied_patch"
                 cellfied_patch.refine({cells_per_dim[0]*patch_dim[0], cells_per_dim[1]*patch_dim[1], cells_per_dim[2]*patch_dim[2]},
-                                      all_geom,
+                                      children_geometries,
                                       children_cell8corners_indices_storage,
                                       children_cell_to_face,
                                       children_face_to_point,
