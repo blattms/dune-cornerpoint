@@ -264,9 +264,16 @@ public:
     // @param start_ijk                     The minimum values of i,j, k to construct the patch.
     // @param end_ijk                       The maximum values of i,j,k to construct the patch.
     // @param refined_grid                  To store the refined data in a CpGridData object.
-    CpGridData refine_block_patch(const std::array<int,3>& cells_per_dim,
-                                  std::array<int,3> start_ijk, std::array<int,3> end_ijk,
-                                  CpGridData& refined_grid)
+    // @param parents_to_children           To store the indices of all the children of each parent.
+    // @param children_to_parents           To store the index of the parent of each child.
+    // std::tuple< CpGridData,
+                // std::vector<std::array<int,2>> >
+    // std::vector<int> >
+    void refine_block_patch(const std::array<int,3>& cells_per_dim,
+                       std::array<int,3> start_ijk, std::array<int,3> end_ijk,
+                            CpGridData& refined_grid,
+                            std::vector<std::array<int,2>>& parent_to_child,
+                            std::vector<int>& child_to_parent)
     {
         DefaultGeometryPolicy& children_geometries = refined_grid.geometry_;
         std::vector<std::array<int,8>>& children_cell_to_point = refined_grid.cell_to_point_;
@@ -275,17 +282,16 @@ public:
         cpgrid::OrientedEntityTable<1,0>& children_face_to_cell = refined_grid.face_to_cell_;
         cpgrid::EntityVariable<enum face_tag,1>& children_face_tags = refined_grid.face_tag_;
         cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& children_face_normals = refined_grid.face_normals_;
-
+        
         // Patch information (built from the grid).
-        const std::array<int,3> patch_dim = {end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]};
+        const std::array<int,3> patch_dim = {end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]}; 
         std::vector<int> patch_cells_indices;
         patch_cells_indices.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
         for (int k = 0; k < patch_dim[2]; ++k) {
             for (int j = 0; j < patch_dim[1]; ++j) {
                 for (int i = 0; i < patch_dim[0]; ++i) {
-                    patch_cells_indices.push_back(global_cell_[((start_ijk[2]+ k)*logical_cartesian_size_[0]*logical_cartesian_size_[1])
-                                                               + ((start_ijk[1]+j)*logical_cartesian_size_[1])
-                                                               + start_ijk[0] +i]);
+                    patch_cells_indices.push_back(((start_ijk[2]+ k)*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                                               + ((start_ijk[1]+j)*logical_cartesian_size_[1])+ start_ijk[0] +i);
                 } // end i-for-loop
             } // end j-for-loop
         } // end k-for-loop
@@ -313,7 +319,39 @@ public:
                               children_face_to_cell,
                               children_face_tags,
                               children_face_normals);
-        return refined_grid;
+        // To store children indices for each parent. Each entry looks like
+        // {parent index in the coarse grid, index of one of its children in the refined grid}
+        // std::vector<std::array<int,2>> parent_to_children;
+        parent_to_child.reserve(cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]);
+        // To store parent index for each child. The children are numbering
+        // following the rule of moving first in the x-axes (from left to right),
+        // then y-axes (from front to back), finally z-axes (from bottom to top).
+        //  std::vector<int> child_to_parent;
+        child_to_parent.resize(cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]);
+        for (int k = 0; k < patch_dim[2]; ++k) {
+            for (int j = 0; j < patch_dim[1]; ++j) {
+                for (int i = 0; i < patch_dim[0]; ++i) {
+                    for (int n = k*cells_per_dim[2]; n < (k+1)*cells_per_dim[2]; ++n) {
+                        for (int m = j*cells_per_dim[1]; m < (j+1)*cells_per_dim[1]; ++m) {
+                            for (int l = i*cells_per_dim[0]; l < (i+1)*cells_per_dim[0]; ++l) {
+                                parent_to_child.push_back({
+                                        //parent index in the coarse grid
+                                        patch_cells_indices[(k*patch_dim[0]*patch_dim[1]) + (j*patch_dim[0]) + i],
+                                        // one of its child indices
+                                        (n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
+                                        + (m*cells_per_dim[0]*patch_dim[0]) + l}); 
+                                  child_to_parent[(n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
+                                                     + (m*cells_per_dim[0]*patch_dim[0]) + l]
+                                   = patch_cells_indices[(k*patch_dim[0]*patch_dim[1]) + (j*patch_dim[0]) + i];
+                                    }// end l-for-loop
+                            } // end m-for-loop
+                        } // end n-for-loop
+                    } // end i-for-loop
+                } // end j-for-loop
+        } // end k-for-loop
+        
+        // return {refined_grid, //parent_to_children}; // ,
+        // child_to_parent};
     }
 
 
