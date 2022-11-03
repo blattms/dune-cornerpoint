@@ -135,7 +135,7 @@ class CpGridData
     template<class T, int i> friend struct mover::Mover;
 
     friend class GlobalIdSet;
-
+    
     friend
     void ::refine_and_check(const Dune::cpgrid::Geometry<3, 3>&,
                             const std::array<int, 3>&,
@@ -295,23 +295,37 @@ public:
     //                                      EACH parent cell will have (\Pi_{l=0}^2 cells_per_dim[l]) children cells.
     // @param start_ijk                     The minimum values of i,j, k to construct the patch.
     // @param end_ijk                       The maximum values of i,j,k to construct the patch.
-    // @param refined_grid                  To store the refined data in a CpGridData object.
+    // @param refined_grid                  To store the refined data in a CpGridData object. ISSUE RETURNING!!!!!!!!!!!!
     // @param parents_to_children           To store the indices of all the children of each parent.
-    // @param children_to_parents           To store the index of the parent of each child.
-    // std::tuple< CpGridData,
-                // std::vector<std::array<int,2>> >
-    // std::vector<int> >
-    std::tuple<std::vector<std::array<int,2>>, std::vector<int>> refine_block_patch(const std::array<int,3>& cells_per_dim,
-                            std::array<int,3> start_ijk, std::array<int,3> end_ijk,
-                            CpGridData& refined_grid)
+    // @param children_to_parents           To store the index of the parent of each child.     
+    std::tuple< //CpGridData,
+                std::vector<std::array<int,2>>, std::vector<int>>
+    /* struct CpGridDataExtended
     {
+        Dune::cpgrid::CpGridData refined_grid_;
+        std::vector<std::array<int,2>> parent_to_child_;
+        std::vector<int> child_to_parent_;
+    };
+    CpGridDataExtended*/
+    refine_block_patch(const std::array<int,3>& cells_per_dim,
+                            std::array<int,3> start_ijk, std::array<int,3> end_ijk)
+    {
+        //CpGridDataExtended extended_refined_grid;
+        CpGridData refined_grid;
         DefaultGeometryPolicy& children_geometries = refined_grid.geometry_;
         std::vector<std::array<int,8>>& children_cell_to_point = refined_grid.cell_to_point_;
         cpgrid::OrientedEntityTable<0,1>& children_cell_to_face = refined_grid.cell_to_face_;
         Opm::SparseTable<int>& children_face_to_point = refined_grid.face_to_point_;
         cpgrid::OrientedEntityTable<1,0>& children_face_to_cell = refined_grid.face_to_cell_;
         cpgrid::EntityVariable<enum face_tag,1>& children_face_tags = refined_grid.face_tag_;
-        cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& children_face_normals = refined_grid.face_normals_; 
+        cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& children_face_normals = refined_grid.face_normals_;
+
+        // @todo
+        cpgrid::EntityVariable<int, 1> unique_boundary_ids_; //  Boundary ids.
+        cpgrid::IndexSet* index_set_; // Index set of the grid (level)
+        const cpgrid::IdSet* local_id_set_; // Internal local id set (not exported).
+        LevelGlobalIdSet* global_id_set_;  // Global id set (used also as local id set).
+        PartitionTypeIndicator* partition_type_indicator_; // Indicator of the partition type of the entities.
         
         // Patch information (built from the grid).
         const std::array<int,3> patch_dim = {end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]}; 
@@ -351,12 +365,12 @@ public:
                               children_face_normals);
         // To store children indices for each parent. Each entry looks like
         // {parent index in the coarse grid, index of one of its children in the refined grid}
-        std::vector<std::array<int,2>> parent_to_child;
+        std::vector<std::array<int,2>> parent_to_child; // = extended_refined_grid.parent_to_child_;
         parent_to_child.reserve(cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]);
         // To store parent index for each child. The children are numbering
         // following the rule of moving first in the x-axes (from left to right),
         // then y-axes (from front to back), finally z-axes (from bottom to top).
-        std::vector<int> child_to_parent;
+        std::vector<int> child_to_parent; // = extended_refined_grid.child_to_parent_;
         child_to_parent.resize(cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]);
         for (int k = 0; k < patch_dim[2]; ++k) {
             for (int j = 0; j < patch_dim[1]; ++j) {
@@ -379,13 +393,32 @@ public:
                     } // end i-for-loop
                 } // end j-for-loop
         } // end k-for-loop
+        /* extended_refined_grid.refined_grid_ = refined_grid;
+        extended_refined_grid.parent_to_child_ = parent_to_child;
+        extended_refined_grid.child_to_parent_ = child_to_parent; */
+
+        /*// IN PROGREES 
+        // Index of the cells of 'the leafgrid' (nonrefined cells from level 0 + refined cells)
+        std::vector<int> leaf_cell_indices;
+        // Determine "leaf_cell_indices"
+        // (Level 0 grid size) - Patch + (Total Children)
+        leaf_cell_indices.reserve((logical_cartesian_size_[0]*logical_cartesian_size_[1]*logical_cartesian_size_[2])
+                                 - (patch_dim[0]*patch_dim[1]*patch_dim[2])
+                                 + cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]);
+        // Construction 'based on Figure 5.16 DUNE book'
+        for (int idx = 0; idx < (logical_cartesian_size_[0]*logical_cartesian_size_[1]*logical_cartesian_size_[2])
+                                 - (patch_dim[0]*patch_dim[1]*patch_dim[2])
+                 + cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]; ++idx) {
+            if (idx <(logical_cartesian_size_[0]*logical_cartesian_size_[1]*logical_cartesian_size_[2])
+                - (patch_dim[0]*patch_dim[1]*patch_dim[2])) {
+                leaf_cell_indices[idx] = idx;     
+            }
+        }*/
         
-        // return {refined_grid, //parent_to_children}; // ,
-        // child_to_parent};
-        return {parent_to_child, child_to_parent};
+        return //{ refined_grid,
+                 {parent_to_child, child_to_parent};
     }
-
-
+    
     // Make unique boundary ids for all intersections.
     void computeUniqueBoundaryIds();
 
@@ -705,6 +738,8 @@ private:
     friend class Intersection;
     friend class PartitionTypeIndicator;
 };
+
+
 
 #if HAVE_MPI
 
