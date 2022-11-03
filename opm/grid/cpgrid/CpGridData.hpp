@@ -255,7 +255,39 @@ public:
         ijk[1] = gc % logical_cartesian_size_[1];
         ijk[2] = gc / logical_cartesian_size_[1];
     }
-    
+
+    /*
+    // Refine a single cell and return a CpGridData object
+    // REFINE A SINGLE CELL
+    // @param cells_per_dim                 Number of sub-cells in each direction.
+    // @param parent_ijk                    Parent ijk index
+    CpGridData refine_single_cell(const std::array<int,3>& cells_per_dim,
+                                  std::array<int,3> parent_ijk)
+    {
+        CpGridData refined_grid;
+        DefaultGeometryPolicy& children_geometries = refined_grid.geometry_;
+        std::vector<std::array<int,8>>& children_cell_to_point = refined_grid.cell_to_point_;
+        cpgrid::OrientedEntityTable<0,1>& children_cell_to_face = refined_grid.cell_to_face_;
+        Opm::SparseTable<int>& children_face_to_point = refined_grid.face_to_point_;
+        cpgrid::OrientedEntityTable<1,0>& children_face_to_cell = refined_grid.face_to_cell_;
+        cpgrid::EntityVariable<enum face_tag,1>& children_face_tags = refined_grid.face_tag_;
+        cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& children_face_normals = refined_grid.face_normals_;
+        // Get parent index
+        int parent_idx = (parent_ijk[2]*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+            + (parent_ijk[1]*logical_cartesian_size_[1]) + parent_ijk[0];
+        // Get parent cell
+        cpgrid::Geometry<3,3> parent_cell = geometry_.geomVector(std::integral_constant<int,0>())[EntityRep<0>(parent_idx, true)];
+        // Refine parent cell
+        parent_cell.refine({cells_per_dim[0], cells_per_dim[1], cells_per_dim[2]},
+                           children_geometries,
+                           children_cell_to_point,
+                           children_cell_to_face,
+                           children_face_to_point,
+                           children_face_to_cell,
+                           children_face_tags,
+                           children_face_normals);
+        return refined_grid;
+    } */
     // Refine a (connected block of cells) patch
     // REFINE A PATCH of CONNECTED (CONSECUTIVE in each direction) cells with 'uniform' regular intervals.
     // (meaning that the amount of children per cell is the same for all parent cells (cells of the patch).
@@ -269,11 +301,9 @@ public:
     // std::tuple< CpGridData,
                 // std::vector<std::array<int,2>> >
     // std::vector<int> >
-    void refine_block_patch(const std::array<int,3>& cells_per_dim,
-                       std::array<int,3> start_ijk, std::array<int,3> end_ijk,
-                            CpGridData& refined_grid,
-                            std::vector<std::array<int,2>>& parent_to_child,
-                            std::vector<int>& child_to_parent)
+    std::tuple<std::vector<std::array<int,2>>, std::vector<int>> refine_block_patch(const std::array<int,3>& cells_per_dim,
+                            std::array<int,3> start_ijk, std::array<int,3> end_ijk,
+                            CpGridData& refined_grid)
     {
         DefaultGeometryPolicy& children_geometries = refined_grid.geometry_;
         std::vector<std::array<int,8>>& children_cell_to_point = refined_grid.cell_to_point_;
@@ -281,7 +311,7 @@ public:
         Opm::SparseTable<int>& children_face_to_point = refined_grid.face_to_point_;
         cpgrid::OrientedEntityTable<1,0>& children_face_to_cell = refined_grid.face_to_cell_;
         cpgrid::EntityVariable<enum face_tag,1>& children_face_tags = refined_grid.face_tag_;
-        cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& children_face_normals = refined_grid.face_normals_;
+        cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& children_face_normals = refined_grid.face_normals_; 
         
         // Patch information (built from the grid).
         const std::array<int,3> patch_dim = {end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]}; 
@@ -321,12 +351,12 @@ public:
                               children_face_normals);
         // To store children indices for each parent. Each entry looks like
         // {parent index in the coarse grid, index of one of its children in the refined grid}
-        // std::vector<std::array<int,2>> parent_to_children;
+        std::vector<std::array<int,2>> parent_to_child;
         parent_to_child.reserve(cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]);
         // To store parent index for each child. The children are numbering
         // following the rule of moving first in the x-axes (from left to right),
         // then y-axes (from front to back), finally z-axes (from bottom to top).
-        //  std::vector<int> child_to_parent;
+        std::vector<int> child_to_parent;
         child_to_parent.resize(cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]);
         for (int k = 0; k < patch_dim[2]; ++k) {
             for (int j = 0; j < patch_dim[1]; ++j) {
@@ -352,6 +382,7 @@ public:
         
         // return {refined_grid, //parent_to_children}; // ,
         // child_to_parent};
+        return {parent_to_child, child_to_parent};
     }
 
 
