@@ -94,6 +94,7 @@ list (APPEND TEST_SOURCE_FILES
   tests/cpgrid/orientedentitytable_test.cpp
   tests/cpgrid/partition_iterator_test.cpp
   tests/cpgrid/zoltan_test.cpp
+  tests/cpgrid/test_cpgriddata_no_compile.cpp
   tests/test_geom2d.cpp
   tests/test_gridutilities.cpp
   tests/test_minpvprocessor.cpp
