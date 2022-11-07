@@ -161,7 +161,7 @@ public:
         /// communicating. Uses the define MAX_DATA_COMMUNICATED_PER_ENTITY.
         MAX_DATA_PER_CELL = MAX_DATA_COMMUNICATED_PER_ENTITY
 #endif
-    };
+    };     
 
     /// Constructor for parallel grid data.
     /// \param comm The MPI communicator
@@ -256,7 +256,7 @@ public:
         ijk[2] = gc / logical_cartesian_size_[1];
     }
 
-    /*
+    
     // Refine a single cell and return a CpGridData object
     // REFINE A SINGLE CELL
     // @param cells_per_dim                 Number of sub-cells in each direction.
@@ -287,7 +287,7 @@ public:
                            children_face_tags,
                            children_face_normals);
         return refined_grid;
-    } */
+    } 
     // Refine a (connected block of cells) patch
     // REFINE A PATCH of CONNECTED (CONSECUTIVE in each direction) cells with 'uniform' regular intervals.
     // (meaning that the amount of children per cell is the same for all parent cells (cells of the patch).
@@ -298,19 +298,11 @@ public:
     // @param refined_grid                  To store the refined data in a CpGridData object. ISSUE RETURNING!!!!!!!!!!!!
     // @param parents_to_children           To store the indices of all the children of each parent.
     // @param children_to_parents           To store the index of the parent of each child.     
-    std::tuple< //CpGridData,
-                std::vector<std::array<int,2>>, std::vector<int>>
-    /* struct CpGridDataExtended
+    // std::tuple<CpGridData,std::vector<std::array<int,2>>, std::vector<int>>
+    CpGridData refine_block_patch(const std::array<int,3>& cells_per_dim,
+                                  std::array<int,3> start_ijk, std::array<int,3> end_ijk)
+    //  CpGridData& refined_grid)
     {
-        Dune::cpgrid::CpGridData refined_grid_;
-        std::vector<std::array<int,2>> parent_to_child_;
-        std::vector<int> child_to_parent_;
-    };
-    CpGridDataExtended*/
-    refine_block_patch(const std::array<int,3>& cells_per_dim,
-                            std::array<int,3> start_ijk, std::array<int,3> end_ijk)
-    {
-        //CpGridDataExtended extended_refined_grid;
         CpGridData refined_grid;
         DefaultGeometryPolicy& children_geometries = refined_grid.geometry_;
         std::vector<std::array<int,8>>& children_cell_to_point = refined_grid.cell_to_point_;
@@ -321,11 +313,11 @@ public:
         cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& children_face_normals = refined_grid.face_normals_;
 
         // @todo
-        cpgrid::EntityVariable<int, 1> unique_boundary_ids_; //  Boundary ids.
+        //  cpgrid::EntityVariable<int, 1> unique_boundary_ids_; //  Boundary ids.
         cpgrid::IndexSet* index_set_; // Index set of the grid (level)
         const cpgrid::IdSet* local_id_set_; // Internal local id set (not exported).
         LevelGlobalIdSet* global_id_set_;  // Global id set (used also as local id set).
-        PartitionTypeIndicator* partition_type_indicator_; // Indicator of the partition type of the entities.
+        //    PartitionTypeIndicator* partition_type_indicator_; // Indicator of the partition type of the entities.
         
         // Patch information (built from the grid).
         const std::array<int,3> patch_dim = {end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]}; 
@@ -393,11 +385,8 @@ public:
                     } // end i-for-loop
                 } // end j-for-loop
         } // end k-for-loop
-        /* extended_refined_grid.refined_grid_ = refined_grid;
-        extended_refined_grid.parent_to_child_ = parent_to_child;
-        extended_refined_grid.child_to_parent_ = child_to_parent; */
-
-        /*// IN PROGREES 
+        
+        // IN PROGREES 
         // Index of the cells of 'the leafgrid' (nonrefined cells from level 0 + refined cells)
         std::vector<int> leaf_cell_indices;
         // Determine "leaf_cell_indices"
@@ -413,10 +402,9 @@ public:
                 - (patch_dim[0]*patch_dim[1]*patch_dim[2])) {
                 leaf_cell_indices[idx] = idx;     
             }
-        }*/
+        }
         
-        return //{ refined_grid,
-                 {parent_to_child, child_to_parent};
+        return  refined_grid; // {refined_grid, parent_to_child, child_to_parent};
     }
     
     // Make unique boundary ids for all intersections.
