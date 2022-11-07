@@ -279,9 +279,10 @@ public:
     std::shared_ptr<Dune::cpgrid::CpGridData>
     //data_ptr
     refine_single_cell(const std::array<int,3>& cells_per_dim,
-                       std::array<int,3> parent_ijk)
+                       std::array<int,3> parent_ijk,
+                       CpGridData& refined_grid)
     {
-        CpGridData refined_grid;
+        //CpGridData refined_grid;
         DefaultGeometryPolicy& refined_geometries = refined_grid.geometry_;
         std::vector<std::array<int,8>>& refined_cell_to_point = refined_grid.cell_to_point_;
         cpgrid::OrientedEntityTable<0,1>& refined_cell_to_face = refined_grid.cell_to_face_;
