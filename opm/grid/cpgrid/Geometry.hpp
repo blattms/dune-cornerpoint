@@ -1002,12 +1002,12 @@ namespace Dune
             //                                      patch_dim[0] = #cells in direction x,
             //                                      patch_dim[1] = #cells in direction y,
             //                                      patch_dim[2] = #cells in direction z.
-            // @param parents_cell8corners_indices_storage    Indices of the 8 corners of each parent cell.
+            // @param parents_cell_to_point         Indices of the 8 corners of each parent cell.
             // @param all_geom                      Geometry Policy for the refined geometries.
             Geometry<3,3> cellfy_a_patch( std::vector<cpgrid::Geometry<3,3>> patch_to_refine,
                                           std::vector<int> patch_cells_indices,
                                           const std::array<int,3>& patch_dim,
-                                          std::vector<std::array<int,8>> parents_cell8corners_indices_storage,
+                                          std::vector<std::array<int,8>> parents_cell_to_point,
                                           DefaultGeometryPolicy& cellfied_patch_geometry)
             {
                 // Get the minimum and maximum of "patch_cells_indices"
@@ -1049,29 +1049,28 @@ namespace Dune
                     // Index of the boundary cell from where corner '7' will be extracted.
                     min_max_indices[1]};
                 // Container for the 8 corner indices of the 'cellFIED patch'
-                std::array<int,8> cellfied_patch8corners_indices_storage;
+                std::array<int,8> cellfiedPatch_to_point;
                 for (int l = 0; l < 8; ++l) {
-                    cellfied_patch8corners_indices_storage[l] =
-                        parents_cell8corners_indices_storage[selected_boundary_cell_indices[l]][l];
+                    cellfiedPatch_to_point[l] =
+                        parents_cell_to_point[selected_boundary_cell_indices[l]][l];
                 }
                 // Center of the cell'fied' patch
-                Geometry::GlobalCoordinate cellfied_patch_center;
-                for (auto idx : cellfied_patch8corners_indices_storage) {
-                    cellfied_patch_center += patch_to_refine[idx].center()/8.;
+                Geometry::GlobalCoordinate cellfiedPatch_center;
+                for (auto idx : cellfiedPatch_to_point) {
+                    cellfiedPatch_center += patch_to_refine[idx].center()/8.;
                 }
                 // Volume of the cell'fied' patch
-                double cellfied_patch_volume;
+                double cellfiedPatch_volume;
                 for (auto idx : patch_cells_indices) {
-                    cellfied_patch_volume += patch_to_refine[idx].volume();
+                    cellfiedPatch_volume += patch_to_refine[idx].volume();
                 }
-                // Create a pointer to the first element of "cellfied_patch8corners_indices_storage"
+                // Create a pointer to the first element of "cellfiedPatch_to_point"
                 // (required as the fourth argement to construct a Geometry<3,3> type object).
-                // (QUESION: Do we need 'other' corners?)
-                int* cellfied_patch_indices_storage_ptr = &cellfied_patch8corners_indices_storage[0];
+                int* cellfiedPatch_indices_storage_ptr = &cellfiedPatch_to_point[0];
                 // Construct (and return) the Geometry of the CEELfied PATCH.
-                return Geometry<3,3>(cellfied_patch_center, cellfied_patch_volume,
+                return Geometry<3,3>(cellfiedPatch_center, cellfiedPatch_volume,
                                      cellfied_patch_geometry.geomVector(std::integral_constant<int,3>()),
-                                     cellfied_patch_indices_storage_ptr);
+                                     cellfiedPatch_indices_storage_ptr);
             }
    
         private:

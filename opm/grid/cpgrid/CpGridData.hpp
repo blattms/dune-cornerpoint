@@ -93,6 +93,7 @@
 #include "DataHandleWrappers.hpp"
 #include "GlobalIdMapping.hpp"
 #include "Geometry.hpp"
+
 namespace Opm
 {
 class EclipseState;
@@ -256,22 +257,38 @@ public:
         ijk[2] = gc / logical_cartesian_size_[1];
     }
 
+     /* All the data of all grids are stored there and
+         calls are forwarded to relevant grid.
+        std::vector<std::shared_ptr<cpgrid::CpGridData>> data_;
+         @brief A pointer to data of the current
+        cpgrid::CpGridData* current_view_data_;
+     */
+     
+    /*struct data_ptr
+    {
+        std::shared_ptr<Dune::cpgrid::CpGridData> data;
+        };*/
     
+        
     // Refine a single cell and return a CpGridData object
     // REFINE A SINGLE CELL
     // @param cells_per_dim                 Number of sub-cells in each direction.
-    // @param parent_ijk                    Parent ijk index
-    CpGridData refine_single_cell(const std::array<int,3>& cells_per_dim,
-                                  std::array<int,3> parent_ijk)
+    // @param parent_ijk                    Parent ijk index.
+    // @parem refined_grid                  CpGridData object to store the refinement.
+    // @return data                         Shared pointer pointing at refined_grid.
+    std::shared_ptr<Dune::cpgrid::CpGridData>
+    //data_ptr
+    refine_single_cell(const std::array<int,3>& cells_per_dim,
+                       std::array<int,3> parent_ijk)
     {
         CpGridData refined_grid;
-        DefaultGeometryPolicy& children_geometries = refined_grid.geometry_;
-        std::vector<std::array<int,8>>& children_cell_to_point = refined_grid.cell_to_point_;
-        cpgrid::OrientedEntityTable<0,1>& children_cell_to_face = refined_grid.cell_to_face_;
-        Opm::SparseTable<int>& children_face_to_point = refined_grid.face_to_point_;
-        cpgrid::OrientedEntityTable<1,0>& children_face_to_cell = refined_grid.face_to_cell_;
-        cpgrid::EntityVariable<enum face_tag,1>& children_face_tags = refined_grid.face_tag_;
-        cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& children_face_normals = refined_grid.face_normals_;
+        DefaultGeometryPolicy& refined_geometries = refined_grid.geometry_;
+        std::vector<std::array<int,8>>& refined_cell_to_point = refined_grid.cell_to_point_;
+        cpgrid::OrientedEntityTable<0,1>& refined_cell_to_face = refined_grid.cell_to_face_;
+        Opm::SparseTable<int>& refined_face_to_point = refined_grid.face_to_point_;
+        cpgrid::OrientedEntityTable<1,0>& refined_face_to_cell = refined_grid.face_to_cell_;
+        cpgrid::EntityVariable<enum face_tag,1>& refined_face_tags = refined_grid.face_tag_;
+        cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& refined_face_normals = refined_grid.face_normals_;
         // Get parent index
         int parent_idx = (parent_ijk[2]*logical_cartesian_size_[0]*logical_cartesian_size_[1])
             + (parent_ijk[1]*logical_cartesian_size_[1]) + parent_ijk[0];
@@ -279,14 +296,20 @@ public:
         cpgrid::Geometry<3,3> parent_cell = geometry_.geomVector(std::integral_constant<int,0>())[EntityRep<0>(parent_idx, true)];
         // Refine parent cell
         parent_cell.refine({cells_per_dim[0], cells_per_dim[1], cells_per_dim[2]},
-                           children_geometries,
-                           children_cell_to_point,
-                           children_cell_to_face,
-                           children_face_to_point,
-                           children_face_to_cell,
-                           children_face_tags,
-                           children_face_normals);
-        return refined_grid;
+                           refined_geometries,
+                           refined_cell_to_point,
+                           refined_cell_to_face,
+                           refined_face_to_point,
+                           refined_face_to_cell,
+                           refined_face_tags,
+                           refined_face_normals);
+        // std::shared_ptr<CpGridData> refined_grid_ptr(nullptr);
+        // Dune::cpgrid::CpGridData::data_ptr& Dune::cpgrid::CpGridData::data_ptr::operator=(const Dune::cpgrid::CpGridData::data_ptr& refined)
+        //data = std::make_shared<CpGridData>(refined_grid);
+        //refined_grid_ptr.data = std::make_shared<CpGridData>(refined_grid);
+        // refined_grid_ptr.data;
+        std::shared_ptr<Dune::cpgrid::CpGridData> data = std::make_shared<Dune::cpgrid::CpGridData>(refined_grid);
+        return data; //refined_grid_ptr;
     } 
     // Refine a (connected block of cells) patch
     // REFINE A PATCH of CONNECTED (CONSECUTIVE in each direction) cells with 'uniform' regular intervals.
@@ -295,22 +318,22 @@ public:
     //                                      EACH parent cell will have (\Pi_{l=0}^2 cells_per_dim[l]) children cells.
     // @param start_ijk                     The minimum values of i,j, k to construct the patch.
     // @param end_ijk                       The maximum values of i,j,k to construct the patch.
-    // @param refined_grid                  To store the refined data in a CpGridData object. ISSUE RETURNING!!!!!!!!!!!!
-    // @param parents_to_children           To store the indices of all the children of each parent.
-    // @param children_to_parents           To store the index of the parent of each child.     
-    // std::tuple<CpGridData,std::vector<std::array<int,2>>, std::vector<int>>
-    CpGridData refine_block_patch(const std::array<int,3>& cells_per_dim,
-                                  std::array<int,3> start_ijk, std::array<int,3> end_ijk)
-    //  CpGridData& refined_grid)
+    // @param refined_grid                  To store the refinement in a CpGridData object.
+    // @return refined_grid_ptr             Shared pointer pointing at the refined_grid
+    //         parents_to_children          To store the indices of all the children of each parent.
+    //         children_to_parents          To store the index of the parent of each child.     
+    std::tuple<std::shared_ptr<Dune::cpgrid::CpGridData>,std::vector<std::array<int,2>>, std::vector<int>>  // std::shared_ptr<CpGridData>
+    refine_block_patch(const std::array<int,3>& cells_per_dim,
+                       std::array<int,3> start_ijk, std::array<int,3> end_ijk)
     {
         CpGridData refined_grid;
-        DefaultGeometryPolicy& children_geometries = refined_grid.geometry_;
-        std::vector<std::array<int,8>>& children_cell_to_point = refined_grid.cell_to_point_;
-        cpgrid::OrientedEntityTable<0,1>& children_cell_to_face = refined_grid.cell_to_face_;
-        Opm::SparseTable<int>& children_face_to_point = refined_grid.face_to_point_;
-        cpgrid::OrientedEntityTable<1,0>& children_face_to_cell = refined_grid.face_to_cell_;
-        cpgrid::EntityVariable<enum face_tag,1>& children_face_tags = refined_grid.face_tag_;
-        cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& children_face_normals = refined_grid.face_normals_;
+        DefaultGeometryPolicy& refined_geometries = refined_grid.geometry_;
+        std::vector<std::array<int,8>>& refined_cell_to_point = refined_grid.cell_to_point_;
+        cpgrid::OrientedEntityTable<0,1>& refined_cell_to_face = refined_grid.cell_to_face_;
+        Opm::SparseTable<int>& refined_face_to_point = refined_grid.face_to_point_;
+        cpgrid::OrientedEntityTable<1,0>& refined_face_to_cell = refined_grid.face_to_cell_;
+        cpgrid::EntityVariable<enum face_tag,1>& refined_face_tags = refined_grid.face_tag_;
+        cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& refined_face_normals = refined_grid.face_normals_;
 
         // @todo
         //  cpgrid::EntityVariable<int, 1> unique_boundary_ids_; //  Boundary ids.
@@ -332,7 +355,7 @@ public:
             } // end j-for-loop
         } // end k-for-loop
         std::vector<cpgrid::Geometry<3,3>> patch_to_refine;
-        std::vector<std::array<int,8>> parents_cell_to_point;  // old "parents_cell8corners_indices_storage"
+        std::vector<std::array<int,8>> parents_cell_to_point;  // 
         patch_to_refine.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
         parents_cell_to_point.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
         for (auto idx : patch_cells_indices) {
@@ -348,13 +371,19 @@ public:
                                                                              cellfied_patch_geometry);
         // Refine the cell "cellfied_patch"
         cellfied_patch.refine({cells_per_dim[0]*patch_dim[0], cells_per_dim[1]*patch_dim[1], cells_per_dim[2]*patch_dim[2]},
-                              children_geometries,
-                              children_cell_to_point,
-                              children_cell_to_face,
-                              children_face_to_point,
-                              children_face_to_cell,
-                              children_face_tags,
-                              children_face_normals);
+                              refined_geometries,
+                              refined_cell_to_point,
+                              refined_cell_to_face,
+                              refined_face_to_point,
+                              refined_face_to_cell,
+                              refined_face_tags,
+                              refined_face_normals);
+        //  std::shared_ptr<CpGridData> refined_grid_ptr(nullptr);
+        //refined_grid_ptr = std::make_shared<CpGridData>(refined_grid);
+        // data = refined_grid_ptr;
+        //  refined_grid_ptr.push_back(refined_grid);
+        std::shared_ptr<Dune::cpgrid::CpGridData> data = std::make_shared<Dune::cpgrid::CpGridData>(refined_grid);
+        //
         // To store children indices for each parent. Each entry looks like
         // {parent index in the coarse grid, index of one of its children in the refined grid}
         std::vector<std::array<int,2>> parent_to_child; // = extended_refined_grid.parent_to_child_;
@@ -386,7 +415,7 @@ public:
                 } // end j-for-loop
         } // end k-for-loop
         
-        // IN PROGREES 
+        /* // IN PROGREES 
         // Index of the cells of 'the leafgrid' (nonrefined cells from level 0 + refined cells)
         std::vector<int> leaf_cell_indices;
         // Determine "leaf_cell_indices"
@@ -402,9 +431,9 @@ public:
                 - (patch_dim[0]*patch_dim[1]*patch_dim[2])) {
                 leaf_cell_indices[idx] = idx;     
             }
-        }
+            } */
         
-        return  refined_grid; // {refined_grid, parent_to_child, child_to_parent};
+        return {data, parent_to_child, child_to_parent}; // refined_grid_ptr
     }
     
     // Make unique boundary ids for all intersections.
