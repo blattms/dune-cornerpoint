@@ -505,6 +505,16 @@ void refine_and_check(const cpgrid::Geometry<3, 3>& parent_geometry,
             ++equiv_element_iter;
         }
     }
+
+       // Create a grid that is equivalent to the refinement
+        Dune::CpGrid coarse_grid;
+        std::array<double, 3> cell_sizes = {1.0, 1.0, 1.0};
+        std::array<int, 3> cells_per_dim = {4,3,2};
+        std::array<int, 3> cells_per_dim_patch = {2,2,2};   
+        std::array<int, 3> start_ijk = {2,0,0};
+        std::array<int, 3> end_ijk = {3,1,0};
+        coarse_grid.createCartesian(cells_per_dim, cell_sizes);
+        coarse_grid.current_view_data_->refine_block_patch(cells_per_dim_patch, start_ijk, end_ijk);
 }
 
 BOOST_AUTO_TEST_CASE(refine_simple_cube)
@@ -575,5 +585,9 @@ BOOST_AUTO_TEST_CASE(refine_distorted_cube)
     Geometry g(center, v, pg, cor_idx);
     refine_and_check(g, {1, 1, 1});
     refine_and_check(g, {2, 3, 4});
+    
+}
+BOOST_AUTO_TEST_CASE(refine_patch)
+{
     
 }
