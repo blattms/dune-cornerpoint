@@ -366,8 +366,7 @@ check_refined_grid(const cpgrid::Geometry<3, 3>& parent,
         }
         CHECK_COORDINATES(r.center(), center);
     }
-
-    //  @todo Current Geometry.hpp does not pass this test:
+    
     // Check that the weighted mean of all centers equals the parent center
     GlobalCoordinate center = {0.0, 0.0, 0.0};
     for (auto r : refined) {
@@ -576,4 +575,5 @@ BOOST_AUTO_TEST_CASE(refine_distorted_cube)
     Geometry g(center, v, pg, cor_idx);
     refine_and_check(g, {1, 1, 1});
     refine_and_check(g, {2, 3, 4});
+    
 }

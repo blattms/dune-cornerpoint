@@ -66,6 +66,7 @@
 #include "cpgrid/Intersection.hpp"
 #include "cpgrid/Entity.hpp"
 #include "cpgrid/Geometry.hpp"
+#include "cpgrid/CpGridData.hpp"
 #include "cpgrid/Iterators.hpp"
 #include "cpgrid/Indexsets.hpp"
 #include "cpgrid/DefaultGeometryPolicy.hpp"
@@ -537,6 +538,95 @@ namespace Dune
         {
             return seed;
         }
+
+        // Take an LGR and build a level(view), adding it to a vector of shared pointers
+        // (each pointer points at a different level)
+        // @param data 
+        // @param some_lgr                      Shared point of type CpGridData, with refinement data.
+        // @param cells_per_dim                 Number of sub-cells in each direction (for each cell) in the lgr.
+        // @param start_ijk                     Minimum values of i,j,k where the patch/lgr 'starts'.
+        // @param end_ijk                       Maximum values of i,j,k where the patch/lgr 'ends'.
+        // @return data                         data with new entry!
+        //         level_cell_indices           Indices of the cells in the new entry of data
+        //                                      (all cells together: refined and nonrefined cells).
+        std::tuple<std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>>,
+                   std::vector<std::array<int,2>>>
+        getLevel(std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>>& data,
+                 std::shared_ptr<Dune::cpgrid::CpGridData> some_lgr,
+                 const std::array<int,3>& cells_per_dim,
+                 std::array<int,3> start_ijk, std::array<int,3> end_ijk)
+        {
+            std::shared_ptr<CpGridData> new_data_entry = std::make_shared<Dune::cpgrid::CpGridData>(); // ccobj_
+            auto& level = *new_data_entry;
+            DefaultGeometryPolicy& level_geometries = level.geometry_;
+            std::vector<std::array<int,8>>& level_cell_to_point = level.cell_to_point_;
+            cpgrid::OrientedEntityTable<0,1>& level_cell_to_face = level.cell_to_face_;
+            Opm::SparseTable<int>& level_face_to_point = level.face_to_point_;
+            cpgrid::OrientedEntityTable<1,0>& level_face_to_cell = level.face_to_cell_;
+            cpgrid::EntityVariable<enum face_tag,1>& level_face_tags = level.face_tag_;
+            cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& level_face_normals = level.face_normals_;
+
+            // Assume the lgr 'comes' from a patch of the latest entry of data.
+            // We could add an if-statement in case data == nullptr.
+            int coarse_level_number = data.size();
+            int new_level_number = coarse_level_number +1;
+            auto coarse_level = *data.back();
+            int coarse_level_total_cells = coarse_level.size(0);
+            int lgr_total_cells = some_lgr.size(0);
+            int level_total_cells = coarse_level_total_cells + lgr_total_cells;
+            // CHECK SIZE OF DATA AND USE LEVELS "THAT SIZE" "THAT SIZE PLUS 1"
+            // To store cell indices of the new level, each entry  {level number, cell index}.
+            // "coarse_level_number" denotes the cell comes from the coarse level and hasn't been refined.
+            // "new_level_number"1 denotes the cell comes from the LGR, so it has a parent cell in the coarse level,
+            //   and it's a (refined) cell contained in "level" ('level 1').
+            std::vector<std::array<int,2>> level_cell_indices; 
+            level_cell_to_point.reserve(level_total_cells);
+            level_cell_to_face.reserve(level_total_cells);
+            level_cell_indices.resize(level_total_cells);
+            auto [patch_dim, patch_cell_indices] = get_patch_dim_and_cellIndices(start_ijk, end_ijk);
+            // Recall that, by consrtuction, the indices are sorted in "patch_cell_indices"
+            // (from the smallest to the largest).
+            for (int idx = 0; idx < patch_cell_indices[0], ++idx) {
+                level_cell_indices[idx] = {0, idx};    
+            }
+            for (int idx = patch_cell_indices.back(); idx < level_total_cells; ++idx) {
+                level_cell_indices[idx] = {0, idx + };    
+            }
+            
+            
+            
+
+            //const cpgrid::IdSet* local_id_set_; // Internal local id set (not exported).
+            //LevelGlobalIdSet* global_id_set_;  // Global id set (used also as local id set).
+
+            // Populate level_geometries
+            // Corners
+
+            // Faces
+
+            // Cells 
+
+              // Index of the cells of 'the leafgrid' (nonrefined cells from level 0 + refined cells)
+        std::vector<int> leaf_cell_indices;
+        // Determine "leaf_cell_indices"
+        // (Level 0 grid size) - Patch + (Total Children)
+leaf_cell_indices.reserve((logical_cartesian_size_[0]*logical_cartesian_size_[1]*logical_cartesian_size_[2])
+                                 - (patch_dim[0]*patch_dim[1]*patch_dim[2])
+                                 + cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]);
+        // Construction 'based on Figure 5.16 DUNE book'
+        for (int idx = 0; idx < (logical_cartesian_size_[0]*logical_cartesian_size_[1]*logical_cartesian_size_[2])
+                                 - (patch_dim[0]*patch_dim[1]*patch_dim[2])
+                 + cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]; ++idx) {
+            if (idx <(logical_cartesian_size_[0]*logical_cartesian_size_[1]*logical_cartesian_size_[2])
+                - (patch_dim[0]*patch_dim[1]*patch_dim[2])) {
+                leaf_cell_indices[idx] = idx;
+            }
+            }
+        data.pusch_back(new_data_entry);
+        return data;
+        
+        } 
+        
 
         /*  No refinement implemented. GridDefaultImplementation's methods will be used.
 

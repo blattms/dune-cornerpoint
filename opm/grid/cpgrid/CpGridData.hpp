@@ -288,8 +288,28 @@ public:
                            refined_face_to_cell,
                            refined_face_tags,
                            refined_face_normals);
-        return refined_grid_ptr; 
-    } 
+        return refined_grid_ptr;
+    }
+
+    std::tuple<const std::array<int,3>, std::vector<int>>
+    get_patch_dim_and_cellIndices(std::array<int,3> start_ijk, std::array<int,3> end_ijk)
+    {
+        // To store the patch dimension (total cells in each direction).
+        const std::array<int,3> patch_dim = {end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]};
+        // To store the indices of the cells contained in the patch.
+        std::vector<int> patch_cells_indices;
+        patch_cells_indices.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
+        for (int k = 0; k < patch_dim[2]; ++k) {
+            for (int j = 0; j < patch_dim[1]; ++j) {
+                for (int i = 0; i < patch_dim[0]; ++i) {
+                    patch_cells_indices.push_back(((start_ijk[2]+ k)*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                                               + ((start_ijk[1]+j)*logical_cartesian_size_[1])+ start_ijk[0] +i);
+                } // end i-for-loop
+            } // end j-for-loop
+        } // end k-for-loop
+        return {patch_dim, patch_cells_indices};
+    }
+    
     // Refine a (connected block of cells) patch
     // REFINE A PATCH of CONNECTED (CONSECUTIVE in each direction) cells with 'uniform' regular intervals.
     // (meaning that the amount of children per cell is the same for all parent cells (cells of the patch).
@@ -314,19 +334,9 @@ public:
         cpgrid::EntityVariable<enum face_tag,1>& refined_face_tags = refined_grid.face_tag_;
         cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& refined_face_normals = refined_grid.face_normals_;
         // Patch information (built from the grid).
-        const std::array<int,3> patch_dim = {end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]}; 
-        std::vector<int> patch_cells_indices;
-        patch_cells_indices.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
-        for (int k = 0; k < patch_dim[2]; ++k) {
-            for (int j = 0; j < patch_dim[1]; ++j) {
-                for (int i = 0; i < patch_dim[0]; ++i) {
-                    patch_cells_indices.push_back(((start_ijk[2]+ k)*logical_cartesian_size_[0]*logical_cartesian_size_[1])
-                                                               + ((start_ijk[1]+j)*logical_cartesian_size_[1])+ start_ijk[0] +i);
-                } // end i-for-loop
-            } // end j-for-loop
-        } // end k-for-loop
+        auto [patch_dim, patch_cells_indices] = get_patch_dim_and_cellIndices(start_ijk, end_ijk);
         std::vector<cpgrid::Geometry<3,3>> patch_to_refine;
-        std::vector<std::array<int,8>> parents_cell_to_point;  // 
+        std::vector<std::array<int,8>> parents_cell_to_point;  
         patch_to_refine.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
         parents_cell_to_point.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
         for (auto idx : patch_cells_indices) {
