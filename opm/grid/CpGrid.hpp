@@ -580,36 +580,130 @@ namespace Dune
         // To construct a leaf view, it 'will(might) be' enough to iterate on the entries of "future_leaf_view".
         // Remark: in this code only a block patch belonging to one level can be refined,
         // namely, we cannot refine in the same LGR 'a cell from some_level' and 'a cell from some_other_level'.
+        //
+        // Idea of "future_leaf_corners":
+        // In the same spitit as in "future_leaf_view", we want to delete in each refinement to avoid repetition.
+        // Assume that before the first refinement, "future_leaf_corners" looks like:
+        // {{0, corner 0}, {0, corner 1}, ..., {0, total_corners -1}}.
+        // Let's say we want to refine the 'cell 0'. For a grid with 4x3x2 cells, this means that our 'cell 0'
+        // has corners with indices { 0,3,15,18 (bottom) , 1,4,16,19 (top) } (fake{0,1,..,7}).
+        // Then, we delete from "future_leaf_corners" the following entries:
+        // {0,0}, {0,1}, {0,3}, {0,4}, {0,15}, {0,16}, {0,18}, {0,19}
+        // and 'replace them' (push_back) the new corners arising from the first LGR ('level 1').
         void addLevel(std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>>& data,
                       std::vector<std::array<int,2>>& future_leaf_view,
+                      std::vector<std::array<int,2>>& future_leaf_corners,
+                      //  std::vector<std::array<int,3>>& cells_per_dim_history,
                       int level_to_refine,
                       const std::array<int,3>& cells_per_dim,
                       std::array<int,3> start_ijk, std::array<int,3> end_ijk)
         {
+            // Add new "cell_per_dim" to the history.
+            //cells_per_dim_history.push_back(cells_per_dim);
             // Use *data.back() instead, if we only want to allow refinement based on the last level stored in data
             auto [new_data_entry, parent_to_child, child_to_parent] =
                 (*data[level_to_refine]).refine_block_patch(cells_per_dim, start_ijk, end_ijk);
             data.push_back(new_data_entry);
             // @todo Where (and why? is it needed?) to store "parent_to_child" and "chil_to_parent"
+            // To store ijk indices of the patch [CHECK IF IT IS REALLY NECESSARY]
+            //std::vector<std::array<int,3>> patch_ijk_indices;
             auto [patch_dim, patch_cell_indices] =
                 (*data[level_to_refine]).get_patch_dim_and_cellIndices(start_ijk, end_ijk);
             for (auto idx : patch_cell_indices) {
-                std::array<int, 2> parent_to_delete = { level_to_refine, idx};
-                auto parent_to_delete_it = std::find(future_leaf_view.begin(),
-                                                     future_leaf_view.end(), parent_to_delete);
-                future_leaf_view.erase(parent_to_delete_it);
-            }
+                std::array<int, 2> parent_to_erase = { level_to_refine, idx};
+                auto parent_to_erase_it = std::find(future_leaf_view.begin(),
+                                                     future_leaf_view.end(), parent_to_erase);
+                future_leaf_view.erase(parent_to_erase_it);
+                }
             // Add the (all) child cells to "future_leaf_view". We do not separate them by 'parent'.
             // Recall that the numbering for cells follows the rule:
             // from left to right (increasing i/x-direction),
             // front to back (increasing j/y-direction),
-            // from bottom to top (increasing k/z-direction)
+            // from bottom to top (increasing k/z-direction).
             for (int new_cell = 0; new_cell < patch_dim[0]*cells_per_dim[0]
                      *patch_dim[1]*cells_per_dim[1]*patch_dim[2]*cells_per_dim[2]; ++new_cell) {
                 future_leaf_view.push_back({data.size() +1, new_cell});
             }
+            // We delete the corners of the coarse level involved in the patch,
+            // to avoid repetition.
+            // Get size of the coarse level where the pacth is (needed to compute corner indices to be deleted).
+            std::array<int,3> coarse_level_dim = (*data[level_to_refine]).logicalCartesianSize();
+            for (int j = start_ijk[1]; j < end_ijk[1] +1; ++j) {
+                for (int i = start_ijk[0]; i < end_ijk[0] +1; ++i) { 
+                    for (int k = start_ijk[2]; k < end_ijk[2] +1; ++k) {
+                        // Index (in the coarse level) of the corner we want to delete 
+                        std::array<int,2> corner_to_erase = {level_to_refine, (j*(coarse_level_dim[0]+1)*(coarse_level_dim[2]+1))
+                            + (i*(coarse_level_dim[2]+1)) +k};
+                        auto corner_to_erase_it = std::find(future_leaf_corners.begin(),
+                                                            future_leaf_corners.end(),
+                                                            corner_to_erase);
+                        future_leaf_corners.erase(corner_to_erase_it);     
+                    } // end k-for-loop
+                } // end i-for-loop
+            } // end j-for-loop
         }
 
+        /*   // GET LEAF VIEW
+        typedef Dune::FieldVector<double,3> PointType;
+        std::shared_ptr<Dune::cpgrid::CpGridData> getLeafView(std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>> data,
+                                                              std::vector<std::array<int,2>> future_leaf_view) const
+        {
+            // To store the leaf view.
+            std::shared_ptr<Dune::cpgrid::CpGridData> leaf_view_ptr = std::make_shared<Dune::cpgrid::CpGridData>(); // ccobj_
+            auto& leaf_view = *leaf_view_ptr;
+            Dune::cpgrid::DefaultGeometryPolicy& leaf_geometries = leaf_view.geometry_;
+            std::vector<std::array<int,8>>& leaf_cell_to_point = leaf_view.cell_to_point_;
+            cpgrid::OrientedEntityTable<0,1>& leaf_cell_to_face = leaf_view.cell_to_face_;
+            Opm::SparseTable<int>& leaf_face_to_point = leaf_view.face_to_point_;
+            cpgrid::OrientedEntityTable<1,0>& leaf_face_to_cell = leaf_view.face_to_cell_;
+            cpgrid::EntityVariable<enum face_tag,1>& leaf_face_tags = leaf_view.face_tag_;
+            cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& leaf_face_normals = leaf_view.face_normals_;
+
+            Dune::cpgrid::EntityVariableBase<cpgrid::Geometry<0,3>>& leaf_corners =
+                leaf_geometries.geomVector(std::integral_constant<int,3>());
+            Dune::cpgrid::EntityVariableBase<cpgrid::Geometry<2,3>>& leaf_faces =
+                leaf_geometries.geomVector(std::integral_constant<int,1>());
+            Dune::cpgrid::EntityVariableBase<cpgrid::Geometry<3,3>>& leaf_cells =
+                leaf_geometries.geomVector(std::integral_constant<int,0>());
+            Dune::cpgrid::EntityVariableBase<enum face_tag>& mutable_face_tags = leaf_face_tags;
+            Dune::cpgrid::EntityVariableBase<PointType>& mutable_face_normals = leaf_face_normals;
+
+            
+//leaf_cells/faces/corners -> resize  and then []
+//leaf_cell_to_point -> resize and then []. QUESTION: SHOULD IT BE appendRow and std::vector<cpgrid::EntityRep<0>???
+//                                         QUESTION: IS THE TYPE CORRECT? 
+//                                       Current type (also in Geometry.hpp): std::vector<std::array<int,8>>
+//                                          Should it be  Opm::SparseTable<int> (as in *_face_to_point)?
+//leaf_cell_to_face -> appendRow( bla.begin(), bla.end()), bla type std::vector<cpgrid::EntityRep<1>>
+//leaf_face_to_point -> appendRow(bla.begin(), bla.end()) bla type std::array<int,4>
+//leaf_face_to_cell -> appendRow(bla.begin(), bla.end()) bla typ std::vector<cpgrid::EntityRep<0>>
+             
+
+            // Get total cells in the leaf view (possibly coming from different levels).
+            int total_cells = future_leaf_view.size();
+            int leaf_cell_idx = 0;
+            leaf_cells.resize(total_cells);
+            leaf_cell_to_point.resize(total_cells);
+            // To populate "leaf_cells"(and "leaf_cell_to_*") we follow the rule:
+            // 0. all the cells from level 0 that haven't been refined in the entire process.
+            // 1. all the cells from level 1 that haven't been refined in the rest of the process. [and so on ...]
+            // This is exactly how the cells are ordered in "future_leaf_view"
+            // (thanks to the deleting-pushing_back constuction).
+            for (auto idx : future_leaf_view) {
+                // idx = {level the cell was born in, index cell in that level}.
+                // idx[0] = the level where the cell was born = the entry of "data" we need to access to this cell.
+                leaf_cells[leaf_cell_idx] = (*data[idx[0]]).geometry_.geomVector(std::integral_constant<int,0>())
+                                     [Dune::cpgrid::EntityRep<0>(idx[1], true)];
+                leaf_cell_to_point[leaf_cell_idx] =  (*data[idx[0]]).cell_to_point_[idx[1]];
+                leaf_cell_to_face.appendRow((*data[idx[0]]).cell_to_face_[idx[1]].begin(), (*data[idx[0]]).cell_to_face_[idx[1]].end());
+                leaf_cell_idx +=1;
+            }
+    
+            return leaf_view_ptr;
+           }
+*/
+
+        
         /*  No refinement implemented. GridDefaultImplementation's methods will be used.
 
         /// \brief Mark entity for refinement
