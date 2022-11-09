@@ -539,30 +539,75 @@ namespace Dune
             return seed;
         }
 
-        // Take a vector with shared pointers of type CpGridData, "data".
+        // ADD LEVEL AND 'PREDICT' LEAF VIEW (void; we add a new entry to 2 exisiting objects)
+        // Take as references a vector with shared pointers of type CpGridData ("data") and a vector with the
+        // indices of cells, coming possible from different levels, that all together 'form the level 0 grid',
+        // (kind of predicting the "future_leaf_view"). 
         // Construct an LGR choosing an existing entry of "data", given the amount of
         // children cells in each direction, and the begining and end of the patch to be refined.
-        // Add this 'level' to "data".
-        // @param data                          Vector of shared pointers of type CpGridData (each ptr ~ one level)
+        // Add this 'level' to "data" and its corresponding index-access information in "future_leaf_view".
+        // @param data                          Vector of shared pointers of type CpGridData (each ptr ~ one level).
+        // @param future_leaf_view              Vector. Each entry looks like: {cell level, cell index}.
+        //                                      cell level = which entry of "data" points at the CpGridData object
+        //                                                   where the cell belongs.
+        //                                      cell index -> to access the Geometry<3,3> via the entry of "data"
+        //                                                    that points at the CpGridData object
+        //                                                    where the cell belongs.
         // @param level_to_refine               Integer (smaller than data.size()) representing the level from where
         //                                      the patch to refine is taken.      
         // @param cells_per_dim                 Number of sub-cells in each direction (for each cell) in the lgr.
         // @param start_ijk                     Minimum values of i,j,k where the patch/lgr 'starts'.
         // @param end_ijk                       Maximum values of i,j,k where the patch/lgr 'ends'.
-        // @return data                         data with new entry!
-        std::tuple<std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>>,
-            std::vector<std::array<int,2>>, std::vector<int>>
-        addLevel(std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>>& data,
-                 int level_to_refine,
-                 const std::array<int,3>& cells_per_dim,
-                 std::array<int,3> start_ijk, std::array<int,3> end_ijk)
+        //
+        // Idea of "future_leaf_view":
+        // We start with a grid that plays the role of level 0, so then "future_leaf_view" will contain all
+        // the (active) cells of the grid, with a 0 to indicate they were born in level 0:
+        // {{0, cell index}, {0, next cell index}, ..., {0, last cell index}}
+        // For example, {{0,0}, {0,1}, ...,  {0,23}} for a grid with 4,3,2 cells in x,y,z-direction respectively.
+        // When constructing an LGR out of the grid from level 0, we call it level 1 and will erase from "future_leaf_view"
+        // all the std::array<int,2> which correspond to parents of this patch. 
+        // In the previous example, let's say our patch consists of the cells with indices 0,1,4,5
+        // (strat_ijk = {0,0,0}, end_ijk = {2,2,1}). Then we earase from "future_leaf_view" the entries
+        // {0,0}, {0,1}, {0,4}, {0,5}, and 'replace' them [push_back] by (if, for instance, cells_per_dim = {5,6,7})
+        // {1,0}, {1,1}, ..., {1, ([2x2x1]x[5x6x7]) -1}.
+        // Then the vector "future_leaf_view", after 'level 1'-refinement, looks like:
+        // {{0,2}, {0,3}, {0,6}, {0,7}, ..., {0,23}, {1,0}, {1,1}, ..., {1, ([2x2x1]x[5x6x7]) -1}}.
+        // Notice that 'the union of the cells stored in "future_leaf_view"' would give us the leaf view IN THE END.
+        // Every time we refine, we delete the parent cells and replace them with their children. 
+        // Now, when we build level 2 we choose a patch in level 0 or level 1, we proceed in the same way.
+        // First delete from "future_leaf_view" the parent cells, then puch back the new child cells with
+        // their correspongind level.
+        // To construct a leaf view, it 'will(might) be' enough to iterate on the entries of "future_leaf_view".
+        // Remark: in this code only a block patch belonging to one level can be refined,
+        // namely, we cannot refine in the same LGR 'a cell from some_level' and 'a cell from some_other_level'.
+        void addLevel(std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>>& data,
+                      std::vector<std::array<int,2>>& future_leaf_view,
+                      int level_to_refine,
+                      const std::array<int,3>& cells_per_dim,
+                      std::array<int,3> start_ijk, std::array<int,3> end_ijk)
         {
             // Use *data.back() instead, if we only want to allow refinement based on the last level stored in data
             auto [new_data_entry, parent_to_child, child_to_parent] =
                 (*data[level_to_refine]).refine_block_patch(cells_per_dim, start_ijk, end_ijk);
             data.push_back(new_data_entry);
-            return {data, parent_to_child, child_to_parent}; // @todo Improve parent/child. Add level info
-            
+            // @todo Where (and why? is it needed?) to store "parent_to_child" and "chil_to_parent"
+            auto [patch_dim, patch_cell_indices] =
+                (*data[level_to_refine]).get_patch_dim_and_cellIndices(start_ijk, end_ijk);
+            for (auto idx : patch_cell_indices) {
+                std::array<int, 2> parent_to_delete = { level_to_refine, idx};
+                auto parent_to_delete_it = std::find(future_leaf_view.begin(),
+                                                     future_leaf_view.end(), parent_to_delete);
+                future_leaf_view.erase(parent_to_delete_it);
+            }
+            // Add the (all) child cells to "future_leaf_view". We do not separate them by 'parent'.
+            // Recall that the numbering for cells follows the rule:
+            // from left to right (increasing i/x-direction),
+            // front to back (increasing j/y-direction),
+            // from bottom to top (increasing k/z-direction)
+            for (int new_cell = 0; new_cell < patch_dim[0]*cells_per_dim[0]
+                     *patch_dim[1]*cells_per_dim[1]*patch_dim[2]*cells_per_dim[2]; ++new_cell) {
+                future_leaf_view.push_back({data.size() +1, new_cell});
+            }
         }
 
         /*  No refinement implemented. GridDefaultImplementation's methods will be used.
