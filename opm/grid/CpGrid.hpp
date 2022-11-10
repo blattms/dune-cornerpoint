@@ -538,7 +538,6 @@ namespace Dune
         {
             return seed;
         }
-
         // @TODO Given a CpGridData that's level 0 of a data object,
         // create "future_leaf_cells", "future_leaf_corners"
         //  Adding a 0: {0, cell index} , {0, corner index}.  
@@ -609,6 +608,29 @@ namespace Dune
                       const std::array<int,3>& cells_per_dim,
                       std::array<int,3> start_ijk, std::array<int,3> end_ijk)
         {
+            if (data.size()==1)
+            {
+                std::array<int,3> level0_dim = (*data[0]).logicalCartesianSize();
+                int total_cells_level0 =  level0_dim[0]*level0_dim[1]*level0_dim[2];
+                future_leaf_cells.reserve(total_cells_level0);
+                for (int cells = 0; cells < total_cells_level0; ++cells) {
+                    future_leaf_cells.push_back({0, cells});
+                }
+                int total_corners_level0 = (level0_dim[0]+1)*(level0_dim[1]+1)*(level0_dim[2]+1);
+                future_leaf_corners.reserve(total_corners_level0);
+                for (int corners = 0; corners < total_corners_level0; ++corners) {
+                    future_leaf_corners.push_back({0, corners});
+                }
+                int total_faces_level0 = (level0_dim[0]*level0_dim[1]*(level0_dim[2]+1)) // 'bottom/top faces'
+                    + ((level0_dim[0]+1)*level0_dim[1]*level0_dim[2]) // 'left/right faces'
+                    + (level0_dim[0]*(level0_dim[1]+1)*level0_dim[2]); // 'front/back faces'
+                future_leaf_faces.reserve(total_faces_level0);
+                for (int faces = 0; faces < total_faces_level0; ++faces) {
+                    future_leaf_faces.push_back({0, faces});
+                }
+                
+            }
+            
             // Use *data.back() instead, if we only want to allow refinement based on the last level stored in data
             auto [new_data_entry, parent_to_child, child_to_parent] =
                 (*data[level_to_refine]).refine_block_patch(cells_per_dim, start_ijk, end_ijk);
@@ -690,7 +712,7 @@ namespace Dune
             }
         }
 
-        // GET LEAF VIEW -------------- IN PROGRESS
+        // GET LEAF VIEW 
         typedef Dune::FieldVector<double,3> PointType;
         std::shared_ptr<Dune::cpgrid::CpGridData> getLeafView(std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>> data,
                                                               std::vector<std::array<int,2>> future_leaf_cells,
@@ -716,17 +738,11 @@ namespace Dune
                 leaf_geometries.geomVector(std::integral_constant<int,0>());
             Dune::cpgrid::EntityVariableBase<enum face_tag>& mutable_face_tags = leaf_face_tags;
             Dune::cpgrid::EntityVariableBase<PointType>& mutable_face_normals = leaf_face_normals;
-
             
-//leaf_cells/faces/corners -> resize  and then []
 //leaf_cell_to_point -> resize and then []. QUESTION: SHOULD IT BE appendRow and std::vector<cpgrid::EntityRep<0>???
-//                                         QUESTION: IS THE TYPE CORRECT? 
-//                                       Current type (also in Geometry.hpp): std::vector<std::array<int,8>>
+//                                          QUESTION: IS THE TYPE CORRECT? 
+//                                          Current type (also in Geometry.hpp): std::vector<std::array<int,8>>
 //                                          Should it be  Opm::SparseTable<int> (as in *_face_to_point)?
-//leaf_cell_to_face -> appendRow( bla.begin(), bla.end()), bla type std::vector<cpgrid::EntityRep<1>>
-//leaf_face_to_point -> appendRow(bla.begin(), bla.end()) bla type std::array<int,4>
-//leaf_face_to_cell -> appendRow(bla.begin(), bla.end()) bla typ std::vector<cpgrid::EntityRep<0>>
-
             // LEAF CORNERS
             // Determine the size
             int total_corners = future_leaf_corners.size();
@@ -738,15 +754,6 @@ namespace Dune
             //   with the order from bottom to top-from left to right- from front to back, and so on...
             for (auto idx : future_leaf_corners) {
                 leaf_corners.push_back((*data[idx[0]]).geometry_.geomVector(std::integral_constant<int,3>()).get(idx[1]));
-                                          //(Dune::cpgrid::EntityRep<3>(idx[1], true)));
-                                          // [Dune::cpgrid::EntityRep<3>(idx[1], true)]);
-                                          //[idx[1]]);
-                // ISSUE: HOW TO ACCESS TO AN ENTRY OF (*data[idx[0]]).geometry_.geomVector<3>()
-                                          //[Dune::cpgrid::EntityRep<3>(idx[1], true)]);
-                                       //[(idx[1], true)];
-                                       //(Dune::cpgrid::EntityRep<0>(idx[1], true));
-                                       // geomVector(std::integral_constant<int,3>()
-                                       //get([Dune::cpgrid::EntityRep<0>(idx[1], true)]));   
             }
             // LEAF CELLS
             // Get total cells in the leaf view (possibly coming from different levels).
@@ -786,7 +793,7 @@ namespace Dune
                 // idx[0] = the level where the face was born = the entry of "data" we need to access to this face.
                 leaf_faces[leaf_face_idx] = (*data[idx[0]]).geometry_.geomVector(std::integral_constant<int,1>())
                                      [Dune::cpgrid::EntityRep<1>(idx[1], true)];
-                leaf_face_to_point.appendRow((*data[idx[0]]).face_to_point_[idx[1]].begin(),  // [Dune::cpgrid::EntityRep<1>(idx[1], true)]
+                leaf_face_to_point.appendRow((*data[idx[0]]).face_to_point_[idx[1]].begin(),
                                             (*data[idx[0]]).face_to_point_[idx[1]].end());
                 leaf_face_to_cell.appendRow((*data[idx[0]]).face_to_cell_[Dune::cpgrid::EntityRep<1>(idx[1], true)].begin(),
                                             (*data[idx[0]]).face_to_cell_[Dune::cpgrid::EntityRep<1>(idx[1], true)].end());
@@ -794,7 +801,6 @@ namespace Dune
                 mutable_face_normals[leaf_face_idx] = (*data[idx[0]]).face_normals_[Dune::cpgrid::EntityRep<1>(idx[1], true)];
                 leaf_face_idx +=1;
             }
-    
             return leaf_view_ptr;
            }
         
