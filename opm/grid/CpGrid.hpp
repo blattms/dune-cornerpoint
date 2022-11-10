@@ -541,7 +541,7 @@ namespace Dune
 
         // @TODO Given a CpGridData that's level 0 of a data object,
         // create "future_leaf_cells", "future_leaf_corners"
-        //  Adding a 0: {0, cell index} , {0, corner index}.
+        //  Adding a 0: {0, cell index} , {0, corner index}.  
 
         // ADD LEVEL, 'PREDICT' LEAF CELLS AND CORNERS (void; we add a new entry to 3 exisiting objects)
         // Take as references a vector with shared pointers of type CpGridData ("data") and 2 vectors with the
@@ -613,8 +613,9 @@ namespace Dune
                 (*data[level_to_refine]).refine_block_patch(cells_per_dim, start_ijk, end_ijk);
             data.push_back(new_data_entry);
             // @todo Where (and why? is it needed?) to store "parent_to_child" and "chil_to_parent"
-            auto [patch_dim, patch_cell_indices] =
-                (*data[level_to_refine]).get_patch_dim_and_cellIndices(start_ijk, end_ijk);
+            auto patch_dim = (*data[level_to_refine]).get_patch_dim(start_ijk, end_ijk);
+            auto patch_cell_indices = (*data[level_to_refine]).get_patchCellIndices(start_ijk, end_ijk);
+            // CELLS
             for (auto idx : patch_cell_indices) {
                 std::array<int, 2> parent_to_erase = { level_to_refine, idx};
                 auto parent_to_erase_it = std::find(future_leaf_cells.begin(),
@@ -631,6 +632,7 @@ namespace Dune
                      *patch_dim[1]*cells_per_dim[1]*patch_dim[2]*cells_per_dim[2]; ++new_cell) {
                 future_leaf_cells.push_back({data.size() +1, new_cell});
             }
+            // CORNERS
             // Delete the corners of the coarse level involved in the patch,
             // to avoid repetition.
             // Get size of the coarse level where the pacth is (needed to compute corner indices to be deleted).
@@ -658,24 +660,16 @@ namespace Dune
             for (int new_corner = 0; new_corner < total_new_corners; ++new_corner) {
                 future_leaf_corners.push_back({data.size() +1, new_corner});
             }
+            // FACES
+            // Get the indices of the faces of the patch (to be deleted).
+            auto patch_face_indices = (*data[level_to_refine]).get_patchFaceIndices(start_ijk, end_ijk);
             // Delete faces
-            // Deleta faces with coordinate constant MAKE %3 FOR LOOP, GET THE INDEX VIA AN AUXILIARY FUNCTION
-            /*  for (int j = start_ijk[1]; j < end_ijk[1] +1; ++j) {
-                for (int i = start_ijk[0]; i < end_ijk[0] +1; ++i) { 
-                    for (int k = start_ijk[2]; k < end_ijk[2] +1; ++k) {
-                        // Index (in the coarse level) of the corner we want to delete 
-                        std::array<int,2> corner_to_erase = {level_to_refine,
-                            (j*(coarse_level_dim[0]+1)*(coarse_level_dim[2]+1))
-                            + (i*(coarse_level_dim[2]+1)) +k};
-                            //   (*data[level_to_refine]).geometry_.geomVector<3>()[(j*(coarse_level_dim[0]+1)*(coarse_level_dim[2]+1))
-                            //                                                    + (i*(coarse_level_dim[2]+1)) +k].center()};
-                        auto corner_to_erase_it = std::find(future_leaf_corners.begin(),
-                                                            future_leaf_corners.end(),
-                                                            corner_to_erase);
-                        future_leaf_corners.erase(corner_to_erase_it);     
-                    } // end k-for-loop
-                } // end i-for-loop
-                } // end j-for-loop*/
+             for (auto idx : patch_face_indices) {
+                std::array<int, 2> face_to_erase = { level_to_refine, idx};
+                auto face_to_erase_it = std::find(future_leaf_faces.begin(),
+                                                     future_leaf_faces.end(), face_to_erase);
+                future_leaf_faces.erase(face_to_erase_it);
+                }
             // Get size of new faces
             int total_new_faces =
                 (cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*(cells_per_dim[2]*patch_dim[2]+1)) // 'bottom/top faces'

@@ -291,11 +291,16 @@ public:
         return refined_grid_ptr;
     }
 
-    std::tuple<const std::array<int,3>, std::vector<int>>
-    get_patch_dim_and_cellIndices(std::array<int,3> start_ijk, std::array<int,3> end_ijk)
+    const std::array<int,3> get_patch_dim(std::array<int,3> start_ijk, std::array<int,3> end_ijk) const
     {
-        // To store the patch dimension (total cells in each direction).
-        const std::array<int,3> patch_dim = {end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]};
+        return {end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]};
+    }
+
+    std::vector<int> get_patchCellIndices(std::array<int,3> start_ijk, std::array<int,3> end_ijk) 
+    {
+        // Get the patch dimension (total cells in each direction).
+        const std::array<int,3> patch_dim = get_patch_dim(start_ijk, end_ijk);
+        //{end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]};
         // To store the indices of the cells contained in the patch.
         std::vector<int> patch_cells_indices;
         patch_cells_indices.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
@@ -307,7 +312,63 @@ public:
                 } // end i-for-loop
             } // end j-for-loop
         } // end k-for-loop
-        return {patch_dim, patch_cells_indices};
+        return patch_cells_indices;
+    }
+    // Auxiliary function to get face index (from a patch in current grid), depending on with of its coordinates is constant.
+    // @param l,m,n                Play the role of kji, ikj, or jik.
+    // @param constant_direction   Takes values 0,1, or 2, meaning constant in z,x,y respectively.
+    std::vector<int> get_patchFaceIndices(std::array<int,3> start_ijk, std::array<int,3> end_ijk)
+    {
+        // To store the face indices of the patch.
+        std::vector<int> patch_face_indices;
+        // Reserve size
+        std::array<int, 3> patch_dim = get_patch_dim(start_ijk, end_ijk);
+        patch_face_indices.reserve((patch_dim[0]*patch_dim[1]*(patch_dim[2]+1)) // 3rd coord constant faces
+                                   + ((patch_dim[0]+1)*patch_dim[1]*patch_dim[2]) // 1st coord constant faces
+                                   +(patch_dim[0]*patch_dim[1]*(patch_dim[2]+1))); // 2nd coord constant faces
+        // Faces with 3rd coordinate constant will need a loop of the form 'kji'
+        // start_ijk[2]=< k < end_ijk[2] +1, start_ijk[1] =< j < end_ijk[1], stat_ijk[0] =< i < end_ijk[0].
+        // Faces with 1st coordinate constant will need a loop of the form 'ikj'
+        // start_ijk[0]=< i < end_ijk[0] +1, start_ijk[2] =< k < end_ijk[2], stat_ijk[1] =< j < end_ijk[1].
+        // Faces with 2nd coordinate constant will need a loop of the form 'jik'
+        // start_ijk[1]=< j < end_ijk[1] +1, start_ijk[0] =< i < end_ijk[1], stat_ijk[2] =< k < end_ijk[2].
+        for (int constant_direction = 0; constant_direction < 3; ++constant_direction){
+            // adding %3 and "constant_direction", we go through the 3 type of faces.
+            // 0 -> 3rd coordinate constant: l('k') < end_ijk[2]+1, m('j') < end_ijk[1], n('i') < end_ijk[0]
+            // 1 -> 1rt coordinate constant: l('i') < end_ijk[0]+1, m('k') < end_ijk[2], n('j') < end_ijk[1]
+            // 2 -> 2nd coordinate constant: l('j') < end_ijk[1]+1, m('i') < end_ijk[0], n('k') < end_ijk[2]
+            std::array<int,3> start_mixed = {
+                start_ijk[(2+constant_direction)%3],
+                start_ijk[(1+constant_direction)%3],
+                start_ijk[constant_direction % 3] };
+            std::array<int,3> end_mixed  {
+                end_ijk[(2+constant_direction)%3],
+                end_ijk[(1+constant_direction)%3],
+                end_ijk[constant_direction % 3] };
+            for (int l = start_mixed[0]; l < end_mixed[0] + 1; ++l) {
+                for (int m = start_mixed[1]; m < end_mixed[1]; ++m) {
+                    for (int n = start_mixed[2]; n < end_mixed[2]; ++n) {
+                        switch(constant_direction) {
+                        case 0:  // {l,m,n} = {k,j,i}, constant in z-direction
+                            patch_face_indices.push_back((l*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                                         + (m*logical_cartesian_size_[0]) + n);
+                        case 1:  // {l,m,n} = {i,k,j}, constant in the x-direction
+                            patch_face_indices.push_back((logical_cartesian_size_[0]*
+                                                          logical_cartesian_size_[1]*(logical_cartesian_size_[2]+1))+
+                                                         (l*logical_cartesian_size_[1]*logical_cartesian_size_[2]) +
+                                                         (m*logical_cartesian_size_[1]) + n);
+                        case 2: // {l,m,n} = {j,i,k}, constant in the y-direction
+                            patch_face_indices.push_back((logical_cartesian_size_[0]*logical_cartesian_size_[1]*
+                                                          (logical_cartesian_size_[2] +1))
+                                + ((logical_cartesian_size_[0]+1)*logical_cartesian_size_[1]*logical_cartesian_size_[2])
+                                                         + (l*logical_cartesian_size_[0]*logical_cartesian_size_[2])
+                                                         + (m*logical_cartesian_size_[2]) + n);
+                        }
+                    } // end n-for-loop
+                } // end m-for-loop
+            } // end l-for-loop
+        }// end constant-direction-for-loop
+        return patch_face_indices;
     }
     
     // Refine a (connected block of cells) patch
@@ -334,7 +395,8 @@ public:
         cpgrid::EntityVariable<enum face_tag,1>& refined_face_tags = refined_grid.face_tag_;
         cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& refined_face_normals = refined_grid.face_normals_;
         // Patch information (built from the grid).
-        auto [patch_dim, patch_cells_indices] = get_patch_dim_and_cellIndices(start_ijk, end_ijk);
+        auto patch_dim = get_patch_dim(start_ijk, end_ijk);
+        auto patch_cells_indices = get_patchCellIndices(start_ijk, end_ijk);
         std::vector<cpgrid::Geometry<3,3>> patch_to_refine;
         std::vector<std::array<int,8>> parents_cell_to_point;  
         patch_to_refine.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
