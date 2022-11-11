@@ -1010,6 +1010,9 @@ namespace Dune
                                           std::vector<std::array<int,8>> parents_cell_to_point,
                                           DefaultGeometryPolicy& cellfied_patch_geometry)
             {
+                if (patch_cells_indices.empty()){
+                    OPM_THROW(std::logic_error, "Empty patch. Cannot convert patch into cell.");
+                }
                 // Get the minimum and maximum of "patch_cells_indices"
                 // to find the min_i, max_i, min_j, max_j, min_k, max_k,
                 // to 'cell-fy' the patch (treating the patch as a 'huge cell')

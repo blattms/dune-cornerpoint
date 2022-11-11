@@ -604,6 +604,9 @@ namespace Dune
                       std::vector<std::array<int,2>>& future_leaf_cells,
                       std::vector<std::array<int,2>>& future_leaf_corners, 
                       std::vector<std::array<int,2>>& future_leaf_faces,
+                      //std::vector<std::array<int,2>>&
+                      //  std::tuple<int, cpgrid::OrientedEntityTable<1,0>>&
+                      // std::vector<cpgrid::EntityRep<0>> future_leaf_face_to_cell,
                       int level_to_refine,
                       const std::array<int,3>& cells_per_dim,
                       std::array<int,3> start_ijk, std::array<int,3> end_ijk)
@@ -625,8 +628,10 @@ namespace Dune
                     + ((level0_dim[0]+1)*level0_dim[1]*level0_dim[2]) // 'left/right faces'
                     + (level0_dim[0]*(level0_dim[1]+1)*level0_dim[2]); // 'front/back faces'
                 future_leaf_faces.reserve(total_faces_level0);
+                //future_leaf_face_to_cell.reserve(total_faces_level0);
                 for (int faces = 0; faces < total_faces_level0; ++faces) {
                     future_leaf_faces.push_back({0, faces});
+                    //  future_leaf_face_to_cell.push_back({0, (*data[0]).face_to_cell_[faces]});
                 }
                 
             }
@@ -710,6 +715,56 @@ namespace Dune
             for (int new_face = 0; new_face < total_new_faces; ++new_face) {
                 future_leaf_faces.push_back({data.size() +1, new_face});
             }
+            // FIXING FACE_TO_CELL INFORMATION WHEN REFINED FACES TOUCH THE BOUNDARY OF COARSE GRID.
+            // ---------------- IN PROGRESS ------------------
+            // Add neighboring (coarse) cell to the refined faces located on the bottom (boundary) of the patch
+            // when the surface they form is not contained in the bottom (boundary) of the grid where the patch
+            // is taken from (this info is stored in 'face_to_cell objects').
+            if (start_ijk[2] != 0) {
+                for (int j = start_ijk[1]; j < end_ijk[1]; ++j) {
+                    for (int i = start_ijk[0]; i < end_ijk[0]; ++i) {
+                        int intersecting_coarse_cell_idx = ((start_ijk[2]-1)*coarse_level_dim[0]*coarse_level_dim[1])
+                            + (j*coarse_level_dim[0]) + i;
+                        for (int m = j*cells_per_dim[1]; m < (j+1)*cells_per_dim[1]; ++m) {
+                            for (int l = i*(cells_per_dim[0]); l < (i+1)*cells_per_dim[0]; ++l) {
+                                int refined_face_idx = (start_ijk[2]*cells_per_dim[0]*cells_per_dim[1]) + (m*cells_per_dim[0]) + l;
+                                (*new_data_entry).face_to_cell_
+                                    [Dune::cpgrid::EntityRep<1>(refined_face_idx, true)].push_back({intersecting_coarse_cell_idx, true});
+                                //TO BE FIXED.
+                                // NEED TO EITHER INSERT AN ELEMENT IN AN EXISITNG ROW. HOW?
+                                // TO BE CONTINUED...
+                            } // end l-for-loop
+                        } // end m-for-loop
+                    } // end i-for-loop
+                } // end j-for-loop      
+            } // end if
+            /*   // Add neighboring (coarse) cell to the refined faces located on the top (boundary) of the patch
+            // when the surface they form is not contined in the top (boundary) of the grid where the patch
+            // is taken from 
+            if (end_ijk[2] != coarse_level_dim[2]){
+            }
+            // Add neighboring (coarse) cell to the refined faces located on the right boundary of the patch
+            // when the surface they form is not contained in the right boundary of the grid where the patch
+            // is taken from.
+            if (start_ijk[0] != 0)
+            {
+            }
+            // Add neighboring (coarse) cell to the refined faces located on the left boundary of the patch
+            // when the surface they form is not contined in the left boundary of the grid where the patch
+            // is taken from.
+            if (end_ijk[0] != coarse_level_dim[0]){
+            }
+            // Add neighboring (coarse) cell to the refined faces located on the front boundary of the patch
+            // when the surface they form is not contained in the front boundary of the grid where the patch
+            // is taken from.
+            if (start_ijk[1] != 0)
+            {
+            }
+            // Add neighboring (coarse) cell to the refined faces located on the left boundary of the patch
+            // when the surface they form is not contined in the left boundary of the grid where the patch
+            // is taken from.
+            if (end_ijk[1] != coarse_level_dim[1]){
+            } */
         }
 
         // GET LEAF VIEW 
