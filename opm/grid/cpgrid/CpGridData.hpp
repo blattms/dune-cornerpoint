@@ -405,12 +405,14 @@ public:
             patch_to_refine.push_back((geometry_.geomVector(std::integral_constant<int,0>()))[EntityRep<0>(idx, true)]);
             parents_cell_to_point.push_back(cell_to_point_[idx]);
         }
+        std::array<int,8> cellfiedPatch_to_point;
         // Construct the Geometry of the CEELfied PATCH.
         DefaultGeometryPolicy cellfied_patch_geometry;
         cpgrid::Geometry<3,3> cellfied_patch = cellfied_patch.cellfy_a_patch(patch_to_refine,
                                                                              patch_cells_indices,
                                                                              patch_dim,
                                                                              parents_cell_to_point,
+                                                                             cellfiedPatch_to_point,
                                                                              cellfied_patch_geometry);
         // Refine the cell "cellfied_patch"
         cellfied_patch.refine({cells_per_dim[0]*patch_dim[0], cells_per_dim[1]*patch_dim[1], cells_per_dim[2]*patch_dim[2]},

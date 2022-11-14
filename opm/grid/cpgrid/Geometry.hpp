@@ -1008,6 +1008,7 @@ namespace Dune
                                           std::vector<int> patch_cells_indices,
                                           const std::array<int,3>& patch_dim,
                                           std::vector<std::array<int,8>> parents_cell_to_point,
+                                          std::array<int,8>& cellfiedPatch_to_point,
                                           DefaultGeometryPolicy& cellfied_patch_geometry)
             {
                 if (patch_cells_indices.empty()){
@@ -1051,8 +1052,7 @@ namespace Dune
                     + (min_max_ijk_indices[1][1]*patch_dim[0]) + min_max_ijk_indices[0][0],
                     // Index of the boundary cell from where corner '7' will be extracted.
                     min_max_indices[1]};
-                // Container for the 8 corner indices of the 'cellFIED patch'
-                std::array<int,8> cellfiedPatch_to_point;
+                // Get the 8 corner indices of the 'cellFIED patch'
                 for (int l = 0; l < 8; ++l) {
                     cellfiedPatch_to_point[l] =
                         parents_cell_to_point[selected_boundary_cell_indices[l]][l];
@@ -1063,7 +1063,7 @@ namespace Dune
                     cellfiedPatch_center += patch_to_refine[idx].center()/8.;
                 }
                 // Volume of the cell'fied' patch
-                double cellfiedPatch_volume;
+                double cellfiedPatch_volume = 0.;
                 for (auto idx : patch_cells_indices) {
                     cellfiedPatch_volume += patch_to_refine[idx].volume();
                 }
