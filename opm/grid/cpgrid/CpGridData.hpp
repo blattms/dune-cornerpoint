@@ -314,6 +314,24 @@ public:
         } // end k-for-loop
         return patch_cells_indices;
     }
+    // Get patch ijk cell indices
+    std::vector<std::array<int,3>> get_patchCell_ijkIndices(std::array<int,3> start_ijk, std::array<int,3> end_ijk) 
+    {
+        // Get the patch dimension (total cells in each direction).
+        const std::array<int,3> patch_dim = get_patch_dim(start_ijk, end_ijk);
+        //{end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]};
+        // To store the indices of the cells contained in the patch.
+        std::vector<std::array<int,3>> patch_cells_ijkIndices;
+        patch_cells_ijkIndices.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
+        for (int k = start_ijk[2]; k < end_ijk[2]; ++k) {
+            for (int j = start_ijk[1]; j < end_ijk[1]; ++j) {
+                for (int i = start_ijk[0]; i < end_ijk[0]; ++i) {
+                    patch_cells_ijkIndices.push_back({i,j,k});
+                } // end i-for-loop
+            } // end j-for-loop
+        } // end k-for-loop
+        return patch_cells_ijkIndices;
+    } 
     // Auxiliary function to get face index (from a patch in current grid), depending on with of its coordinates is constant.
     // @param l,m,n                Play the role of kji, ikj, or jik.
     // @param constant_direction   Takes values 0,1, or 2, meaning constant in z,x,y respectively.

@@ -604,30 +604,32 @@ namespace Dune
                       std::vector<std::array<int,2>>& future_leaf_cells,
                       std::vector<std::array<int,2>>& future_leaf_corners, 
                       std::vector<std::array<int,2>>& future_leaf_faces,
-                      //std::vector<std::array<int,2>>&
-                      //  std::tuple<int, cpgrid::OrientedEntityTable<1,0>>&
-                      // std::vector<cpgrid::EntityRep<0>> future_leaf_face_to_cell,
                       int level_to_refine,
                       const std::array<int,3>& cells_per_dim,
-                      std::array<int,3> start_ijk, std::array<int,3> end_ijk)
+                      std::array<int,3> start_ijk, std::array<int,3> end_ijk,
+                      std::vector<std::array<int,8>>& future_cell_to_point,
+                      cpgrid::OrientedEntityTable<0,1>& future_cell_to_face,
+                      Opm::SparseTable<int>& future_face_to_point,
+                      cpgrid::OrientedEntityTable<1,0>& future_face_to_cell)
         {
             if (data.size()==1)
             {
                 std::array<int,3> level0_dim = (*data[0]).logicalCartesianSize();
-                int total_cells_level0 =  level0_dim[0]*level0_dim[1]*level0_dim[2];
+                int total_cells_level0 = data[0] -> size(0);//  level0_dim[0]*level0_dim[1]*level0_dim[2];
                 future_leaf_cells.reserve(total_cells_level0);
                 for (int cells = 0; cells < total_cells_level0; ++cells) {
                     future_leaf_cells.push_back({0, cells});
                 }
-                int total_corners_level0 = (level0_dim[0]+1)*(level0_dim[1]+1)*(level0_dim[2]+1);
+                int total_corners_level0 = data[0]->size(3); //(level0_dim[0]+1)*(level0_dim[1]+1)*(level0_dim[2]+1);
                 future_leaf_corners.reserve(total_corners_level0);
                 for (int corners = 0; corners < total_corners_level0; ++corners) {
                     future_leaf_corners.push_back({0, corners});
                 }
-                int total_faces_level0 = (level0_dim[0]*level0_dim[1]*(level0_dim[2]+1)) // 'bottom/top faces'
+                int total_faces_level0 = data[0]->face_to_cell_.size();
+                /*(level0_dim[0]*level0_dim[1]*(level0_dim[2]+1)) // 'bottom/top faces'
                     + ((level0_dim[0]+1)*level0_dim[1]*level0_dim[2]) // 'left/right faces'
                     + (level0_dim[0]*(level0_dim[1]+1)*level0_dim[2]); // 'front/back faces'
-                future_leaf_faces.reserve(total_faces_level0);
+                    future_leaf_faces.reserve(total_faces_level0);*/
                 //future_leaf_face_to_cell.reserve(total_faces_level0);
                 for (int faces = 0; faces < total_faces_level0; ++faces) {
                     future_leaf_faces.push_back({0, faces});
@@ -635,22 +637,28 @@ namespace Dune
                 }
                 
             }
-            
             // Use *data.back() instead, if we only want to allow refinement based on the last level stored in data
             auto [new_data_entry, parent_to_child, child_to_parent] =
                 (*data[level_to_refine]).refine_block_patch(cells_per_dim, start_ijk, end_ijk);
             data.push_back(new_data_entry);
-            // @todo Where (and why? is it needed?) to store "parent_to_child" and "chil_to_parent"
+            // @todo Where (and why? is it needed?) to store "parent_to_child" and "child_to_parent"
             auto patch_dim = (*data[level_to_refine]).get_patch_dim(start_ijk, end_ijk);
             auto patch_cell_indices = (*data[level_to_refine]).get_patchCellIndices(start_ijk, end_ijk);
             // CELLS
-            for (auto idx : patch_cell_indices) {
-                std::array<int, 2> parent_to_erase = { level_to_refine, idx};
-                auto parent_to_erase_it = std::find(future_leaf_cells.begin(),
-                                                     future_leaf_cells.end(), parent_to_erase);
-                future_leaf_cells.erase(parent_to_erase_it);
+            int position_level_to_refine = 0;
+            for (const auto& [level, level_idx] : future_leaf_cells) {
+                while (level< level_to_refine) {
+                    position_level_to_refine += 1;
                 }
-            // Add the (all) child cells to "future_leaf_cells". We do not separate them by 'parent'.
+            }
+            for (const auto& idx : patch_cell_indices) {  
+                // std::array<int, 2> parent_to_erase = { level_to_refine, idx};
+                auto parent_to_erase_it = future_leaf_cells.begin() + position_level_to_refine + idx;
+                //std::find(future_leaf_cells.begin(),
+                //    future_leaf_cells.end(), parent_to_erase);
+                future_leaf_cells.erase(parent_to_erase_it);
+            }
+        // Add the (all) child cells to "future_leaf_cells". We do not separate them by 'parent'.
             // Recall that the numbering for cells follows the rule:
             // from left to right (increasing i/x-direction),
             // front to back (increasing j/y-direction),
@@ -692,12 +700,16 @@ namespace Dune
             // Get the indices of the faces of the patch (to be deleted).
             auto patch_face_indices = (*data[level_to_refine]).get_patchFaceIndices(start_ijk, end_ijk);
             // Delete faces
-             for (auto idx : patch_face_indices) {
-                std::array<int, 2> face_to_erase = { level_to_refine, idx};
-                auto face_to_erase_it = std::find(future_leaf_faces.begin(),
-                                                     future_leaf_faces.end(), face_to_erase);
-                future_leaf_faces.erase(face_to_erase_it);
+            for (const auto& [level, level_idx] : future_leaf_faces) {
+                if (level == level_to_refine){
+                    for (const auto& idx : patch_face_indices) {
+                        std::array<int, 2> face_to_erase = { level_to_refine, idx};
+                        auto face_to_erase_it = std::find(future_leaf_faces.begin(),
+                                                          future_leaf_faces.end(), face_to_erase);
+                        future_leaf_faces.erase(face_to_erase_it);
+                    }
                 }
+            }
             // Get size of new faces
             int total_new_faces =
                 (cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*(cells_per_dim[2]*patch_dim[2]+1)) // 'bottom/top faces'
@@ -728,8 +740,8 @@ namespace Dune
                         for (int m = j*cells_per_dim[1]; m < (j+1)*cells_per_dim[1]; ++m) {
                             for (int l = i*(cells_per_dim[0]); l < (i+1)*cells_per_dim[0]; ++l) {
                                 int refined_face_idx = (start_ijk[2]*cells_per_dim[0]*cells_per_dim[1]) + (m*cells_per_dim[0]) + l;
-                                (*new_data_entry).face_to_cell_
-                                    [Dune::cpgrid::EntityRep<1>(refined_face_idx, true)].push_back({intersecting_coarse_cell_idx, true});
+                                //   (*new_data_entry).face_to_cell_
+                                //    [Dune::cpgrid::EntityRep<1>(refined_face_idx, true)].push_back({intersecting_coarse_cell_idx, true});
                                 //TO BE FIXED.
                                 // NEED TO EITHER INSERT AN ELEMENT IN AN EXISITNG ROW. HOW?
                                 // TO BE CONTINUED...
