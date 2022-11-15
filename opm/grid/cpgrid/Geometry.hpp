@@ -729,7 +729,7 @@ namespace Dune
                     for (int l = 0; l < cells_per_dim_mixed[0] + 1; ++l) {
                         for (int m = 0; m < cells_per_dim_mixed[1]; ++m) {
                             for (int n = 0; n < cells_per_dim_mixed[2]; ++n) {
-                                // Compute the index of the face and its 4 corners.
+                                // Compute the face data.
                                 auto [face_type, idx, face4corners,
                                       neighboring_cells_of_one_face, local_refined_face_centroid] =
                                     getIndicesFace(l, m, n, constant_direction, cells_per_dim);

@@ -291,12 +291,12 @@ public:
         return refined_grid_ptr;
     }
 
-    const std::array<int,3> get_patch_dim(std::array<int,3> start_ijk, std::array<int,3> end_ijk) const
+    const std::array<int,3> get_patch_dim(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) const
     {
         return {end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]};
     }
 
-    std::vector<int> get_patchCellIndices(std::array<int,3> start_ijk, std::array<int,3> end_ijk) 
+    std::vector<int> get_patchCellIndices(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) 
     {
         // Get the patch dimension (total cells in each direction).
         const std::array<int,3> patch_dim = get_patch_dim(start_ijk, end_ijk);
@@ -388,6 +388,8 @@ public:
         }// end constant-direction-for-loop
         return patch_face_indices;
     }
+
+    
     
     // Refine a (connected block of cells) patch
     // REFINE A PATCH of CONNECTED (CONSECUTIVE in each direction) cells with 'uniform' regular intervals.
