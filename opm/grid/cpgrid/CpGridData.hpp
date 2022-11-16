@@ -262,7 +262,7 @@ public:
     // @param cells_per_dim                 Number of sub-cells in each direction.
     // @param parent_ijk                    Parent ijk index.
     // @return refined_grid_ptr             Shared pointer pointing at refined_grid.
-    std::shared_ptr<CpGridData> refine_single_cell(const std::array<int,3>& cells_per_dim,
+    std::shared_ptr<CpGridData> refineSingleCell(const std::array<int,3>& cells_per_dim,
                        std::array<int,3> parent_ijk)
     {
         std::shared_ptr<CpGridData> refined_grid_ptr = std::make_shared<CpGridData>(ccobj_);
@@ -291,34 +291,16 @@ public:
         return refined_grid_ptr;
     }
 
-    const std::array<int,3> get_patch_dim(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) const
+    const std::array<int,3> getPatchDim(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) const
     {
         return {end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]};
     }
-
-    std::vector<int> get_patchCellIndices(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) 
-    {
-        // Get the patch dimension (total cells in each direction).
-        const std::array<int,3> patch_dim = get_patch_dim(start_ijk, end_ijk);
-        //{end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]};
-        // To store the indices of the cells contained in the patch.
-        std::vector<int> patch_cells_indices;
-        patch_cells_indices.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
-        for (int k = 0; k < patch_dim[2]; ++k) {
-            for (int j = 0; j < patch_dim[1]; ++j) {
-                for (int i = 0; i < patch_dim[0]; ++i) {
-                    patch_cells_indices.push_back(((start_ijk[2]+ k)*logical_cartesian_size_[0]*logical_cartesian_size_[1])
-                                                               + ((start_ijk[1]+j)*logical_cartesian_size_[1])+ start_ijk[0] +i);
-                } // end i-for-loop
-            } // end j-for-loop
-        } // end k-for-loop
-        return patch_cells_indices;
-    }
+    
     // Get patch ijk cell indices
-    std::vector<std::array<int,3>> get_patchCell_ijkIndices(std::array<int,3> start_ijk, std::array<int,3> end_ijk) 
+    std::vector<std::array<int,3>> getPatchCellIJKIndices(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) 
     {
         // Get the patch dimension (total cells in each direction).
-        const std::array<int,3> patch_dim = get_patch_dim(start_ijk, end_ijk);
+        std::array<int,3> patch_dim = getPatchDim(start_ijk, end_ijk);
         //{end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]};
         // To store the indices of the cells contained in the patch.
         std::vector<std::array<int,3>> patch_cells_ijkIndices;
@@ -332,24 +314,42 @@ public:
         } // end k-for-loop
         return patch_cells_ijkIndices;
     } 
-    // Auxiliary function to get face index (from a patch in current grid), depending on with of its coordinates is constant.
-    // @param l,m,n                Play the role of kji, ikj, or jik.
-    // @param constant_direction   Takes values 0,1, or 2, meaning constant in z,x,y respectively.
-    std::vector<int> get_patchFaceIndices(std::array<int,3> start_ijk, std::array<int,3> end_ijk)
+    
+    std::array<std::vector<int>,3> getPatchGeomIndices(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk)
     {
+        // Get the patch dimension (total cells in each direction). Used to 'reserve vectors'.
+        const std::array<int,3> patch_dim = getPatchDim(start_ijk, end_ijk);
+        //{end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]};
+
+        // CORNERS
+        // To store the indices of the corners contained in the patch.
+        std::vector<int> patch_corners;
+        patch_corners.reserve((patch_dim[0]+1)*(patch_dim[1]+1)*(patch_dim[2]+1));
+        for (int j = start_ijk[1]; j < end_ijk[1]+1; ++j) {
+            for (int i = start_ijk[0]; i < end_ijk[0]+1; ++i) {
+                for (int k = start_ijk[2]; k < end_ijk[2]+1; ++k) {
+                    patch_corners.push_back((j*logical_cartesian_size_[0]*logical_cartesian_size_[2])
+                                            + (i*logical_cartesian_size_[2])+k);
+                } // end i-for-loop
+            } // end j-for-loop
+        } // end k-for-loop
+
+        // FACES
         // To store the face indices of the patch.
-        std::vector<int> patch_face_indices;
+        std::vector<int> patch_faces;
         // Reserve size
-        std::array<int, 3> patch_dim = get_patch_dim(start_ijk, end_ijk);
-        patch_face_indices.reserve((patch_dim[0]*patch_dim[1]*(patch_dim[2]+1)) // 3rd coord constant faces
-                                   + ((patch_dim[0]+1)*patch_dim[1]*patch_dim[2]) // 1st coord constant faces
-                                   +(patch_dim[0]*patch_dim[1]*(patch_dim[2]+1))); // 2nd coord constant faces
+        patch_faces.reserve((patch_dim[0]*patch_dim[1]*(patch_dim[2]+1)) // 3rd coord constant faces
+                            + ((patch_dim[0]+1)*patch_dim[1]*patch_dim[2]) // 1st coord constant faces
+                            +(patch_dim[0]*patch_dim[1]*(patch_dim[2]+1))); // 2nd coord constant faces
         // Faces with 3rd coordinate constant will need a loop of the form 'kji'
         // start_ijk[2]=< k < end_ijk[2] +1, start_ijk[1] =< j < end_ijk[1], stat_ijk[0] =< i < end_ijk[0].
         // Faces with 1st coordinate constant will need a loop of the form 'ikj'
         // start_ijk[0]=< i < end_ijk[0] +1, start_ijk[2] =< k < end_ijk[2], stat_ijk[1] =< j < end_ijk[1].
         // Faces with 2nd coordinate constant will need a loop of the form 'jik'
         // start_ijk[1]=< j < end_ijk[1] +1, start_ijk[0] =< i < end_ijk[1], stat_ijk[2] =< k < end_ijk[2].
+        //
+        // constant_direction   Takes values 0,1, or 2, meaning constant in z,x,y respectively.
+        // l,m,n                Play the role of kji, ikj, or jik.
         for (int constant_direction = 0; constant_direction < 3; ++constant_direction){
             // adding %3 and "constant_direction", we go through the 3 type of faces.
             // 0 -> 3rd coordinate constant: l('k') < end_ijk[2]+1, m('j') < end_ijk[1], n('i') < end_ijk[0]
@@ -368,26 +368,175 @@ public:
                     for (int n = start_mixed[2]; n < end_mixed[2]; ++n) {
                         switch(constant_direction) {
                         case 0:  // {l,m,n} = {k,j,i}, constant in z-direction
-                            patch_face_indices.push_back((l*logical_cartesian_size_[0]*logical_cartesian_size_[1])
-                                                         + (m*logical_cartesian_size_[0]) + n);
+                            patch_faces.push_back((l*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                                  + (m*logical_cartesian_size_[0]) + n);
                         case 1:  // {l,m,n} = {i,k,j}, constant in the x-direction
-                            patch_face_indices.push_back((logical_cartesian_size_[0]*
-                                                          logical_cartesian_size_[1]*(logical_cartesian_size_[2]+1))+
-                                                         (l*logical_cartesian_size_[1]*logical_cartesian_size_[2]) +
-                                                         (m*logical_cartesian_size_[1]) + n);
+                            patch_faces.push_back((logical_cartesian_size_[0]*
+                                                   logical_cartesian_size_[1]*(logical_cartesian_size_[2]+1))+
+                                                  (l*logical_cartesian_size_[1]*logical_cartesian_size_[2]) +
+                                                  (m*logical_cartesian_size_[1]) + n);
                         case 2: // {l,m,n} = {j,i,k}, constant in the y-direction
-                            patch_face_indices.push_back((logical_cartesian_size_[0]*logical_cartesian_size_[1]*
-                                                          (logical_cartesian_size_[2] +1))
-                                + ((logical_cartesian_size_[0]+1)*logical_cartesian_size_[1]*logical_cartesian_size_[2])
-                                                         + (l*logical_cartesian_size_[0]*logical_cartesian_size_[2])
-                                                         + (m*logical_cartesian_size_[2]) + n);
+                            patch_faces.push_back((logical_cartesian_size_[0]*logical_cartesian_size_[1]*
+                                                   (logical_cartesian_size_[2] +1))
+                                                  + ((logical_cartesian_size_[0]+1)*logical_cartesian_size_[1]*logical_cartesian_size_[2])
+                                                  + (l*logical_cartesian_size_[0]*logical_cartesian_size_[2])
+                                                  + (m*logical_cartesian_size_[2]) + n);
                         }
                     } // end n-for-loop
                 } // end m-for-loop
             } // end l-for-loop
         }// end constant-direction-for-loop
-        return patch_face_indices;
+
+        // CELLS
+        // To store the indices of the cells contained in the patch.
+        std::vector<int> patch_cells;
+        patch_cells.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
+        for (int k = 0; k < patch_dim[2]; ++k) {
+            for (int j = 0; j < patch_dim[1]; ++j) {
+                for (int i = 0; i < patch_dim[0]; ++i) {
+                    patch_cells.push_back(((start_ijk[2]+ k)*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                                  + ((start_ijk[1]+j)*logical_cartesian_size_[1])+ start_ijk[0] +i);
+                } // end i-for-loop
+            } // end j-for-loop
+        } // end k-for-loop
+        return {patch_corners, patch_faces, patch_cells};
     }
+
+    std::array<std::vector<int>,6>
+    getPatchBoundaryFaces(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) const
+    {
+        // We follow the order:
+        // faces with 3rd coordinate constant 'kji'
+        // faces with 1st coordinate constant 'ikj'
+        // faces with 2nd coordinate constant 'jik'
+        //
+        // BOUNDARY FACES
+        std::array<std::vector<int>,6> boundary_faces;
+        // 3rd coordinate constant
+        for (int j = start_ijk[1]; j < end_ijk[1]; ++j) {
+            for (int i = start_ijk[0]; i < end_ijk[0]; ++i) {
+                // Bottom Boundary Faces
+                boundary_faces[0].push_back((start_ijk[2]*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                            + (j*logical_cartesian_size_[0])+i); // {i,j, start_ijk[2]}
+                // Top Boundary Faces
+                boundary_faces[1].push_back((end_ijk[2]*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                            + (j*logical_cartesian_size_[0])+i);  // ({i,j, end_ijk[2]}
+            }
+        }
+        // 1st coordinate constant
+        for (int k = start_ijk[2]; k < end_ijk[2]; ++k) {
+            for (int j = start_ijk[1]; j < end_ijk[1]; ++j) {
+                // Left Boundary Faces
+                boundary_faces[2].push_back((logical_cartesian_size_[0]*logical_cartesian_size_[1]*(logical_cartesian_size_[2]+1))
+                                            + (start_ijk[0]*logical_cartesian_size_[1]*logical_cartesian_size_[2])
+                                            + (k*logical_cartesian_size_[1])+ j); // {start_ijk[0], j,k}
+                // Right Boundary Faces
+                boundary_faces[3].push_back((logical_cartesian_size_[0]*logical_cartesian_size_[1]*(logical_cartesian_size_[2]+1))
+                                            + (logical_cartesian_size_[0]*logical_cartesian_size_[1]*logical_cartesian_size_[2])
+                                            + (k*logical_cartesian_size_[1])+ j);  // {end_ijk[0], j,k}
+            }
+        }
+        // 2nd coordinate constant
+        for (int k = start_ijk[2]; k < end_ijk[2]; ++k) {
+            for (int i = start_ijk[0]; i < end_ijk[0]; ++i) {
+                // Front Boundary Faces
+                boundary_faces[4].push_back((logical_cartesian_size_[0]*logical_cartesian_size_[1]*(logical_cartesian_size_[2]+1))
+                                            + ((logical_cartesian_size_[0]+1)*logical_cartesian_size_[1]*logical_cartesian_size_[2])
+                                           + (start_ijk[1]*logical_cartesian_size_[0]*logical_cartesian_size_[2])
+                                            + (i*logical_cartesian_size_[2])+k); //{i, start_ijk[1], k}
+                // Back neighbors
+                boundary_faces[5].push_back((logical_cartesian_size_[0]*logical_cartesian_size_[1]*(logical_cartesian_size_[2]+1))
+                                            +((logical_cartesian_size_[0]+1)*logical_cartesian_size_[1]*logical_cartesian_size_[2])
+                                           + (end_ijk[1]*logical_cartesian_size_[0]*logical_cartesian_size_[2])
+                                            + (i*logical_cartesian_size_[2])+k);  // {i, end_ijk[1], k}
+            }
+        }
+        return boundary_faces;
+    }
+        
+
+
+    const std::array<std::vector<int>,6>
+    getPatchCellNeighbors(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) const
+    {
+        // CELL NEIGHBORS
+        std::array<std::vector<int>,6> cell_neighs;
+        // Bottom neighbors
+        if (start_ijk[2] != 0) {
+            for (int j = start_ijk[1]; j < end_ijk[1]; ++j) {
+                for (int i = start_ijk[0]; i < end_ijk[0]; ++i) {
+                    cell_neighs[0].push_back(((start_ijk[2]-1)*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                             + (j*logical_cartesian_size_[0])+i); // {i,j, start_ijk[2] -1}
+                }
+            }
+        }
+        // Front neighbors
+        if (start_ijk[1] != 0) {
+            for (int k = start_ijk[2]; k < end_ijk[2]; ++k) {
+                for (int i = start_ijk[0]; i < end_ijk[0]; ++i) {
+                    cell_neighs[1].push_back((k*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                             + ((start_ijk[1]-1)*logical_cartesian_size_[0])+i); //{i, start_ijk[1] -1, k}
+                }
+            }
+        }
+        // Left neighbors
+        if (start_ijk[0] != 0) {
+            for (int k = start_ijk[2]; k < end_ijk[2]; ++k) {
+                for (int j = start_ijk[1]; j < end_ijk[1]; ++j) {
+                    cell_neighs[2].push_back((k*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                             + (j*logical_cartesian_size_[0])+ start_ijk[0]-1); // {start_ijk[0] -1, j,k}
+                }
+            }
+        }
+        // Right neighbors
+        if (end_ijk[0] != logical_cartesian_size_[0]) {
+            for (int k = start_ijk[2]; k < end_ijk[2]; ++k) {
+                for (int j = start_ijk[1]; j < end_ijk[1]; ++j) {
+                    cell_neighs[3].push_back((k*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                             + (j*logical_cartesian_size_[0])+ end_ijk[0]); // {end_ijk[0], j, k}
+                }
+            }
+        }
+        // Back neighbors
+        if (end_ijk[1] != logical_cartesian_size_[1]) {
+            for (int k = start_ijk[2]; k < end_ijk[2]; ++k) {
+                for (int i = start_ijk[0]; i < end_ijk[0]; ++i) {
+                    cell_neighs[4].push_back((k*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                             + (end_ijk[1]*logical_cartesian_size_[0])+i);  // {i, end_ijk[1], k}
+                }
+            }
+        }
+        // Top neighbors
+        if (end_ijk[2] != logical_cartesian_size_[2]) {
+            for (int j = start_ijk[1]; j < end_ijk[1]; ++j) {
+                for (int i = start_ijk[0]; i < end_ijk[0]; ++i) {
+                    cell_neighs[5].push_back((end_ijk[2]*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                             + (j*logical_cartesian_size_[0])+i);  // ({i,j, end_ijk[2]}
+                }
+            }
+        }
+        return cell_neighs;    
+    }
+    
+
+    std::vector<std::array<int,3>> getCellfiedPatchToPoint(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) const
+    {
+        // Dune corner order: {0,4,1,5,2,6,3,7}, if
+        //   TOP        BOTTOM
+        //  6 -- 7      2 -- 3
+        //  |    |      |    |
+        //  4 -- 5      0 -- 1
+        
+       return { start_ijk, // 0
+            {start_ijk[0], start_ijk[1], end_ijk[2]},   // 4
+            {end_ijk[0], start_ijk[1], start_ijk[2]},   // 1
+            {end_ijk[0], start_ijk[1], end_ijk[2]},     // 5
+            {start_ijk[0], end_ijk[1], start_ijk[2]},   // 2
+            {start_ijk[0], start_ijk[1], end_ijk[2]},   // 6
+            {end_ijk[0], end_ijk[1], start_ijk[2]},     // 3
+                end_ijk };     // 7
+    }
+    
 
     
     
@@ -402,7 +551,7 @@ public:
     //         parents_to_children          To store the indices of all the children of each parent.
     //         children_to_parents          To store the index of the parent of each child.     
     std::tuple<std::shared_ptr<CpGridData>,std::vector<std::array<int,2>>, std::vector<int>>
-    refine_block_patch(const std::array<int,3>& cells_per_dim,
+    refineBlockPatch(const std::array<int,3>& cells_per_dim,
                        std::array<int,3> start_ijk, std::array<int,3> end_ijk)
     {
         std::shared_ptr<CpGridData> refined_grid_ptr = std::make_shared<CpGridData>(ccobj_);
@@ -415,21 +564,21 @@ public:
         cpgrid::EntityVariable<enum face_tag,1>& refined_face_tags = refined_grid.face_tag_;
         cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& refined_face_normals = refined_grid.face_normals_;
         // Patch information (built from the grid).
-        auto patch_dim = get_patch_dim(start_ijk, end_ijk);
-        auto patch_cells_indices = get_patchCellIndices(start_ijk, end_ijk);
+        auto patch_dim = getPatchDim(start_ijk, end_ijk);
+        auto [patch_corners, patch_faces, patch_cells] = getPatchGeomIndices(start_ijk, end_ijk);
         std::vector<cpgrid::Geometry<3,3>> patch_to_refine;
         std::vector<std::array<int,8>> parents_cell_to_point;  
         patch_to_refine.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
         parents_cell_to_point.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
-        for (auto idx : patch_cells_indices) {
+        for (auto idx : patch_cells) {
             patch_to_refine.push_back((geometry_.geomVector(std::integral_constant<int,0>()))[EntityRep<0>(idx, true)]);
             parents_cell_to_point.push_back(cell_to_point_[idx]);
         }
         std::array<int,8> cellfiedPatch_to_point;
         // Construct the Geometry of the CEELfied PATCH.
         DefaultGeometryPolicy cellfied_patch_geometry;
-        cpgrid::Geometry<3,3> cellfied_patch = cellfied_patch.cellfy_a_patch(patch_to_refine,
-                                                                             patch_cells_indices,
+        cpgrid::Geometry<3,3> cellfied_patch = cellfied_patch.cellfyPatch(patch_to_refine,
+                                                                             patch_cells,
                                                                              patch_dim,
                                                                              parents_cell_to_point,
                                                                              cellfiedPatch_to_point,
@@ -460,13 +609,13 @@ public:
                             for (int l = i*cells_per_dim[0]; l < (i+1)*cells_per_dim[0]; ++l) {
                                 parent_to_child.push_back({
                                         //parent index in the coarse grid
-                                        patch_cells_indices[(k*patch_dim[0]*patch_dim[1]) + (j*patch_dim[0]) + i],
+                                        patch_cells[(k*patch_dim[0]*patch_dim[1]) + (j*patch_dim[0]) + i],
                                         // one of its child indices
                                         (n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
                                         + (m*cells_per_dim[0]*patch_dim[0]) + l}); 
                                   child_to_parent[(n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
                                                      + (m*cells_per_dim[0]*patch_dim[0]) + l]
-                                   = patch_cells_indices[(k*patch_dim[0]*patch_dim[1]) + (j*patch_dim[0]) + i];
+                                   = patch_cells[(k*patch_dim[0]*patch_dim[1]) + (j*patch_dim[0]) + i];
                                     }// end l-for-loop
                             } // end m-for-loop
                         } // end n-for-loop

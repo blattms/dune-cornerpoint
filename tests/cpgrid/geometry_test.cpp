@@ -514,7 +514,7 @@ void refine_and_check(const cpgrid::Geometry<3, 3>& parent_geometry,
         std::array<int, 3> start_ijk = {2,0,0};
         std::array<int, 3> end_ijk = {3,1,0};
         coarse_grid.createCartesian(cells_per_dim, cell_sizes);
-        coarse_grid.current_view_data_->refine_block_patch(cells_per_dim_patch, start_ijk, end_ijk);
+        coarse_grid.current_view_data_->refineBlockPatch(cells_per_dim_patch, start_ijk, end_ijk);
 }
 
 BOOST_AUTO_TEST_CASE(refine_simple_cube)
