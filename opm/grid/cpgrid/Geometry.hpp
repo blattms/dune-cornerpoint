@@ -986,7 +986,7 @@ namespace Dune
                 } // end if-statement
                 /// --- END REFINED CELLS ---
             } /// --- END of refine()
-
+            
             // Construct a 'huge cell' out of a patch of connected (consecutive in each direction) cells.
             // CELL-FICATION OF A PATCH
             // This function takes a patch and build a cell out of it.

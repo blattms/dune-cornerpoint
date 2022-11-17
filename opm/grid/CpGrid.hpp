@@ -790,7 +790,15 @@ namespace Dune
             
             // CELLS
             // After refinenment, we have [total 'coarse level' cells -total patch cells] nonrefined cells.
-            // We store them first. Then, the refined ones.
+            // We store the cells in the following way:
+            // 1. Refined cells.
+            //   1.1. Inner cells (the ones that do not intersect coarser cells).
+            //   1.2. Boundary cells (the ones intersectting coarser cells).
+            //        With 'internal order': bottom, front, left, right, back, top boundary cells.
+            
+            // 2. Nonrefined cells which are neighboring cells of the patch;
+            //    With the 'internal order': bottom, front, left, right, back, top neighboring cells.
+            // 3. Nonrefined cells which are NOT neighboring cells of the patch.
             int total_leaf_cells = (data[0]->size(0)) - patch_cells.size() + (data[1]->size(0));
             for (int idx = 0; idx < (data[0]->size(0)) - patch_cells.size(); ++idx) {
                 leaf_cells[idx] = (*data[0]).geometry_.geomVector(std::integral_constant<int,0>())

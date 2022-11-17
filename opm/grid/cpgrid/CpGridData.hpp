@@ -517,7 +517,107 @@ public:
         }
         return cell_neighs;    
     }
+
+    const std::array<std::vector<int>,6>
+    getPatchBoundaryCells(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) const
+    {
+        std::array<std::vector<int>,6> boundary_cells;
+        for (int j = start_ijk[1]; j < end_ijk[1]; ++j) {
+            for (int i = start_ijk[0]; i < end_ijk[0]; ++i) {
+                // Bottom boundary cells 
+                boundary_cells[0].push_back((start_ijk[2]*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                            + (j*logical_cartesian_size_[0])+i); // {i,j, start_ijk[2]}
+                // Top boundary cells
+                boundary_cells[5].push_back(((end_ijk[2]-1)*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                            + (j*logical_cartesian_size_[0])+i);  // ({i,j, end_ijk[2]-1}
+            }
+        }
+        for (int k = start_ijk[2]; k < end_ijk[2]; ++k) {
+            for (int i = start_ijk[0]; i < end_ijk[0]; ++i) {
+                // Front boundary cells
+                boundary_cells[1].push_back((k*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                            + (start_ijk[1]*logical_cartesian_size_[0])+i); //{i, start_ijk[1], k}
+                // Back boundary cells
+                boundary_cells[4].push_back((k*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                            + ((end_ijk[1]-1)*logical_cartesian_size_[0])+i);  // {i, end_ijk[1]-1, k}
+            }
+        }
+        for (int k = start_ijk[2]; k < end_ijk[2]; ++k) {
+            for (int j = start_ijk[1]; j < end_ijk[1]; ++j) {
+                // Left boundary cells
+                boundary_cells[2].push_back((k*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                            + (j*logical_cartesian_size_[0])+ start_ijk[0]); // {start_ijk[0], j,k}
+                // Right boundary cells
+                boundary_cells[3].push_back((k*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                                            + (j*logical_cartesian_size_[0])+ end_ijk[0]-1); // {end_ijk[0]-1, j, k}
+            }
+        }
+        return boundary_cells;    
+    }
+
     
+    // VOLUME  and center of a hexaedron, via sum of 24 tetrahedra,
+    // given its corner and face indices.
+    std::tuple<double,Geometry<0,3>::GlobalCoordinate> getHexaVolumeCenter(const std::array<int,8> corners, const std::array<int,6> faces)
+    {
+        // VOLUME HEXAHEDRON
+        double hexa_volume = 0.0;
+        // Hexa center.
+        Geometry<0,3>::GlobalCoordinate hexa_center = {0.,0.,0.};
+        for (auto& corner : corners)
+        {
+            hexa_center += (this -> geometry_.geomVector(std::integral_constant<int,3>()).get(corner).center())/8.;
+        }
+        // CENTROIDS of the faces of the hexahedron.
+        // (one of the 6 corners of all 4 tetrahedra based on that face).
+        std::vector<Geometry<0,3>::GlobalCoordinate> face_centroids;
+        face_centroids.resize(6);
+        for (auto& face : faces) {
+            face_centroids.push_back(this -> geometry_.geomVector(std::integral_constant<int,1>())
+                                     [Dune::cpgrid::EntityRep<1>(face, true)].center());
+        }
+        // Container with 6 entries, one per face. Each entry has the
+        // 4 indices of the 4 corners of each face.
+        std::vector<std::array<int,4>> hexa_face_to_point;
+        hexa_face_to_point.reserve(6);
+        for (int face = 0; face < 6;  ++face) {
+            hexa_face_to_point.push_back(//this -> face_to_point_[faces[face]]);
+            { this -> face_to_point_[faces[face]][0],
+             this -> face_to_point_[faces[face]][1],
+            this -> face_to_point_[faces[face]][2],
+            this -> face_to_point_[faces[face]][3]});
+        }
+        // Container with indices of the edges of the 4 tetrahedra per face
+        // [according to description above]
+        std::vector<std::vector<std::array<int,2>>> tetra_edges;
+        tetra_edges.reserve(6);
+        for (auto& face4corners : hexa_face_to_point)
+        {
+            std::vector<std::array<int,2>> face4edges = {
+                { face4corners[0], face4corners[1]}, // fake '{0,1}'/'{4,5}'
+                { face4corners[0], face4corners[2]}, // fake '{0,2}'/'{4,6}'
+                { face4corners[1], face4corners[3]}, // fake '{1,3}'/'{5,7}'
+                { face4corners[2], face4corners[3]} }; // fake '{2,3}'/'{6,7}'
+            tetra_edges.push_back(face4edges);
+        }
+        // Sum of the 24 volumes to get the volume of the hexahedron,
+        // stored in "refined_cell_volume".
+        // Calculate the volume of each hexahedron, by adding
+        // the 4 tetrahedra at each face (4x6 = 24 tetrahedra).
+        for (int face = 0; face < 6; ++face) {
+            for (int edge = 0; edge < 4; ++edge) {
+                // Construction of each tetrahedron based on "face" with one
+                // of its edges equal to "edge".
+                const Geometry<0, 3>::GlobalCoordinate tetra_corners[4] = {
+                    this ->geometry_.geomVector(std::integral_constant<int,3>()).get(tetra_edges[face][edge][0]).center(),  
+                    this ->geometry_.geomVector(std::integral_constant<int,3>()).get(tetra_edges[face][edge][1]).center(), 
+                    face_centroids[face],
+                    hexa_center};  
+                hexa_volume += std::fabs(simplex_volume(tetra_corners));
+            } // end edge-for-loop
+        } // end face-for-loop
+        return {hexa_volume, hexa_center};    
+    }
 
     std::vector<std::array<int,3>> getCellfiedPatchToPoint(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) const
     {
