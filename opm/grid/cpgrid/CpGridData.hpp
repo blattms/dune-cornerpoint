@@ -402,6 +402,63 @@ public:
         return {patch_corners, patch_faces, patch_cells};
     }
 
+    
+    std::array<std::vector<int>,3> getNoPatchGeomIndices(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk)
+    {
+        // Get patch geometry indices.
+        std::array<std::vector<int>,3> patch_geom = getPatchGeomIndices(start_ijk, end_ijk);
+        // patch_geom = {patch_corners, patch_faces, patch_cells}
+        // Get enlarged patch (we only need the boundary cells of the patch).
+        std::array<std::vector<int>,3> enlarged_patch_geom =
+            getPatchGeomIndices({start_ijk[0]-1, start_ijk[1]-1, start_ijk[2]-1}, {end_ijk[0]+1, end_ijk[1]+1, end_ijk[2]+1});
+        //
+        // CORNERS
+        // To store the face indices of the patch.
+        std::vector<int> no_patch_corners; // = this -> geometry_.geomVector(std::integral_constant<int,1>());
+        no_patch_corners.resize(this -> size(3)); // all corners! we'll delete some of them.
+        for (int n = 0; n < (this -> size(3)); ++n) {
+            no_patch_corners.push_back(n);
+        }
+        // Delete patch corners
+        int shift_corners = 0;
+        for (auto& idx : patch_geom[0]) {
+            auto it = patch_geom[0].begin() + idx - shift_corners;
+            no_patch_corners.erase(it);
+            shift_corners +=1;
+        }
+        //
+        // FACES
+        // To store the face indices of the patch.
+        std::vector<int> no_patch_faces; // = this -> geometry_.geomVector(std::integral_constant<int,1>());
+        no_patch_faces.resize(this -> face_to_cell_.size()); // all faces! we'll delete some of them.
+        for (int n = 0; n < (this -> face_to_cell_.size()); ++n) {
+            no_patch_faces.push_back(n);
+        }
+        // Delete patch faces
+        int shift_faces = 0;
+        for (auto& idx : patch_geom[1]) {
+            auto it = patch_geom[1].begin() + idx -shift_faces;
+            no_patch_faces.erase(it);
+            shift_faces +=1;
+        }
+        //
+        // CELLS
+        // To store the indices of cells that ARE NOT IN THE PATCH, NEITHER IN ITS BOUNDARY.
+        std::vector<int> no_patch_no_neighb_cells; 
+        no_patch_faces.resize(this -> size(0)); // all cells! we'll delete some of them.
+        for (int n = 0; n < (this -> size(0)); ++n) {
+            no_patch_no_neighb_cells.push_back(n);
+        }
+        // Delete patch cells and non patch cell that are neighbors of the patch.
+        int shift_cells = 0;
+        for (auto& idx : enlarged_patch_geom[2]) {
+            auto it = no_patch_no_neighb_cells.begin() +idx - shift_cells;
+            no_patch_no_neighb_cells.erase(it);
+            shift_cells +=1;
+        }
+        return {no_patch_corners, no_patch_faces, no_patch_no_neighb_cells};
+    }
+
     std::array<std::vector<int>,6>
     getPatchBoundaryFaces(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) const
     {
@@ -453,8 +510,6 @@ public:
         }
         return boundary_faces;
     }
-        
-
 
     const std::array<std::vector<int>,6>
     getPatchCellNeighbors(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) const
@@ -619,24 +674,42 @@ public:
         return {hexa_volume, hexa_center};    
     }
 
-    std::vector<std::array<int,3>> getCellfiedPatchToPoint(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) const
+    
+    std::array<int,8> getCellfiedPatchToPoint(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) const
     {
         // Dune corner order: {0,4,1,5,2,6,3,7}, if
         //   TOP        BOTTOM
         //  6 -- 7      2 -- 3
         //  |    |      |    |
         //  4 -- 5      0 -- 1
-        
-       return { start_ijk, // 0
-            {start_ijk[0], start_ijk[1], end_ijk[2]},   // 4
-            {end_ijk[0], start_ijk[1], start_ijk[2]},   // 1
-            {end_ijk[0], start_ijk[1], end_ijk[2]},     // 5
-            {start_ijk[0], end_ijk[1], start_ijk[2]},   // 2
-            {start_ijk[0], start_ijk[1], end_ijk[2]},   // 6
-            {end_ijk[0], end_ijk[1], start_ijk[2]},     // 3
-                end_ijk };     // 7
+
+        return {
+            // '0', start_ijk
+            (start_ijk[1]*logical_cartesian_size_[0]*logical_cartesian_size_[2])
+            + (start_ijk[0]*logical_cartesian_size_[2])+start_ijk[2],
+            // '4', {start_ijk[0], start_ijk[1], end_ijk[2]}
+            (start_ijk[1]*logical_cartesian_size_[0]*logical_cartesian_size_[2])
+            + (start_ijk[0]*logical_cartesian_size_[2])+ end_ijk[2],
+            // '1', {end_ijk[0], start_ijk[1], start_ijk[2]}
+            (start_ijk[1]*logical_cartesian_size_[0]*logical_cartesian_size_[2])
+            + (end_ijk[0]*logical_cartesian_size_[2])+ start_ijk[2],
+            // '5', {end_ijk[0], start_ijk[1], end_ijk[2]}
+            (start_ijk[1]*logical_cartesian_size_[0]*logical_cartesian_size_[2])
+            + (end_ijk[0]*logical_cartesian_size_[2])+ end_ijk[2],
+            // '2', {start_ijk[0], end_ijk[1], start_ijk[2]}
+            (end_ijk[1]*logical_cartesian_size_[0]*logical_cartesian_size_[2])
+            + (start_ijk[0]*logical_cartesian_size_[2])+ start_ijk[2],
+            // '6', {start_ijk[0], end_ijk[1], end_ijk[2]}
+            (end_ijk[1]*logical_cartesian_size_[0]*logical_cartesian_size_[2])
+            + (start_ijk[0]*logical_cartesian_size_[2])+ end_ijk[2],
+            // '3', {end_ijk[0], end_ijk[1], start_ijk[2]}
+            (end_ijk[1]*logical_cartesian_size_[0]*logical_cartesian_size_[2])
+            + (end_ijk[0]*logical_cartesian_size_[2])+ start_ijk[2],
+            // '7',  end_ijk
+            (end_ijk[1]*logical_cartesian_size_[0]*logical_cartesian_size_[2])
+            + (end_ijk[0]*logical_cartesian_size_[2])+ end_ijk[2]};
     }
-    
+
 
     
     

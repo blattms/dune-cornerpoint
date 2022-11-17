@@ -733,10 +733,19 @@ namespace Dune
             // @todo Where (and why? is it needed?) to store "parent_to_child" and "child_to_parent".
             auto patch_dim = (*data[0]).getPatchDim(start_ijk, end_ijk);
             auto [patch_corners, patch_faces, patch_cells] = (*data[0]).getPatchGeomIndices(start_ijk, end_ijk);
+            auto [no_patch_corners, no_patch_faces, no_patch_no_neighb_cells]
+                =   (*data[0]).getNoPatchGeomIndices(start_ijk, end_ijk);
             auto coarse_cell_neighbors = (*data[0]).getPatchCellNeighbors(start_ijk, end_ijk);
             // cell_neighbors = {bottom_neighs, front_neighs, left_neighs, right_neighs, back_neighs, top_neighs}
             auto refined_boundary_faces = (*data[1]).getPatchBoundaryFaces({0,0,0}, (*data[1]).logicalCartesianSize());
             // refined_boundary_faces = {bottom, top, left, right, front, back (boundary faces)}
+            auto refined_boundary_cells = (*data[1]).getPatchBoundaryCells({0,0,0}, (*data[1]).logicalCartesianSize());
+            // refined_boundary_cells = {bottom, top, left, right, front, back (boundary cells)}
+            auto [inner_refined_corners, inner_refined_faces, inner_refined_cells]
+                = (*data[1]).getPatchGeomIndices({1,1,1},
+                                                 {(*data[1]).logicalCartesianSize()[0]-1,
+                                                  (*data[1]).logicalCartesianSize()[1]-1,
+                                                  (*data[1]).logicalCartesianSize()[2]-1});
             
             // To store the leaf view.
             std::shared_ptr<Dune::cpgrid::CpGridData> leaf_view_ptr = std::make_shared<Dune::cpgrid::CpGridData>(); // ccobj_
@@ -761,14 +770,12 @@ namespace Dune
             // CORNERS
             // After refinement, we have [total 'coarse level' corners - total 'patch' corners]
             // non refined corners. We store them first. Then, the refined ones.
-            int total_leaf_corners = (data[0]->size(3)) - patch_corners.size() + (data[1]->size(3));
-            leaf_corners.reserve((data[0]->size(3)) - patch_corners.size() + (data[1]->size(3)));
-            for (int idx = 0; idx < (data[0]->size(3)) - patch_corners.size(); ++idx) {
-                leaf_corners[idx] = (*data[0]).geometry_.geomVector(std::integral_constant<int,3>()).get(idx);
+            leaf_corners.resize(no_patch_corners.size() + (data[1]->size(3)));
+            for (auto& idx : no_patch_corners) {
+                leaf_corners.push_back((*data[0]).geometry_.geomVector(std::integral_constant<int,3>()).get(idx));
             }
-            for (int idx = (data[0]->size(3)) - patch_corners.size(); idx < total_leaf_corners; ++idx) {
-                leaf_corners[idx] =
-                    (*data[1]).geometry_.geomVector(std::integral_constant<int,3>()).get(idx-(data[0]->size(3))+ patch_corners.size());
+            for (int refined_corner = 0; refined_corner < (data[1]->size(3)); ++refined_corner) {
+                leaf_corners.push_back((*data[1]).geometry_.geomVector(std::integral_constant<int,3>()).get(refined_corner));
             }
             // FACES
             // After refinement, we have [total 'coarse level' faces - total 'patch' faces]
@@ -776,17 +783,27 @@ namespace Dune
             // - Bottom-top faces -> 3rd coordinate constant in each face.
             // - Left-right faces -> 1st coordinate constant in each face.
             // - Front-back faces -> 2nd coordinate constant in each face.
-            int total_leaf_faces = (data[0]->face_to_cell_.size()) - patch_faces.size() + (data[1]->face_to_cell_.size());
-            for (int idx = 0; idx < (data[0]->face_to_cell_.size()) - patch_faces.size(); ++idx) {
-                leaf_faces[idx] = (*data[0]).geometry_.geomVector(std::integral_constant<int,1>())
-                                     [Dune::cpgrid::EntityRep<1>(idx, true)];
+            leaf_faces.resize(no_patch_faces.size() + (data[1] -> face_to_cell_.size()));
+            mutable_face_tags.resize(no_patch_faces.size() + (data[1] -> face_to_cell_.size()));
+            mutable_face_normals.resize(no_patch_faces.size() + (data[1] -> face_to_cell_.size()));
+            for (auto& idx : no_patch_faces) {
+                leaf_faces.push_back((*data[0]).geometry_.geomVector(std::integral_constant<int,1>())
+                                     [Dune::cpgrid::EntityRep<1>(idx, true)]);
+                mutable_face_tags.push_back((*data[0]).face_tag_[Dune::cpgrid::EntityRep<1>(idx, true)]);
+                mutable_face_normals.push_back((*data[0]).face_normals_[Dune::cpgrid::EntityRep<1>(idx, true)]);
             }
-            for (int idx = (data[0]->face_to_cell_.size()) - patch_faces.size(); idx < total_leaf_faces; ++idx) {
-                leaf_faces[idx] =
-                    (*data[1]).geometry_.geomVector(std::integral_constant<int,1>())
-                                     [Dune::cpgrid::EntityRep<1>(idx-(data[0]->face_to_cell_.size())
-                                                                 + patch_faces.size(), true)];
+            // Get inner refined faces is the same as getting all the faces of a patch in level 1
+            // with start at {1,1,1} and end at 'level1_dim - {1,1,1}'
+            for (int refined_face = 0; refined_face < (data[1] -> face_to_cell_.size()); ++refined_face) {
+                leaf_faces.push_back((*data[1]).geometry_.geomVector(std::integral_constant<int,1>())
+                    [Dune::cpgrid::EntityRep<1>(refined_face, true)]);
+                mutable_face_tags.push_back((*data[1]).face_tag_[Dune::cpgrid::EntityRep<1>(refined_face, true)]);
+                mutable_face_normals.push_back((*data[1]).face_normals_[Dune::cpgrid::EntityRep<1>(refined_face, true)]);
             }
+
+            // FACES
+            // face_to_point_
+            // face_to_cell_
             
             // CELLS
             // After refinenment, we have [total 'coarse level' cells -total patch cells] nonrefined cells.
@@ -795,10 +812,17 @@ namespace Dune
             //   1.1. Inner cells (the ones that do not intersect coarser cells).
             //   1.2. Boundary cells (the ones intersectting coarser cells).
             //        With 'internal order': bottom, front, left, right, back, top boundary cells.
-            
             // 2. Nonrefined cells which are neighboring cells of the patch;
             //    With the 'internal order': bottom, front, left, right, back, top neighboring cells.
             // 3. Nonrefined cells which are NOT neighboring cells of the patch.
+            //
+            // REFINED CELLS
+            // BOUNDARY
+            // Refined boundary bottom cells (indices are stored in "refined_boundary_cells[0]".
+            /* for (auto& idx : refined_boundary_cells[0]) {
+                std::array<int,8> corners =      
+                }*/
+            
             int total_leaf_cells = (data[0]->size(0)) - patch_cells.size() + (data[1]->size(0));
             for (int idx = 0; idx < (data[0]->size(0)) - patch_cells.size(); ++idx) {
                 leaf_cells[idx] = (*data[0]).geometry_.geomVector(std::integral_constant<int,0>())
