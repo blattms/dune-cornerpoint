@@ -610,8 +610,23 @@ public:
         return boundary_cells;    
     }
 
+    // AREA (via sum of 4 triangles) and CENTROID of a face given its 4 corners.
+    std::tuple<double,Geometry<0,3>::GlobalCoordinate> getFaceAreaCentroid(const std::array<int,4> corners)
+    {
+        // AREA
+        double face_area = 0.;
+        // Face CENTROID.
+        Geometry<0,3>::GlobalCoordinate face_centroid = {0.,0.,0.};
+        for (auto& corner : corners)
+        {
+            face_centroid += (this -> geometry_.geomVector(std::integral_constant<int,1>()).get(corner).center())/4.;
+        }
+        
+        return {face_area, face_centroid};
+        
+    }
     
-    // VOLUME  and center of a hexaedron, via sum of 24 tetrahedra,
+    // VOLUME (via sum of 24 tetrahedra)  and CENTER of a hexaedron
     // given its corner and face indices.
     std::tuple<double,Geometry<0,3>::GlobalCoordinate> getHexaVolumeCenter(const std::array<int,8> corners, const std::array<int,6> faces)
     {
@@ -723,7 +738,7 @@ public:
     // @return refined_grid_ptr             Shared pointer pointing at the refined_grid
     //         parents_to_children          To store the indices of all the children of each parent.
     //         children_to_parents          To store the index of the parent of each child.     
-    std::tuple<std::shared_ptr<CpGridData>,std::vector<std::array<int,2>>, std::vector<int>>
+    std::tuple<std::shared_ptr<CpGridData>,std::vector<std::vector<int>>, std::vector<int>>
     refineBlockPatch(const std::array<int,3>& cells_per_dim,
                        std::array<int,3> start_ijk, std::array<int,3> end_ijk)
     {
@@ -767,26 +782,26 @@ public:
                               refined_face_normals);
         // To store children indices for each parent. Each entry looks like
         // {parent index in the coarse grid, index of one of its children in the refined grid}
-        std::vector<std::array<int,2>> parent_to_child; // = extended_refined_grid.parent_to_child_;
-        parent_to_child.reserve(cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]);
+        std::vector<std::vector<int>> parent_to_children_cells;
+        parent_to_children_cells.resize(patch_dim[0]*patch_dim[1]*patch_dim[2]);
         // To store parent index for each child. The children are numbering
         // following the rule of moving first in the x-axes (from left to right),
         // then y-axes (from front to back), finally z-axes (from bottom to top).
-        std::vector<int> child_to_parent; // = extended_refined_grid.child_to_parent_;
-        child_to_parent.resize(cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]);
+        std::vector<int> child_to_parent_cells; // = extended_refined_grid.child_to_parent_;
+        child_to_parent_cells.reserve(cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]);
         for (int k = 0; k < patch_dim[2]; ++k) {
             for (int j = 0; j < patch_dim[1]; ++j) {
                 for (int i = 0; i < patch_dim[0]; ++i) {
                     for (int n = k*cells_per_dim[2]; n < (k+1)*cells_per_dim[2]; ++n) {
                         for (int m = j*cells_per_dim[1]; m < (j+1)*cells_per_dim[1]; ++m) {
                             for (int l = i*cells_per_dim[0]; l < (i+1)*cells_per_dim[0]; ++l) {
-                                parent_to_child.push_back({
+                                parent_to_children_cells[
                                         //parent index in the coarse grid
-                                        patch_cells[(k*patch_dim[0]*patch_dim[1]) + (j*patch_dim[0]) + i],
+                                                   patch_cells[(k*patch_dim[0]*patch_dim[1]) + (j*patch_dim[0]) + i]].push_back(
                                         // one of its child indices
                                         (n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
-                                        + (m*cells_per_dim[0]*patch_dim[0]) + l}); 
-                                  child_to_parent[(n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
+                                        + (m*cells_per_dim[0]*patch_dim[0]) + l); 
+                                  child_to_parent_cells[(n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
                                                      + (m*cells_per_dim[0]*patch_dim[0]) + l]
                                    = patch_cells[(k*patch_dim[0]*patch_dim[1]) + (j*patch_dim[0]) + i];
                                     }// end l-for-loop
@@ -795,7 +810,7 @@ public:
                     } // end i-for-loop
                 } // end j-for-loop
         } // end k-for-loop   
-        return {refined_grid_ptr, parent_to_child, child_to_parent}; 
+        return {refined_grid_ptr, parent_to_children_cells, child_to_parent_cells}; 
     }
     
     // Make unique boundary ids for all intersections.

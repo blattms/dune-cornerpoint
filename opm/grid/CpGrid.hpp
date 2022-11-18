@@ -741,13 +741,14 @@ namespace Dune
             // refined_boundary_faces = {bottom, top, left, right, front, back (boundary faces)}
             auto refined_boundary_cells = (*data[1]).getPatchBoundaryCells({0,0,0}, (*data[1]).logicalCartesianSize());
             // refined_boundary_cells = {bottom, top, left, right, front, back (boundary cells)}
-            auto [inner_refined_corners, inner_refined_faces, inner_refined_cells]
+            auto [refined_inner_corners, refined_inner_faces, refined_inner_cells]
                 = (*data[1]).getPatchGeomIndices({1,1,1},
                                                  {(*data[1]).logicalCartesianSize()[0]-1,
                                                   (*data[1]).logicalCartesianSize()[1]-1,
                                                   (*data[1]).logicalCartesianSize()[2]-1});
             
             // To store the leaf view.
+            typedef Dune::FieldVector<double,3> PointType;
             std::shared_ptr<Dune::cpgrid::CpGridData> leaf_view_ptr = std::make_shared<Dune::cpgrid::CpGridData>(); // ccobj_
             auto& leaf_view = *leaf_view_ptr;
             Dune::cpgrid::DefaultGeometryPolicy& leaf_geometries = leaf_view.geometry_;
@@ -779,28 +780,46 @@ namespace Dune
             }
             // FACES
             // After refinement, we have [total 'coarse level' faces - total 'patch' faces]
-            // non refined faces. We store them first. Then, the refined ones. In the following order:
+            // non refined faces. We need to distinguish 3 cases:
+            // 1. coarse faces out of the patch that was refined.
+            // 2. refined boundary faces (in the boundary of the refined patch).
+            // 3. refined inner faces (in the interior of the refined patch).
+            // Within each case, the following order is taken into account:   is it??
             // - Bottom-top faces -> 3rd coordinate constant in each face.
             // - Left-right faces -> 1st coordinate constant in each face.
             // - Front-back faces -> 2nd coordinate constant in each face.
             leaf_faces.resize(no_patch_faces.size() + (data[1] -> face_to_cell_.size()));
             mutable_face_tags.resize(no_patch_faces.size() + (data[1] -> face_to_cell_.size()));
             mutable_face_normals.resize(no_patch_faces.size() + (data[1] -> face_to_cell_.size()));
+            // COARSE FACES - NO PATCH FACES
             for (auto& idx : no_patch_faces) {
                 leaf_faces.push_back((*data[0]).geometry_.geomVector(std::integral_constant<int,1>())
                                      [Dune::cpgrid::EntityRep<1>(idx, true)]);
                 mutable_face_tags.push_back((*data[0]).face_tag_[Dune::cpgrid::EntityRep<1>(idx, true)]);
                 mutable_face_normals.push_back((*data[0]).face_normals_[Dune::cpgrid::EntityRep<1>(idx, true)]);
             }
-            // Get inner refined faces is the same as getting all the faces of a patch in level 1
-            // with start at {1,1,1} and end at 'level1_dim - {1,1,1}'
-            for (int refined_face = 0; refined_face < (data[1] -> face_to_cell_.size()); ++refined_face) {
-                leaf_faces.push_back((*data[1]).geometry_.geomVector(std::integral_constant<int,1>())
-                    [Dune::cpgrid::EntityRep<1>(refined_face, true)]);
-                mutable_face_tags.push_back((*data[1]).face_tag_[Dune::cpgrid::EntityRep<1>(refined_face, true)]);
-                mutable_face_normals.push_back((*data[1]).face_normals_[Dune::cpgrid::EntityRep<1>(refined_face, true)]);
+            // REFINED BOUNDARY FACES
+            for (auto& refined_boundary_face : refined_boundary_faces) {
+                // leaf_faces.push_back((*data[1]).geometry_.geomVector(std::integral_constant<int,1>())
+                //      [Dune::cpgrid::EntityRep<1>(refined_face, true)]);
+                // NEEED TO COMPUTE AREA
+                //  4 corners of each boundary face
+                // CENTROID
+                // neighboring_cells of each face (one could be a coarse cell, the other one it's the refined cell)
+                //
+                // FACE TO POINT
+                // FACE TO CELL
+                //  mutable_face_tags.push_back((*data[1]).face_tag_[Dune::cpgrid::EntityRep<1>(refined_boundary_face, true)]);
+                // mutable_face_normals.push_back((*data[1]).face_normals_[Dune::cpgrid::EntityRep<1>(refined_boundary_face, true)]);
             }
-
+            // REFINED INNER FACES
+            for (auto& refined_inner_face : refined_inner_faces) {
+                leaf_faces.push_back((*data[1]).geometry_.geomVector(std::integral_constant<int,1>())
+                    [Dune::cpgrid::EntityRep<1>(refined_inner_face, true)]);
+                mutable_face_tags.push_back((*data[1]).face_tag_[Dune::cpgrid::EntityRep<1>(refined_inner_face, true)]);
+                mutable_face_normals.push_back((*data[1]).face_normals_[Dune::cpgrid::EntityRep<1>(refined_inner_face, true)]);
+            }
+            
             // FACES
             // face_to_point_
             // face_to_cell_
@@ -1022,7 +1041,7 @@ namespace Dune
                    
         }
 
-        // REFINE ONE CELL AND GET A LEAF VIEW when there are only level 0 and level 1.
+        /* // REFINE ONE CELL AND GET A LEAF VIEW when there are only level 0 and level 1.
         typedef Dune::FieldVector<double,3> PointType;
         std::shared_ptr<Dune::cpgrid::CpGridData> getLevelView(std::shared_ptr<Dune::cpgrid::CpGridData> level0,
                                                                const std::array<int,3>& cells_per_dim,
@@ -1086,13 +1105,13 @@ namespace Dune
                         level1_view.geometry_.geomVector(std::integral_constant<int,3>()).get(idx - parent_to_point[0]);
                 }
                 // Nonrefined corners from level 0 with index > than leaf index of fake '4' from parent cell
-                /*  if ((idx > parent_to_point[4] + cells_per_dim[2]) && (idx < ))
+                 if ((idx > parent_to_point[4] + cells_per_dim[2]) && (idx < ))
 
 
                     (idx < parent_to_point[1] + ((cells_per_dim[2]+1)*(cells_per_dim[0]-1)))) {
                     leaf_corners[idx] =
                         level1_view.geometry_.geomVector(std::integral_constant<int,3>()).get(idx - parent_to_point[0]);
-                        }*/
+                        }
             }
         }
         
@@ -1189,7 +1208,7 @@ namespace Dune
             }
             return leaf_view_ptr;
            }
-        
+        */
         /*  No refinement implemented. GridDefaultImplementation's methods will be used.
 
         /// \brief Mark entity for refinement
