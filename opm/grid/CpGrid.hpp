@@ -747,6 +747,7 @@ namespace Dune
                                                  {(*data[1]).logicalCartesianSize()[0]-1,
                                                   (*data[1]).logicalCartesianSize()[1]-1,
                                                   (*data[1]).logicalCartesianSize()[2]-1});
+            auto level0_dim =  (*data[0]).logicalCartesianSize();
             
             // To store the leaf view.
             typedef Dune::FieldVector<double,3> PointType;
@@ -826,22 +827,62 @@ namespace Dune
                         // Add the neighboring cells of the face to "leaf_face_to_cell".
                         // BOUNDARY REFINED FACE
                         std::vector<cpgrid::EntityRep<0>> neighboring_cells;
+                         // Get 'LMN' indices of the boundary refined face (to be able to compute neighboring cell (refined) index.)
+                        std::array<int,3> lmn_face = {1,2,3};// @TODO : getIJKFace(child); // lmn = ijk
                         // Bottom boundary refined faces.
-                        if (child_to_parent_ijk_faces[child][2] == 0){
-                            neighboring_cells = {{(m*cells_per_dim[0]*cells_per_dim[1]) + (n*cells_per_dim[0]) +l-1, true},
-                                                 {}};
+                        if ((child_to_parent_ijk_faces[child][2] == start_ijk[2]) && (start_ijk[2] != 0)) {
+                                neighboring_cells = {{((child_to_parent_ijk_faces[child][2]-1)*level0_dim[0]*level0_dim[1])
+                                        + (child_to_parent_ijk_faces[child][1]*level0_dim[0]) + child_to_parent_ijk_faces[child][0], true},
+                                                     {(lmn_face[2]*(cells_per_dim[0]*patch_dim[0]))
+                                                      + (lmn_face[1]*cells_per_dim[1]*patch_dim[1]) +lmn_face[0], false}};                  
+                                    //(*data[1]).face_to_cell_[Dune::cpgrid::EntityRep<1>(child, true)]};
                             leaf_face_to_cell.appendRow(neighboring_cells.begin(), neighboring_cells.end());
                         }
                         // Top boundary refined faces.
-                        if (child_to_parent_ijk_faces[child][2] == cells_per_dim[2]*patch_dim[2] + 1) {
+                        if ((child_to_parent_ijk_faces[child][2] == end_ijk[2]) && (end_ijk[2] != level0_dim[2])) {
+                                 neighboring_cells = {{((child_to_parent_ijk_faces[child][2]+1)*level0_dim[0]*level0_dim[1])
+                                        + (child_to_parent_ijk_faces[child][1]*level0_dim[0]) + child_to_parent_ijk_faces[child][0], false},
+                                                      {((lmn_face[2]-1)*(cells_per_dim[0]*patch_dim[0]))
+                                                      + (lmn_face[1]*cells_per_dim[1]*patch_dim[1]) +lmn_face[0], false}}; 
+                                     //(*data[1]).face_to_cell_[Dune::cpgrid::EntityRep<1>(child, true)]};
+                            leaf_face_to_cell.appendRow(neighboring_cells.begin(), neighboring_cells.end());
                         }
-                        if {
-                        // Left boundary refined face
-                        // Right boundary refined face
-                        if {
-                        // Front boundary refined face
-                        // Back boundary refined face
-                        } 
+                        // Left boundary refined faces.
+                        if ((child_to_parent_ijk_faces[child][0] == start_ijk[0]) && (start_ijk[0] != 0)) {
+                                neighboring_cells = {{(child_to_parent_ijk_faces[child][2]*level0_dim[0]*level0_dim[1])
+                                        + (child_to_parent_ijk_faces[child][1]*level0_dim[0]) + child_to_parent_ijk_faces[child][0]-1, true},
+                                      {(lmn_face[2]*(cells_per_dim[0]*patch_dim[0]))
+                                                      + (lmn_face[1]*cells_per_dim[1]*patch_dim[1]) +lmn_face[0], false}}; 
+                                                      // (*data[1]).face_to_cell_[Dune::cpgrid::EntityRep<1>(child, true)]};
+                            leaf_face_to_cell.appendRow(neighboring_cells.begin(), neighboring_cells.end());
+                        }
+                        // Right boundary refined faces.
+                        if ((child_to_parent_ijk_faces[child][0] == end_ijk[0]) && (end_ijk[1] != level0_dim[0])) {
+                                 neighboring_cells = {{(child_to_parent_ijk_faces[child][2]*level0_dim[0]*level0_dim[1])
+                                        + (child_to_parent_ijk_faces[child][1]*level0_dim[0]) + child_to_parent_ijk_faces[child][0]+1, false},
+                                       {(lmn_face[2]*(cells_per_dim[0]*patch_dim[0]))
+                                                      + (lmn_face[1]*cells_per_dim[1]*patch_dim[1]) +lmn_face[0]-1, true}}; 
+                                     // (*data[1]).face_to_cell_[Dune::cpgrid::EntityRep<1>(child, true)]};
+                            leaf_face_to_cell.appendRow(neighboring_cells.begin(), neighboring_cells.end());
+                        }
+                         // Front boundary refined faces.
+                        if ((child_to_parent_ijk_faces[child][1] == start_ijk[1]) && (start_ijk[1] != 0)) {
+                                neighboring_cells = {{(child_to_parent_ijk_faces[child][2]*level0_dim[0]*level0_dim[1])
+                                        + ((child_to_parent_ijk_faces[child][1]-1)*level0_dim[0]) + child_to_parent_ijk_faces[child][0], true},
+                                      {(lmn_face[2]*(cells_per_dim[0]*patch_dim[0]))
+                                                      + (lmn_face[1]*cells_per_dim[1]*patch_dim[1]) +lmn_face[0], false}}; 
+                                    // (*data[1]).face_to_cell_[Dune::cpgrid::EntityRep<1>(child, true)]};
+                            leaf_face_to_cell.appendRow(neighboring_cells.begin(), neighboring_cells.end());
+                        }
+                        // Back boundary refined faces.
+                        if ((child_to_parent_ijk_faces[child][1] == end_ijk[1]) && (end_ijk[1] != level0_dim[1])) {
+                                 neighboring_cells = {{(child_to_parent_ijk_faces[child][2]*level0_dim[0]*level0_dim[1])
+                                         + ((child_to_parent_ijk_faces[child][1]+1)*level0_dim[0]) + child_to_parent_ijk_faces[child][0], false},
+                                       {(lmn_face[2]*(cells_per_dim[0]*patch_dim[0]))
+                                        + ((lmn_face[1]-1)*cells_per_dim[1]*patch_dim[1]) +lmn_face[0], true}}; 
+                                     // (*data[1]).face_to_cell_[Dune::cpgrid::EntityRep<1>(child, true)]};
+                            leaf_face_to_cell.appendRow(neighboring_cells.begin(), neighboring_cells.end());
+                        }
                         // INNER REFINED FACE
                         else {
                             leaf_face_to_cell.appendRow((*data[1]).face_to_cell_[Dune::cpgrid::EntityRep<1>(child, true)].begin(),
