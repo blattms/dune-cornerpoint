@@ -718,10 +718,10 @@ namespace Dune
                 // "refined_faces".
                 //
                 for (int constant_direction = 0; constant_direction < 3; ++constant_direction){
-                    // adding %3 and r, we go through the 3 type of faces.
-                    // r = 0 -> 3rd coordinate constant: l('k') < cells_per_dim[2]+1, m('j') < cells_per_dim[1], n('i') < cells_per_dim[0]
-                    // r = 1 -> 1rt coordinate constant: l('i') < cells_per_dim[0]+1, m('k') < cells_per_dim[2], n('j') < cells_per_dim[1]
-                    // r = 2 -> 2nd coordinate constant: l('j') < cells_per_dim[1]+1, m('i') < cells_per_dim[0], n('k') < cells_per_dim[2]
+                    // adding %3 and constant_direction, we go through the 3 type of faces.
+                    // 0 -> 3rd coordinate constant: l('k') < cells_per_dim[2]+1, m('j') < cells_per_dim[1], n('i') < cells_per_dim[0]
+                    // 1 -> 1rt coordinate constant: l('i') < cells_per_dim[0]+1, m('k') < cells_per_dim[2], n('j') < cells_per_dim[1]
+                    // 2 -> 2nd coordinate constant: l('j') < cells_per_dim[1]+1, m('i') < cells_per_dim[0], n('k') < cells_per_dim[2]
                     std::array<int,3> cells_per_dim_mixed = {
                         cells_per_dim[(2+constant_direction)%3],
                         cells_per_dim[(1+constant_direction)%3],

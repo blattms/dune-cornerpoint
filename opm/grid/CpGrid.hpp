@@ -631,7 +631,7 @@ namespace Dune
             }
             // Add Level to "data".
             // Use *data.back() instead, if we only want to allow refinement based on the last level stored in data
-            auto [new_data_entry, parent_to_child, child_to_parent] =
+            auto [new_data_entry, parent_to_children_corners, parent_to_children_faces, parent_to_children_cells] =
                 (*data[level_to_refine]).refineBlockPatch(cells_per_dim, start_ijk, end_ijk);
             data.push_back(new_data_entry);
 
@@ -727,7 +727,7 @@ namespace Dune
                            std::array<int,3> start_ijk, std::array<int,3> end_ijk)
         {
             // Use *data.back() instead, if we only want to allow refinement based on the last level stored in data
-            auto [level1_ptr, parent_to_child, child_to_parent] =
+            auto [level1_ptr, parent_to_children_corners, parent_to_children_faces, parent_to_children_cells] =
                 (*data[0]).refineBlockPatch(cells_per_dim, start_ijk, end_ijk);
             data.push_back(level1_ptr);
             // @todo Where (and why? is it needed?) to store "parent_to_child" and "child_to_parent".

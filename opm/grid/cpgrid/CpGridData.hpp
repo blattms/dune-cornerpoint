@@ -611,6 +611,7 @@ public:
     }
 
     // AREA (via sum of 4 triangles) and CENTROID of a face given its 4 corners.
+    // ----------- IN PROGRESS --------------
     std::tuple<double,Geometry<0,3>::GlobalCoordinate> getFaceAreaCentroid(const std::array<int,4> corners)
     {
         // AREA
@@ -736,9 +737,13 @@ public:
     // @param start_ijk                     The minimum values of i,j, k to construct the patch.
     // @param end_ijk                       The maximum values of i,j,k to construct the patch.
     // @return refined_grid_ptr             Shared pointer pointing at the refined_grid
-    //         parents_to_children          To store the indices of all the children of each parent.
-    //         children_to_parents          To store the index of the parent of each child.     
-    std::tuple<std::shared_ptr<CpGridData>,std::vector<std::vector<int>>, std::vector<int>>
+    //         parent_to_children_cornres   To store the indices of 'all the corner children' of each parent.
+    //         parent_to_children_faces     To store the indices of 'all the face children' of each parent.
+    //         parent_to_children_cells     To store the indices of 'all the cells children' of each parent.     
+    std::tuple<std::shared_ptr<CpGridData>,
+               std::vector<std::tuple<bool,std::vector<int>>>,
+               std::vector<std::tuple<bool,std::vector<int>>>,
+               std::vector<std::tuple<bool,std::vector<int>>>>
     refineBlockPatch(const std::array<int,3>& cells_per_dim,
                        std::array<int,3> start_ijk, std::array<int,3> end_ijk)
     {
@@ -780,37 +785,180 @@ public:
                               refined_face_to_cell,
                               refined_face_tags,
                               refined_face_normals);
+        //
+        // Coarse grid dimension
+        const std::array<int,3> grid_dim = this -> logicalCartesianSize();
+        //
+        // PARENT TO CHILDREN - CORNERS
+        //
+        // Vector with all corners (corners with 0 children are included)
+        // Each entry (which represents each corner) consists in the
+        // a bool value to indicate if the corner is a parent (true) or
+        // does not have any child (false), followed by a vector with
+        // children indices (from the refined level!). 
+        std::vector<std::tuple<bool, std::vector<int>>> parent_to_children_corners;
+        parent_to_children_corners.reserve(this -> size(3)); // all corners
+        // The nummbering starts at the botton, so k=0 (z-axis), and j=0 (y-axis), i=0 (x-axis).
+        // Then, increasing k ('going up'), followed by increasing i ('going right->'),
+        // and finally, increasing j ('going back'). This order criteria for corners
+        // 'Up [increasing k]- Right [incresing i]- Back [increasing j]'
+        // is consistant with cpgrid numbering.
+        for (int j = 0; j < grid_dim[1] + 1; ++j) {
+            for (int i = 0; i < grid_dim[0] + 1; ++i) {
+                for (int k = 0; k < grid_dim[2] + 1; ++k) {
+                    // Corner index (in the coarse level).
+                    int corner_idx = (j*(grid_dim[0]+1)*(grid_dim[2]+1)) + (i*(grid_dim[2]+1)) +k;
+                    // Determine if the corner is a 'parent'. We will rewrite this variable for actual parents.
+                    bool is_parent = false;
+                    // Vector to store new born corners, per corner. It's empty for corners outside the patch.
+                    std::vector<int> children_list;
+                    // Patch corners:
+                    if ( (i > start_ijk[0]-1) && (i < end_ijk[0]+1) && (j > start_ijk[1]-1) && (j < end_ijk[1]+1)
+                         && (k > start_ijk[2]-1) && (k < end_ijk[2]+1)) {
+                        // Modify "is_parent" to be 'true'. 
+                        is_parent = true;
+                        // Populate "children_list" with new born corners.
+                        for (int m = (j-start_ijk[1])*cells_per_dim[1]; m < (j-start_ijk[1]+1)*cells_per_dim[1]; ++m) {
+                            for (int l = (i-start_ijk[0])*cells_per_dim[0]; l < (i-start_ijk[0]+1)*cells_per_dim[0]; ++l) {
+                                for (int n = (k-start_ijk[2])*cells_per_dim[2]; n < (k-start_ijk[2]+1)*cells_per_dim[2]; ++n) {
+                                    children_list.push_back((m*((cells_per_dim[0]*patch_dim[0])+1)
+                                                             *((cells_per_dim[2]*patch_dim[2])+1))
+                                                            + (l*((cells_per_dim[2]*patch_dim[2])+1))
+                                                            +n);
+                                } // end n-for-loop      
+                            } // end l-for-loop  
+                        } // end m-for-loop
+                    } // end if 'patch-corners'
+                    // Add the information of each corner to "parent_to_children_corners".
+                    parent_to_children_corners[corner_idx] = std::make_tuple(is_parent, children_list);
+                } // end k-for-loop
+            } // end i-for-loop
+        } // end j-for-loop
+        // --- END PARENT TO CHILDREN CORNERS ---
+        //
+        // PARENT TO CHILDREN - FACES
+        //
+        std::vector<std::tuple<bool,std::vector<int>>> parent_to_children_faces;
+        parent_to_children_faces.reserve(this -> face_to_cell_.size());
+        // r,s,t will play the role of i,j,k.
+        for (int constant_direction = 0; constant_direction < 3; ++constant_direction){
+            // adding %3 and constant_direction, we go through the 3 type of faces.
+            // 0 -> 3rd coordinate constant: tsr = kji ('k' +1)
+            // 1 -> 1rt coordinate constant: tsr = ikj ('i' +1)
+            // 2 -> 2nd coordinate constant: tsr = jik ('j' +1)
+            std::array<int,3> grid_dim_mixed = {grid_dim[(2+constant_direction)%3],grid_dim[(1+constant_direction)%3],
+                grid_dim[constant_direction % 3]};
+            std::array<int,3> start_mixed = {start_ijk[(2+constant_direction)%3],start_ijk[(1+constant_direction)%3],
+                start_ijk[constant_direction % 3]};
+            std::array<int,3> end_mixed = {end_ijk[(2+constant_direction)%3], end_ijk[(1+constant_direction)%3],
+                end_ijk[constant_direction % 3]};
+            std::array<int,3> cells_per_dim_mixed = {cells_per_dim[(2+constant_direction)%3], cells_per_dim[(1+constant_direction)%3],
+                cells_per_dim[constant_direction % 3]};
+            for (int t = 0; t < grid_dim_mixed[2] + 1; ++t) {
+                for (int s = 0; s < grid_dim_mixed[1]; ++s) {
+                    for (int r = 0; r < grid_dim_mixed[0]; ++r) {
+                        int face_idx;
+                        // Face index (in the coarse grid).
+                        switch(constant_direction) {
+                        case 0: // tsr = kji
+                            face_idx = (t*grid_dim[0]*grid_dim[1]) + (s*grid_dim[0]) +r;
+                        case 1: // tsr = ikj  
+                            face_idx = (grid_dim[0]*grid_dim[1]*(grid_dim[2]+1))
+                                + (t*grid_dim[1]*grid_dim[2]) + (s*grid_dim[1]) + r;
+                        case 2: // tsr = jik
+                            face_idx = (grid_dim[0]*grid_dim[1]*(grid_dim[2] +1))
+                                + ((grid_dim[0]+1)*grid_dim[1]*grid_dim[2])
+                                + (t*grid_dim[0]*grid_dim[2]) + (s*grid_dim[2]) + r;
+                        default:
+                            // Should never be reached, but prevents compiler warning
+                            OPM_THROW(std::logic_error, "Unhandled dimension. This should never happen!");
+                        }
+                        // Determine if the face is a 'parent'. We will rewrite this variable for actual parents.
+                        bool is_parent = false;
+                        // Vector to store new born faces, per face. It's empty for faces outside the patch.
+                        std::vector<int> children_list;
+                        // Patch faces
+                        if ( (r > start_mixed[0]-1) && (r < end_mixed[0]) && (s > start_mixed[1]-1) && (s< end_mixed[1])
+                             && (t > start_mixed[2]-1) && (t < end_mixed[2]+1)) {
+                            // Modify "is_parent" to be 'true'. 
+                            is_parent = true;
+                            // Populate "children_list" with new born corners.
+                            for (int n = (t-start_mixed[2])*cells_per_dim_mixed[2];
+                                 n < (t-start_mixed[2]+1)*cells_per_dim_mixed[2]; ++n) {
+                                for (int m = (s-start_mixed[1])*cells_per_dim_mixed[1];
+                                     m < (s-start_mixed[1]+1)*cells_per_dim_mixed[1]; ++m) {
+                                    for (int l = (r-start_mixed[0])*cells_per_dim_mixed[0];
+                                         l < (r-start_mixed[0]+1)*cells_per_dim_mixed[0]; ++n) {
+                                        switch(constant_direction) {
+                                        case 0: // nml = kji
+                                            children_list.push_back((n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
+                                                                    + (m*cells_per_dim[0]*patch_dim[0])+l);
+                                        case 1: // nml = ikj
+                                            children_list.push_back((cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*
+                                                                     ((cells_per_dim[2]*patch_dim[2])+1))
+                                                                    +(n*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2])
+                                                                    + (m*cells_per_dim[1]*patch_dim[1])+l);
+                                        case 2: // nml = jik
+                                            children_list.push_back((cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*
+                                                                     ((cells_per_dim[2]*patch_dim[2])+1))
+                                                                    + ((cells_per_dim[0]*patch_dim[0]+1)*
+                                                                       cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2])
+                                                                    +(n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[2]*patch_dim[2])
+                                                                    + (m*cells_per_dim[2]*patch_dim[2])+l);
+                                        default:
+                                            // Should never be reached, but prevents compiler warning
+                                            OPM_THROW(std::logic_error, "Unhandled dimension. This should never happen!");
+                                        }
+                                    } // end l-for-loop      
+                                } // end m-for-loop  
+                            } // end n-for-loop
+                        } // end if 'patch-faces'
+                        // Add the information of each face to "parent_to_children_faces".
+                        parent_to_children_faces[face_idx] = std::make_tuple(is_parent, children_list);
+                    } // end r-for-loop
+                } // end s-for-loop
+            } // end t-for-loop
+        } // end constant-direction
+        //--- END PARENT TO CHILDREN FACES ---
+        //
+        // PARENT TO CHILDREN - CELLS
+        //
         // To store children indices for each parent. Each entry looks like
         // {parent index in the coarse grid, index of one of its children in the refined grid}
-        std::vector<std::vector<int>> parent_to_children_cells;
-        parent_to_children_cells.resize(patch_dim[0]*patch_dim[1]*patch_dim[2]);
+        std::vector<std::tuple<bool,std::vector<int>>> parent_to_children_cells;
+        parent_to_children_cells.reserve(this -> size(0)); //(patch_dim[0]*patch_dim[1]*patch_dim[2]);
         // To store parent index for each child. The children are numbering
         // following the rule of moving first in the x-axes (from left to right),
         // then y-axes (from front to back), finally z-axes (from bottom to top).
-        std::vector<int> child_to_parent_cells; // = extended_refined_grid.child_to_parent_;
-        child_to_parent_cells.reserve(cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]);
-        for (int k = 0; k < patch_dim[2]; ++k) {
-            for (int j = 0; j < patch_dim[1]; ++j) {
-                for (int i = 0; i < patch_dim[0]; ++i) {
-                    for (int n = k*cells_per_dim[2]; n < (k+1)*cells_per_dim[2]; ++n) {
-                        for (int m = j*cells_per_dim[1]; m < (j+1)*cells_per_dim[1]; ++m) {
-                            for (int l = i*cells_per_dim[0]; l < (i+1)*cells_per_dim[0]; ++l) {
-                                parent_to_children_cells[
-                                        //parent index in the coarse grid
-                                                   patch_cells[(k*patch_dim[0]*patch_dim[1]) + (j*patch_dim[0]) + i]].push_back(
-                                        // one of its child indices
-                                        (n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
-                                        + (m*cells_per_dim[0]*patch_dim[0]) + l); 
-                                  child_to_parent_cells[(n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
-                                                     + (m*cells_per_dim[0]*patch_dim[0]) + l]
-                                   = patch_cells[(k*patch_dim[0]*patch_dim[1]) + (j*patch_dim[0]) + i];
-                                    }// end l-for-loop
+        //    std::vector<int> child_to_parent_cells; // = extended_refined_grid.child_to_parent_;
+        // child_to_parent_cells.reserve(cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]);
+        for (int k = 0; k < grid_dim[2]; ++k) {
+            for (int j = 0; j < grid_dim[1]; ++j) {
+                for (int i = 0; i < grid_dim[0]; ++i) {
+                    int cell_idx =
+                        (k*grid_dim[0]*grid_dim[1]) + (j*grid_dim[0]) +k;
+                    bool is_parent = false;
+                    std::vector<int> children_list;
+                    if ( (i > start_ijk[0]-1) && (i < end_ijk[0]) && (j > start_ijk[1]-1) && (j < end_ijk[1])
+                         && (k > start_ijk[2]-1) && (k < end_ijk[2])) {
+                        is_parent = true;
+                        for (int n = (k-start_ijk[2])*cells_per_dim[2]; n < (k-start_ijk[2]+1)*cells_per_dim[2]; ++n) {
+                            for (int m = (j-start_ijk[1])*cells_per_dim[1]; m < (j-start_ijk[1]+1)*cells_per_dim[1]; ++m) {
+                                for (int l = (i-start_ijk[0])*cells_per_dim[0]; l < (i-start_ijk[0]+1)*cells_per_dim[0]; ++l) {
+                                    children_list.push_back((n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
+                                                                                    + (m*cells_per_dim[0]*patch_dim[0]) + l); 
+                                    //     child_to_parent_cells[(n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
+                                    //                         + (m*cells_per_dim[0]*patch_dim[0]) + l]
+                                    //       = patch_cells[(k*patch_dim[0]*patch_dim[1]) + (j*patch_dim[0]) + i];
+                                }// end l-for-loop
                             } // end m-for-loop
                         } // end n-for-loop
-                    } // end i-for-loop
-                } // end j-for-loop
+                    }// end if
+                    parent_to_children_cells[cell_idx] = std::make_tuple(is_parent, children_list);
+                } // end i-for-loop
+            } // end j-for-loop
         } // end k-for-loop   
-        return {refined_grid_ptr, parent_to_children_cells, child_to_parent_cells}; 
+        return {refined_grid_ptr, parent_to_children_corners, parent_to_children_faces, parent_to_children_cells};  
     }
     
     // Make unique boundary ids for all intersections.
