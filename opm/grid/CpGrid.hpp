@@ -631,7 +631,8 @@ namespace Dune
             }
             // Add Level to "data".
             // Use *data.back() instead, if we only want to allow refinement based on the last level stored in data
-            auto [new_data_entry, parent_to_children_corners, parent_to_children_faces, parent_to_children_cells] =
+            auto [new_data_entry, parent_to_children_corners, parent_to_children_faces, parent_to_children_cells,
+                  child_to_parent_ijk_faces, child_to_parent_ijk_cells] =
                 (*data[level_to_refine]).refineBlockPatch(cells_per_dim, start_ijk, end_ijk);
             data.push_back(new_data_entry);
 
@@ -727,10 +728,10 @@ namespace Dune
                            std::array<int,3> start_ijk, std::array<int,3> end_ijk)
         {
             // Use *data.back() instead, if we only want to allow refinement based on the last level stored in data
-            auto [level1_ptr, parent_to_children_corners, parent_to_children_faces, parent_to_children_cells] =
+            auto [level1_ptr, parent_to_children_corners, parent_to_children_faces, parent_to_children_cells,
+                  child_to_parent_ijk_faces, child_to_parent_ijk_cells] =
                 (*data[0]).refineBlockPatch(cells_per_dim, start_ijk, end_ijk);
             data.push_back(level1_ptr);
-            // @todo Where (and why? is it needed?) to store "parent_to_child" and "child_to_parent".
             auto patch_dim = (*data[0]).getPatchDim(start_ijk, end_ijk);
             auto [patch_corners, patch_faces, patch_cells] = (*data[0]).getPatchGeomIndices(start_ijk, end_ijk);
             auto [no_patch_corners, no_patch_faces, no_patch_no_neighb_cells]
@@ -769,16 +770,87 @@ namespace Dune
             Dune::cpgrid::EntityVariableBase<PointType>& mutable_face_normals = leaf_face_normals;
             
             // CORNERS
-            // After refinement, we have [total 'coarse level' corners - total 'patch' corners]
-            // non refined corners. We store them first. Then, the refined ones.
-            leaf_corners.resize(no_patch_corners.size() + (data[1]->size(3)));
-            for (auto& idx : no_patch_corners) {
-                leaf_corners.push_back((*data[0]).geometry_.geomVector(std::integral_constant<int,3>()).get(idx));
+            //
+            // Stored following the Dune order criteria (from bottom to top 'k',from left to right 'i',
+            // from front to back 'j'; 'jik' with k the fastest), with the additional rule of adding
+            // children corners everytime we find a parent corner.
+            // Recall that each entry of "parent_to_children_corners" looks like {true/false, "children_list"}.
+            // When the corner is not a parent, "children_list" contains only one value, the corner itself
+            // (index in the coarse level). When the corner is a parent one, "children_list" contains indices of
+            // the refined level. 
+            leaf_corners.resize(parent_to_children_corners.size());
+            for (auto& idx : parent_to_children_corners) {
+                if (std::get<0>(idx)== false) {
+                    leaf_corners.push_back((*data[0]).geometry_.geomVector(std::integral_constant<int,3>()).get(std::get<1>(idx)[0]));
+                }
+                if (std::get<0>(idx) == true) {
+                    for (auto& child : std::get<1>(idx)) {
+                        leaf_corners.push_back((*data[1]).geometry_.geomVector(std::integral_constant<int,3>()).get(child));
+                    }
+                }
             }
-            for (int refined_corner = 0; refined_corner < (data[1]->size(3)); ++refined_corner) {
-                leaf_corners.push_back((*data[1]).geometry_.geomVector(std::integral_constant<int,3>()).get(refined_corner));
-            }
+            //
             // FACES
+            // Stored in the following order: 3rd coordinate constant ('kji', i the fastest), 1st coordinate
+            // constant ('ikj', j the fastest), 2nd coordinate constant ('jik', k the fastest), with the
+            // additional rule of adding children faces everytime we find a parent face.
+            // Recall that each entry of "parent_to_children_faces" looks like {true/false, "children_list"}.
+            // When the face is not a parent, "children_list" contains only one value, the face itself
+            // (index in the coarse level). When the face is a parent one, "children_list" contains indices of
+            // the refined level.
+            leaf_faces.resize(parent_to_children_faces.size());
+            mutable_face_tags.resize(parent_to_children_faces.size());
+            mutable_face_normals.resize(parent_to_children_faces.size());
+            for (auto& idx : parent_to_children_faces) {
+                if (std::get<0>(idx)== false) {
+                    leaf_faces.push_back((*data[0]).geometry_.geomVector(std::integral_constant<int,1>())
+                                         [Dune::cpgrid::EntityRep<1>(std::get<1>(idx)[0], true)]);
+                    mutable_face_tags.push_back((*data[0]).face_tag_[Dune::cpgrid::EntityRep<1>(std::get<1>(idx)[0], true)]);
+                    mutable_face_normals.push_back((*data[0]).face_normals_[Dune::cpgrid::EntityRep<1>(std::get<1>(idx)[0], true)]);
+                    // Add the 4 corners of the face to "leaf_face_to_point".
+                    leaf_face_to_point.appendRow((*data[0]).face_to_point_[std::get<1>(idx)[0]].begin(),
+                                                 (*data[0]).face_to_point_[std::get<1>(idx)[0]].end());
+                    // Add the neighboring cells of the face to "refined_face_to_cell".
+                    leaf_face_to_cell.appendRow((*data[0]).face_to_cell_[Dune::cpgrid::EntityRep<1>(std::get<1>(idx)[0], true)].begin(),
+                                                (*data[0]).face_to_cell_[Dune::cpgrid::EntityRep<1>(std::get<1>(idx)[0], true)].end());
+                }
+                if (std::get<0>(idx) == true) {
+                    for (auto& child : std::get<1>(idx)) {
+                        leaf_faces.push_back((*data[1]).geometry_.geomVector(std::integral_constant<int,1>())
+                                             [Dune::cpgrid::EntityRep<1>(child, true)]);
+                        mutable_face_tags.push_back((*data[1]).face_tag_[Dune::cpgrid::EntityRep<1>(child, true)]);
+                        mutable_face_normals.push_back((*data[1]).face_normals_[Dune::cpgrid::EntityRep<1>(child, true)]);
+                        // Add the 4 corners of the face to "leaf_face_to_point".
+                        leaf_face_to_point.appendRow((*data[1]).face_to_point_[child].begin(),
+                                                     (*data[1]).face_to_point_[child].end());
+                        // Add the neighboring cells of the face to "leaf_face_to_cell".
+                        // BOUNDARY REFINED FACE
+                        std::vector<cpgrid::EntityRep<0>> neighboring_cells;
+                        // Bottom boundary refined faces.
+                        if (child_to_parent_ijk_faces[child][2] == 0){
+                            neighboring_cells = {{(m*cells_per_dim[0]*cells_per_dim[1]) + (n*cells_per_dim[0]) +l-1, true},
+                                                 {}};
+                            leaf_face_to_cell.appendRow(neighboring_cells.begin(), neighboring_cells.end());
+                        }
+                        // Top boundary refined faces.
+                        if (child_to_parent_ijk_faces[child][2] == cells_per_dim[2]*patch_dim[2] + 1) {
+                        }
+                        if {
+                        // Left boundary refined face
+                        // Right boundary refined face
+                        if {
+                        // Front boundary refined face
+                        // Back boundary refined face
+                        } 
+                        // INNER REFINED FACE
+                        else {
+                            leaf_face_to_cell.appendRow((*data[1]).face_to_cell_[Dune::cpgrid::EntityRep<1>(child, true)].begin(),
+                                                        (*data[1]).face_to_cell_[Dune::cpgrid::EntityRep<1>(child, true)].end());
+                        }
+                    }
+                }
+            }
+            //
             // After refinement, we have [total 'coarse level' faces - total 'patch' faces]
             // non refined faces. We need to distinguish 3 cases:
             // 1. coarse faces out of the patch that was refined.
@@ -788,11 +860,11 @@ namespace Dune
             // - Bottom-top faces -> 3rd coordinate constant in each face.
             // - Left-right faces -> 1st coordinate constant in each face.
             // - Front-back faces -> 2nd coordinate constant in each face.
-            leaf_faces.resize(no_patch_faces.size() + (data[1] -> face_to_cell_.size()));
-            mutable_face_tags.resize(no_patch_faces.size() + (data[1] -> face_to_cell_.size()));
-            mutable_face_normals.resize(no_patch_faces.size() + (data[1] -> face_to_cell_.size()));
+            //   leaf_faces.resize(no_patch_faces.size() + (data[1] -> face_to_cell_.size()));
+            // mutable_face_tags.resize(no_patch_faces.size() + (data[1] -> face_to_cell_.size()));
+            // mutable_face_normals.resize(no_patch_faces.size() + (data[1] -> face_to_cell_.size()));
             // COARSE FACES - NO PATCH FACES
-            for (auto& idx : no_patch_faces) {
+            /*  for (auto& idx : no_patch_faces) {
                 leaf_faces.push_back((*data[0]).geometry_.geomVector(std::integral_constant<int,1>())
                                      [Dune::cpgrid::EntityRep<1>(idx, true)]);
                 mutable_face_tags.push_back((*data[0]).face_tag_[Dune::cpgrid::EntityRep<1>(idx, true)]);
@@ -819,7 +891,7 @@ namespace Dune
                 mutable_face_tags.push_back((*data[1]).face_tag_[Dune::cpgrid::EntityRep<1>(refined_inner_face, true)]);
                 mutable_face_normals.push_back((*data[1]).face_normals_[Dune::cpgrid::EntityRep<1>(refined_inner_face, true)]);
             }
-            
+            */
             // FACES
             // face_to_point_
             // face_to_cell_

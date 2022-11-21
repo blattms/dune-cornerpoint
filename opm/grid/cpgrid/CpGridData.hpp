@@ -739,11 +739,15 @@ public:
     // @return refined_grid_ptr             Shared pointer pointing at the refined_grid
     //         parent_to_children_cornres   To store the indices of 'all the corner children' of each parent.
     //         parent_to_children_faces     To store the indices of 'all the face children' of each parent.
-    //         parent_to_children_cells     To store the indices of 'all the cells children' of each parent.     
+    //         parent_to_children_cells     To store the indices of 'all the cells children' of each parent.
+    //         child_to_parent_ijk_faces
+    //         child_to_parent_ijk_cells
     std::tuple<std::shared_ptr<CpGridData>,
                std::vector<std::tuple<bool,std::vector<int>>>,
                std::vector<std::tuple<bool,std::vector<int>>>,
-               std::vector<std::tuple<bool,std::vector<int>>>>
+               std::vector<std::tuple<bool,std::vector<int>>>,
+               std::vector<std::array<int,3>>,
+               std::vector<std::array<int,3>>>
     refineBlockPatch(const std::array<int,3>& cells_per_dim,
                        std::array<int,3> start_ijk, std::array<int,3> end_ijk)
     {
@@ -829,6 +833,9 @@ public:
                             } // end l-for-loop  
                         } // end m-for-loop
                     } // end if 'patch-corners'
+                    else {
+                        children_list = {corner_idx};
+                    }
                     // Add the information of each corner to "parent_to_children_corners".
                     parent_to_children_corners[corner_idx] = std::make_tuple(is_parent, children_list);
                 } // end k-for-loop
@@ -840,6 +847,8 @@ public:
         //
         std::vector<std::tuple<bool,std::vector<int>>> parent_to_children_faces;
         parent_to_children_faces.reserve(this -> face_to_cell_.size());
+        std::vector<std::array<int,3>> child_to_parent_ijk_faces;
+        child_to_parent_ijk_faces.reserve(refined_face_to_cell.size());
         // r,s,t will play the role of i,j,k.
         for (int constant_direction = 0; constant_direction < 3; ++constant_direction){
             // adding %3 and constant_direction, we go through the 3 type of faces.
@@ -893,11 +902,17 @@ public:
                                         case 0: // nml = kji
                                             children_list.push_back((n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
                                                                     + (m*cells_per_dim[0]*patch_dim[0])+l);
+                                            child_to_parent_ijk_faces[(n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
+                                                                      + (m*cells_per_dim[0]*patch_dim[0])+l] = {r,s,t};
                                         case 1: // nml = ikj
                                             children_list.push_back((cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*
                                                                      ((cells_per_dim[2]*patch_dim[2])+1))
                                                                     +(n*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2])
                                                                     + (m*cells_per_dim[1]*patch_dim[1])+l);
+                                             child_to_parent_ijk_faces[(cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*
+                                                                     ((cells_per_dim[2]*patch_dim[2])+1))
+                                                                    +(n*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2])
+                                                                    + (m*cells_per_dim[1]*patch_dim[1])+l] = {t,r,s};    
                                         case 2: // nml = jik
                                             children_list.push_back((cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*
                                                                      ((cells_per_dim[2]*patch_dim[2])+1))
@@ -905,6 +920,12 @@ public:
                                                                        cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2])
                                                                     +(n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[2]*patch_dim[2])
                                                                     + (m*cells_per_dim[2]*patch_dim[2])+l);
+                                             child_to_parent_ijk_faces[(cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*
+                                                                     ((cells_per_dim[2]*patch_dim[2])+1))
+                                                                    + ((cells_per_dim[0]*patch_dim[0]+1)*
+                                                                       cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2])
+                                                                    +(n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[2]*patch_dim[2])
+                                                                      + (m*cells_per_dim[2]*patch_dim[2])+l] = {s,t,r};
                                         default:
                                             // Should never be reached, but prevents compiler warning
                                             OPM_THROW(std::logic_error, "Unhandled dimension. This should never happen!");
@@ -913,6 +934,9 @@ public:
                                 } // end m-for-loop  
                             } // end n-for-loop
                         } // end if 'patch-faces'
+                        else {
+                            children_list = {face_idx};
+                        }
                         // Add the information of each face to "parent_to_children_faces".
                         parent_to_children_faces[face_idx] = std::make_tuple(is_parent, children_list);
                     } // end r-for-loop
@@ -926,12 +950,12 @@ public:
         // To store children indices for each parent. Each entry looks like
         // {parent index in the coarse grid, index of one of its children in the refined grid}
         std::vector<std::tuple<bool,std::vector<int>>> parent_to_children_cells;
-        parent_to_children_cells.reserve(this -> size(0)); //(patch_dim[0]*patch_dim[1]*patch_dim[2]);
+        parent_to_children_cells.reserve(this -> size(0)); 
         // To store parent index for each child. The children are numbering
         // following the rule of moving first in the x-axes (from left to right),
         // then y-axes (from front to back), finally z-axes (from bottom to top).
-        //    std::vector<int> child_to_parent_cells; // = extended_refined_grid.child_to_parent_;
-        // child_to_parent_cells.reserve(cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]);
+        std::vector<std::array<int,3>> child_to_parent_ijk_cells; 
+        child_to_parent_ijk_cells.reserve(cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]);
         for (int k = 0; k < grid_dim[2]; ++k) {
             for (int j = 0; j < grid_dim[1]; ++j) {
                 for (int i = 0; i < grid_dim[0]; ++i) {
@@ -946,19 +970,23 @@ public:
                             for (int m = (j-start_ijk[1])*cells_per_dim[1]; m < (j-start_ijk[1]+1)*cells_per_dim[1]; ++m) {
                                 for (int l = (i-start_ijk[0])*cells_per_dim[0]; l < (i-start_ijk[0]+1)*cells_per_dim[0]; ++l) {
                                     children_list.push_back((n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
-                                                                                    + (m*cells_per_dim[0]*patch_dim[0]) + l); 
-                                    //     child_to_parent_cells[(n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
-                                    //                         + (m*cells_per_dim[0]*patch_dim[0]) + l]
-                                    //       = patch_cells[(k*patch_dim[0]*patch_dim[1]) + (j*patch_dim[0]) + i];
+                                                                                    + (m*cells_per_dim[0]*patch_dim[0]) + l);
+                                    child_to_parent_ijk_cells[(n*cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1])
+                                                              + (m*cells_per_dim[0]*patch_dim[0]) + l] = {i,j,k};
                                 }// end l-for-loop
                             } // end m-for-loop
                         } // end n-for-loop
-                    }// end if
+                    }// end if 'patch cells'
+                    else {
+                        children_list = {cell_idx};
+                    }
                     parent_to_children_cells[cell_idx] = std::make_tuple(is_parent, children_list);
                 } // end i-for-loop
             } // end j-for-loop
         } // end k-for-loop   
-        return {refined_grid_ptr, parent_to_children_corners, parent_to_children_faces, parent_to_children_cells};  
+        return {refined_grid_ptr,
+            parent_to_children_corners, parent_to_children_faces, parent_to_children_cells,
+            child_to_parent_ijk_faces, child_to_parent_ijk_cells};  
     }
     
     // Make unique boundary ids for all intersections.
