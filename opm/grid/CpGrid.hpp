@@ -722,10 +722,10 @@ namespace Dune
 
         // Assume we have Level 0. We add Level 1 to "data", created via refinement of a patch
         // from level 0. We want to add to "data" as a third entry the LeafView with only these
-        // 2 levels. 
+        // 2 levels.
         void getLeafView2Levels(std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>>& data,
-                           const std::array<int,3>& cells_per_dim,
-                           std::array<int,3> start_ijk, std::array<int,3> end_ijk)
+                                const std::array<int,3>& cells_per_dim,
+                                std::array<int,3> start_ijk, std::array<int,3> end_ijk)
         {
             // Use *data.back() instead, if we only want to allow refinement based on the last level stored in data
             auto [level1_ptr, parent_to_children_corners, parent_to_children_faces, parent_to_children_cells,
@@ -748,7 +748,7 @@ namespace Dune
                                                   (*data[1]).logicalCartesianSize()[1]-1,
                                                   (*data[1]).logicalCartesianSize()[2]-1});
             auto level0_dim =  (*data[0]).logicalCartesianSize();
-            
+
             // To store the leaf view.
             typedef Dune::FieldVector<double,3> PointType;
             std::shared_ptr<Dune::cpgrid::CpGridData> leaf_view_ptr = std::make_shared<Dune::cpgrid::CpGridData>(); // ccobj_
@@ -769,7 +769,7 @@ namespace Dune
                 leaf_geometries.geomVector(std::integral_constant<int,0>());
             Dune::cpgrid::EntityVariableBase<enum face_tag>& mutable_face_tags = leaf_face_tags;
             Dune::cpgrid::EntityVariableBase<PointType>& mutable_face_normals = leaf_face_normals;
-            
+
             // CORNERS
             //
             // Stored following the Dune order criteria (from bottom to top 'k',from left to right 'i',
@@ -778,8 +778,8 @@ namespace Dune
             // Recall that each entry of "parent_to_children_corners" looks like {true/false, "children_list"}.
             // When the corner is not a parent, "children_list" contains only one value, the corner itself
             // (index in the coarse level). When the corner is a parent one, "children_list" contains indices of
-            // the refined level. 
-            leaf_corners.resize(parent_to_children_corners.size());
+            // the refined level.
+            leaf_corners.resize((data[0] -> size(3)) - patch_corners.size() + (data[1]) -> size(3));
             for (auto& idx : parent_to_children_corners) {
                 if (std::get<0>(idx)== false) {
                     leaf_corners.push_back((*data[0]).geometry_.geomVector(std::integral_constant<int,3>()).get(std::get<1>(idx)[0]));
@@ -799,9 +799,9 @@ namespace Dune
             // When the face is not a parent, "children_list" contains only one value, the face itself
             // (index in the coarse level). When the face is a parent one, "children_list" contains indices of
             // the refined level.
-            leaf_faces.resize(parent_to_children_faces.size());
-            mutable_face_tags.resize(parent_to_children_faces.size());
-            mutable_face_normals.resize(parent_to_children_faces.size());
+            leaf_faces.resize((data[0] -> face_to_cell_.size()) - patch_faces.size() + ((data[1]-> face_to_cell_.size())));
+            mutable_face_tags.resize((data[0] -> face_to_cell_.size()) - patch_faces.size() + ((data[1]-> face_to_cell_.size())));
+            mutable_face_normals.resize((data[0] -> face_to_cell_.size()) - patch_faces.size() + ((data[1]-> face_to_cell_.size())));
             for (auto& idx : parent_to_children_faces) {
                 if (std::get<0>(idx)== false) {
                     leaf_faces.push_back((*data[0]).geometry_.geomVector(std::integral_constant<int,1>())
@@ -900,266 +900,27 @@ namespace Dune
                 }
             }
             //
-            // After refinement, we have [total 'coarse level' faces - total 'patch' faces]
-            // non refined faces. We need to distinguish 3 cases:
-            // 1. coarse faces out of the patch that was refined.
-            // 2. refined boundary faces (in the boundary of the refined patch).
-            // 3. refined inner faces (in the interior of the refined patch).
-            // Within each case, the following order is taken into account:   is it??
-            // - Bottom-top faces -> 3rd coordinate constant in each face.
-            // - Left-right faces -> 1st coordinate constant in each face.
-            // - Front-back faces -> 2nd coordinate constant in each face.
-            //   leaf_faces.resize(no_patch_faces.size() + (data[1] -> face_to_cell_.size()));
-            // mutable_face_tags.resize(no_patch_faces.size() + (data[1] -> face_to_cell_.size()));
-            // mutable_face_normals.resize(no_patch_faces.size() + (data[1] -> face_to_cell_.size()));
-            // COARSE FACES - NO PATCH FACES
-            /*  for (auto& idx : no_patch_faces) {
-                leaf_faces.push_back((*data[0]).geometry_.geomVector(std::integral_constant<int,1>())
-                                     [Dune::cpgrid::EntityRep<1>(idx, true)]);
-                mutable_face_tags.push_back((*data[0]).face_tag_[Dune::cpgrid::EntityRep<1>(idx, true)]);
-                mutable_face_normals.push_back((*data[0]).face_normals_[Dune::cpgrid::EntityRep<1>(idx, true)]);
-            }
-            // REFINED BOUNDARY FACES
-            for (auto& refined_boundary_face : refined_boundary_faces) {
-                // leaf_faces.push_back((*data[1]).geometry_.geomVector(std::integral_constant<int,1>())
-                //      [Dune::cpgrid::EntityRep<1>(refined_face, true)]);
-                // NEEED TO COMPUTE AREA
-                //  4 corners of each boundary face
-                // CENTROID
-                // neighboring_cells of each face (one could be a coarse cell, the other one it's the refined cell)
-                //
-                // FACE TO POINT
-                // FACE TO CELL
-                //  mutable_face_tags.push_back((*data[1]).face_tag_[Dune::cpgrid::EntityRep<1>(refined_boundary_face, true)]);
-                // mutable_face_normals.push_back((*data[1]).face_normals_[Dune::cpgrid::EntityRep<1>(refined_boundary_face, true)]);
-            }
-            // REFINED INNER FACES
-            for (auto& refined_inner_face : refined_inner_faces) {
-                leaf_faces.push_back((*data[1]).geometry_.geomVector(std::integral_constant<int,1>())
-                    [Dune::cpgrid::EntityRep<1>(refined_inner_face, true)]);
-                mutable_face_tags.push_back((*data[1]).face_tag_[Dune::cpgrid::EntityRep<1>(refined_inner_face, true)]);
-                mutable_face_normals.push_back((*data[1]).face_normals_[Dune::cpgrid::EntityRep<1>(refined_inner_face, true)]);
-            }
-            */
-            // FACES
-            // face_to_point_
-            // face_to_cell_
-            
             // CELLS
-            // After refinenment, we have [total 'coarse level' cells -total patch cells] nonrefined cells.
-            // We store the cells in the following way:
-            // 1. Refined cells.
-            //   1.1. Inner cells (the ones that do not intersect coarser cells).
-            //   1.2. Boundary cells (the ones intersectting coarser cells).
-            //        With 'internal order': bottom, front, left, right, back, top boundary cells.
-            // 2. Nonrefined cells which are neighboring cells of the patch;
-            //    With the 'internal order': bottom, front, left, right, back, top neighboring cells.
-            // 3. Nonrefined cells which are NOT neighboring cells of the patch.
-            //
-            // REFINED CELLS
-            // BOUNDARY
-            // Refined boundary bottom cells (indices are stored in "refined_boundary_cells[0]".
-            /* for (auto& idx : refined_boundary_cells[0]) {
-                std::array<int,8> corners =      
-                }*/
-            
-            int total_leaf_cells = (data[0]->size(0)) - patch_cells.size() + (data[1]->size(0));
-            for (int idx = 0; idx < (data[0]->size(0)) - patch_cells.size(); ++idx) {
-                leaf_cells[idx] = (*data[0]).geometry_.geomVector(std::integral_constant<int,0>())
-                    [Dune::cpgrid::EntityRep<0>(idx, true)];
-            }
-            for (int idx = (data[0]->size(0)) - patch_cells.size(); idx < total_leaf_cells; ++idx) {
-                leaf_cells[idx] =
-                    (*data[1]).geometry_.geomVector(std::integral_constant<int,0>())
-                    [Dune::cpgrid::EntityRep<0>(idx-(data[0]->size(0))+ patch_cells.size(), true)];
-            }
-            // TOPOLOGY 
-            /*
-            std::array<int,3> level0_dim = (*data[0]).logicalCartesianSize();
-            for (int k = 0; k < ; ++k) {
-                for (int j = 0; j < ; ++j) {
-                    for (int i = 0; i < ; ++i) {
-                        // find neighbors
-                        int idx =  (k*level0_dim[0]*level0_dim[1])+ (j*level0_dim[0]) +i;
-                        if (std::find(patch_cell_indices.begin(), patch_cell_indices.end(),idx) != patch_cell_indices.end()) {
-                            for (int n = 0; l < ; ++l) {
-                                for (int m = 0; m < ; ++m) {
-                                    for (int l = 0; l < ; ++l) {
-                                        leaf_cells[ (data[0]->size(0)) - patch_cell_indices.size()] =
-                                            (*data[1]).geometry_.geomVector(std::integral_constant<int,0>())
-                                            [Dune::cpgrid::EntityRep<0>(idx-(data[0]->size(0))+patch_cell_indices.size(), true)];
-                                    } // end l
-                                } // end m
-                            } // end n
-                        } // end if
-                        
-                    } // end i
-                } // end j
-            } // end k
-            */
-                    
-                        
-                            
-            
-            
-            // TOPOLOGY
-
-
-            
-            /*   for (const auto& idx : patch_cell_indices) {
-                auto parent_to_erase_it = future_leaf_cells[level_to_refine].begin() + idx;
-                future_leaf_cells[level_to_refine].erase(parent_to_erase_it);
+            // Stored in the usual order from bottom to top, from left to right, from front to back
+            // (kji, with i the fastest, i~ x-direction, j~ y-direction, k~z-direction), with the
+            // additional step of adding the children cells every time we find a parent cell. 
+            leaf_cells.resize((data[0] -> size(0)) - patch_cells.size() + ((data[1]-> size(0))));
+            leaf_cell_to_point.resize((data[0] -> size(0)) - patch_cells.size() + ((data[1]-> size(0))));
+            // leaf_cell_to_face.resize((data[0] -> size(0)) - patch_cells.size() + ((data[1]-> size(0))));
+            for (auto& idx : parent_to_children_cells) {
+                if (std::get<0>(idx)== false) {
+                    leaf_cells.push_back((*data[0]).geometry_.geomVector(std::integral_constant<int,0>())
+                                         [Dune::cpgrid::EntityRep<0>(std::get<1>(idx)[0], true)]);
+                    leaf_cell_to_point.push_back((*data[0]).cell_to_point_[std::get<1>(idx)[0]]);
                 }
-            // Add the (all) child cells to "future_leaf_cells". We do not separate them by 'parent'.
-            // Recall that the numbering for cells follows the rule:
-            // from left to right (increasing i/x-direction),
-            // front to back (increasing j/y-direction),
-            // from bottom to top (increasing k/z-direction).
-            // First, we store the survivors from level 0, then suvivors from level 1, and so on.
-            std::vector<int> new_level_cells;
-            new_level_cells.reserve(patch_dim[0]*cells_per_dim[0]
-                                    *patch_dim[1]*cells_per_dim[1]*patch_dim[2]*cells_per_dim[2]);
-            for (int new_cell = 0; new_cell < patch_dim[0]*cells_per_dim[0]
-                     *patch_dim[1]*cells_per_dim[1]*patch_dim[2]*cells_per_dim[2]; ++new_cell) {
-                new_level_cells.push_back(new_cell);
-            }
-            future_leaf_cells.push_back(new_level_cells);
-            // Imagine we have the 8 corner indices of the patch to build 'a cell' put of it
-            std::array<int,8> cellfiedPatch_to_point; // ultra fake {0,1,...,7}
-            //   TOP        BOTTOM        (of cellfied patch!!!!, not actual 0, 1, ..., 7)
-            //  6 -- 7      2 -- 3
-            //  |    |      |    |
-            //  4 -- 5      0 -- 1
-            // These corners are shifted after refinement. We add to each corner index,
-            // the amount of new corners in between, following the corner order criteria of Dune,
-            // i.e., from bottom to top-from left to right-from front to back (jik, k the fastest).
-            // How the fake 0,.., 7 corners appear in Dune-order is: 0,4,1,5,2,6,3,7.
-            std::array<int,8> shifted_cellfiedPatch_to_point;
-            // shifted_cellfiedPatch_to_point[0] stays the same
-            shifted_cellfiedPatch_to_point[4] =  cellfiedPatch_to_point[4] + (patch_dim[2]*(cells_per_dim[2]-1));
-            shifted_cellfiedPatch_to_point[1] =  cellfiedPatch_to_point[1] + (patch_dim[2]*(cells_per_dim[2]-1))
-                + (((patch_dim[2]*cells_per_dim[2])+1)*((patch_dim[0]*cell_per_dim[0])-1));
-            shifted_cellfiedPatch_to_point[5] =  cellfiedPatch_to_point[5] + (patch_dim[2]*cells_per_dim[2]) -1
-                + (((patch_dim[2]*cells_per_dim[2])+1)*((patch_dim[0]*cell_per_dim[0])-1))
-                + (patch_dim[2]*cells_per_dim[2]) -1;
-            shifted_cellfiedPatch_to_point[2] = ;
-            shifted_cellfiedPatch_to_point[6] = ;
-            shifted_cellfiedPatch_to_point[3] = ;
-            shifted_cellfiedPatch_to_point[7] = ;
-            
-            
-
-            //
-            // CORNERS
-            // Delete the corners of the coarse level involved in the patch,
-            // to avoid repetition.
-            // Get size of the coarse level where the pacth is (needed to compute corner indices to be deleted).
-            std::array<int,3> coarse_level_dim = (*data[level_to_refine]).logicalCartesianSize();
-            for (int j = start_ijk[1]; j < end_ijk[1] +1; ++j) {
-                for (int i = start_ijk[0]; i < end_ijk[0] +1; ++i) { 
-                    for (int k = start_ijk[2]; k < end_ijk[2] +1; ++k) {
-                        // Index (in the coarse level) of the corner we want to delete 
-                        std::array<int,2> corner_to_erase = {level_to_refine,
-                            (j*(coarse_level_dim[0]+1)*(coarse_level_dim[2]+1))
-                            + (i*(coarse_level_dim[2]+1)) +k};
-                        auto corner_to_erase_it = std::find(future_leaf_corners.begin(),
-                                                            future_leaf_corners.end(),
-                                                            corner_to_erase);
-                        future_leaf_corners.erase(corner_to_erase_it);     
-                    } // end k-for-loop
-                } // end i-for-loop
-            } // end j-for-loop
-            // Get the size of the new corners
-            int total_new_corners = ((cells_per_dim[0]*patch_dim[0]) + 1) *
-                ((cells_per_dim[1]*patch_dim[1]) + 1) * ((cells_per_dim[2]*patch_dim[2]) + 1);
-            // Add the (child) corners to "future_leaf_corners". We do not separate them by 'parent'.
-            // Recall that the numbering for corners follows the rule:
-            // from bottom to top - from left to right - from front to back.
-            for (int new_corner = 0; new_corner < total_new_corners; ++new_corner) {
-                future_leaf_corners.push_back({data.size() +1, new_corner});
-            }
-            // FACES
-            // Get the indices of the faces of the patch (to be deleted).
-            auto patch_face_indices = (*data[level_to_refine]).get_patchFaceIndices(start_ijk, end_ijk);
-            // Delete faces
-            for (const auto& [level, level_idx] : future_leaf_faces) {
-                if (level == level_to_refine){
-                    for (const auto& idx : patch_face_indices) {
-                        std::array<int, 2> face_to_erase = { level_to_refine, idx};
-                        auto face_to_erase_it = std::find(future_leaf_faces.begin(),
-                                                          future_leaf_faces.end(), face_to_erase);
-                        future_leaf_faces.erase(face_to_erase_it);
+                if (std::get<0>(idx) == true) {
+                    for (auto& child : std::get<1>(idx)) {
+                        leaf_cells.push_back((*data[1]).geometry_.geomVector(std::integral_constant<int,0>())
+                                               [Dune::cpgrid::EntityRep<0>(child, true)]);
+                        leaf_cell_to_point.push_back((*data[1]).cell_to_point_[child]);
                     }
                 }
             }
-            // Get size of new faces
-            int total_new_faces =
-                (cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*(cells_per_dim[2]*patch_dim[2]+1)) // 'bottom/top faces'
-                + ((cells_per_dim[0]*patch_dim[0]+1)*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]) // 'left/right faces'
-                + (cells_per_dim[0]*patch_dim[0]*(cells_per_dim[1]*patch_dim[1]+1)*cells_per_dim[2]*patch_dim[2]); // 'front/back faces'
-            // Add the (child) faces to "future_leaf_faces". We do not separate them by 'parent'.
-            // Recall that the numbering for faces follows the rule:
-            // - Bottom-top faces -> 3rd coordinate constant in each face.
-            // - Left-right faces -> 1st coordinate constant in each face.
-            // - Front-back faces -> 2nd coordinate constant in each face.
-            // First, we store suvivors of level 0 [in the previous order], then suvivors of level 1, and so on.
-            // PER CELL left-right-front-back-bottom-top [DUNE, DOUBLE-CHECK]
-            //   PER CELL bottom-front-left-right-back-top [IN REFINE() GEOMETRY.HPP]
-            
-            for (int new_face = 0; new_face < total_new_faces; ++new_face) {
-                future_leaf_faces.push_back({data.size() +1, new_face});
-            }
-            // FIXING FACE_TO_CELL INFORMATION WHEN REFINED FACES TOUCH THE BOUNDARY OF COARSE GRID.
-            // ---------------- IN PROGRESS ------------------
-            // Add neighboring (coarse) cell to the refined faces located on the bottom (boundary) of the patch
-            // when the surface they form is not contained in the bottom (boundary) of the grid where the patch
-            // is taken from (this info is stored in 'face_to_cell objects').
-            if (start_ijk[2] != 0) {
-                for (int j = start_ijk[1]; j < end_ijk[1]; ++j) {
-                    for (int i = start_ijk[0]; i < end_ijk[0]; ++i) {
-                        int intersecting_coarse_cell_idx = ((start_ijk[2]-1)*coarse_level_dim[0]*coarse_level_dim[1])
-                            + (j*coarse_level_dim[0]) + i;
-                        for (int m = j*cells_per_dim[1]; m < (j+1)*cells_per_dim[1]; ++m) {
-                            for (int l = i*(cells_per_dim[0]); l < (i+1)*cells_per_dim[0]; ++l) {
-                                int refined_face_idx = (start_ijk[2]*cells_per_dim[0]*cells_per_dim[1]) + (m*cells_per_dim[0]) + l;
-                                //   (*new_data_entry).face_to_cell_
-                                //    [Dune::cpgrid::EntityRep<1>(refined_face_idx, true)].push_back({intersecting_coarse_cell_idx, true});
-                                //TO BE FIXED.
-                                // NEED TO EITHER INSERT AN ELEMENT IN AN EXISITNG ROW. HOW?
-                                // TO BE CONTINUED...
-                            } // end l-for-loop
-                        } // end m-for-loop
-                    } // end i-for-loop
-                } // end j-for-loop      
-            } // end if
-            // Add neighboring (coarse) cell to the refined faces located on the top (boundary) of the patch
-            // when the surface they form is not contined in the top (boundary) of the grid where the patch
-            // is taken from 
-            if (end_ijk[2] != coarse_level_dim[2]){
-            }
-            // Add neighboring (coarse) cell to the refined faces located on the right boundary of the patch
-            // when the surface they form is not contained in the right boundary of the grid where the patch
-            // is taken from.
-            if (start_ijk[0] != 0)
-            {
-            }
-            // Add neighboring (coarse) cell to the refined faces located on the left boundary of the patch
-            // when the surface they form is not contined in the left boundary of the grid where the patch
-            // is taken from.
-            if (end_ijk[0] != coarse_level_dim[0]){
-            }
-            // Add neighboring (coarse) cell to the refined faces located on the front boundary of the patch
-            // when the surface they form is not contained in the front boundary of the grid where the patch
-            // is taken from.
-            if (start_ijk[1] != 0)
-            {
-            }
-            // Add neighboring (coarse) cell to the refined faces located on the left boundary of the patch
-            // when the surface they form is not contined in the left boundary of the grid where the patch
-            // is taken from.
-            if (end_ijk[1] != coarse_level_dim[1]){
-            } */
-                   
         }
 
         /* // REFINE ONE CELL AND GET A LEAF VIEW when there are only level 0 and level 1.
