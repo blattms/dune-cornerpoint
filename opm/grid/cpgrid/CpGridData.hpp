@@ -989,6 +989,38 @@ public:
             child_to_parent_ijk_faces, child_to_parent_ijk_cells};  
     }
     
+    // Get ijk from a face index (with the order given in Geometry.hpp, refine())
+    std::array<int,3> getIJKFace(int face_idx, int face_case)
+    // choose face_case = 0,1,2 for faces with 3rd,1st,2nd coordinate constant respectively.
+    {
+        std::array<int,3> ijk_face;
+        const std::array<int,3> grid_dim = this -> logicalCartesianSize();
+        int k_faces = grid_dim[0]*grid_dim[1]*(grid_dim[2]+1);
+        int i_faces = (grid_dim[0]+1)*grid_dim[1]*grid_dim[2];
+        switch(face_case) {
+        case 0:
+            // 3rd coordinate constant
+            ijk_face[0] = face_idx % grid_dim[0];
+            ijk_face[1] = ((face_idx -ijk_face[0])/grid_dim[0]) % grid_dim[1];
+            ijk_face[2] = (face_idx - (ijk_face[1]*grid_dim[0]) - ijk_face[0])/ (grid_dim[0]*grid_dim[1]);
+        case 1:
+            // 1st coordinate constant
+            ijk_face[1] = (face_idx - k_faces) % grid_dim[1];
+            ijk_face[2] = (((face_idx -k_faces) -ijk_face[1])/grid_dim[1]) % grid_dim[2];
+            ijk_face[0] = ((face_idx-k_faces) - (ijk_face[2]*grid_dim[1]) - ijk_face[1])/ (grid_dim[1]*grid_dim[2]);
+        case 2:
+            // 2nd coordinate constant
+            ijk_face[2] = (face_idx - k_faces - i_faces) % grid_dim[2];
+            ijk_face[0] = (((face_idx - k_faces - i_faces) -ijk_face[2])/grid_dim[2]) % grid_dim[0];
+            ijk_face[1] = ((face_idx - k_faces - i_faces) - (ijk_face[0]*grid_dim[2]) - ijk_face[2])/ (grid_dim[0]*grid_dim[2]);
+        default:
+            // Should never be reached, but prevents compiler warning
+            OPM_THROW(std::logic_error, "Unhandled face case. This should never happen!");
+        }
+        return ijk_face;
+    }
+    
+    
     // Make unique boundary ids for all intersections.
     void computeUniqueBoundaryIds();
 
