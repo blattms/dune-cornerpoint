@@ -923,20 +923,29 @@ namespace Dune
                     if ((ijk_cell[2] != 0) && (ijk_cell[2] == start_ijk[2]-1)
                         && (ijk_cell[0]> start_ijk[0]-1) && (ijk_cell[0]< end_ijk[0])
                         && (ijk_cell[1]> start_ijk[1]-1) && (ijk_cell[1] < end_ijk[1])) {
-                             std::vector<cpgrid::EntityRep<1>> faces_of_one_cell = {
-                                 // bottom face { 'ij(k-1)', false},
-                                 {((ijk_cell[2]-1)*level0_dim[0]*level0_dim[1]) + (ijk_cell[1]*level0_dim[0]) + ijk_cell[0], false},
-                                 // top faces {refined face, true},
-                                 // left face { 'k-faces + ij(k-1)', false},
-                                 { // k-faces + ...
-                                     k_faces +
-                                     ((ijk_cell[2]-1)*level0_dim[0]*level0_dim[1]) + (ijk_cell[1]*level0_dim[0]) + ijk_cell[0], false},
-                                 // right face { 'k-faces + (i+1)j(k-1)', true},
-                                 // front face { 'k-faces + i-faces + ij(k-1)', false},
-                                 // back face { 'k-faces + i-faces + i(j+1)(k-1)', true}
-                             };
-                            leaf_cell_to_face.appendRow(faces_of_one_cell.begin(), faces_of_one_cell.end()); 
+                        std::vector<cpgrid::EntityRep<1>> faces_of_one_cell = {
+                            // bottom face { 'ij(k-1)', false},
+                            {((ijk_cell[2]-1)*level0_dim[0]*level0_dim[1]) + (ijk_cell[1]*level0_dim[0]) + ijk_cell[0], false}
+                        };
+                        // TOP refined faces {refined face, true}
+                        for (int increment = 0; increment < cells_per_dim[0]*cells_per_dim[1]; ++increment) {
+                            faces_of_one_cell.push_back({ (ijk_cell[2]*level0_dim[0]*level0_dim[1])
+                                    + (ijk_cell[1]*level0_dim[0]) + ijk_cell[0] + increment, true});
                         }
+                        // left face { 'k-faces + ij(k-1)', false},
+                        faces_of_one_cell.push_back({ k_faces + (ijk_cell[0]*level0_dim[1]*level0_dim[2]) +
+                                ((ijk_cell[2]-1)*level0_dim[1]) + ijk_cell[1], false});
+                        // right face { 'k-faces + (i+1)j(k-1)', true},
+                        faces_of_one_cell.push_back({ k_faces + ((ijk_cell[0]+1)*level0_dim[1]*level0_dim[2]) +
+                                ((ijk_cell[2]-1)*level0_dim[1]) + ijk_cell[1], false});
+                        // front face { 'k-faces + i-faces + ij(k-1)', false},
+                        faces_of_one_cell.push_back({ k_faces + i_faces + (ijk_cell[1]*level0_dim[0]*level0_dim[2]) +
+                                (ijk_cell[0]*level0_dim[2]) + ijk_cell[2]-1, false});
+                        // back face { 'k-faces + i-faces + i(j+1)(k-1)', true}
+                        faces_of_one_cell.push_back({ k_faces + i_faces + ((ijk_cell[1]+1)*level0_dim[0]*level0_dim[2]) +
+                                (ijk_cell[0]*level0_dim[2]) + ijk_cell[2]-1, true});
+                        leaf_cell_to_face.appendRow(faces_of_one_cell.begin(), faces_of_one_cell.end()); 
+                    }
                     // TOP boundary coarse cells that touch the refined patch.
                     // LEFT boundary coarse cells that touch the refined patch.
                     // RIGTH boundary coarse cells that touch the refined patch.
