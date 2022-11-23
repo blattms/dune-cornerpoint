@@ -805,18 +805,30 @@ namespace Dune
                     } // end k-for-loop
                 } // end i-for-loop
             } // end j-for-loop
-            leaf_corners.resize((data[0] -> size(3)) - patch_corners.size() + (data[1]) -> size(3));
-            for (auto& idx : parent_to_children_corners) {
-                if (!std::get<0>(idx)) {
-                    leaf_corners.push_back((*data[0]).geometry_.geomVector(std::integral_constant<int,3>()).get(std::get<1>(idx)[0]));
+            std::map<int, std::array<int,2>> from_leaf_to_level_idx;
+            for (auto& [level_IJK, leaf_idx] : leaf_corners_map) {
+                int levelIdx; 
+                if (std::get<0>(level_IJK) == 0) {
+                    levelIdx = std::get<1>(level_IJK)[1]*(level0_dim[0]+1)*(level0_dim[2]+1)
+                        + std::get<1>(level_IJK)[0]*(level0_dim[2]+1) + std::get<1>(level_IJK)[2];
                 }
                 else {
-                    for (auto& child : std::get<1>(idx)) {
-                        leaf_corners.push_back((*data[1]).geometry_.geomVector(std::integral_constant<int,3>()).get(child));
+                    levelIdx = std::get<1>(level_IJK)[1]*(level1_dim[0]+1)*(level1_dim[2]+1)
+                           + std::get<1>(level_IJK)[0]*(level1_dim[2]+1) + std::get<1>(level_IJK)[2];
+                }
+                from_leaf_to_level_idx[leaf_idx] = {std::get<0>(level_IJK), levelIdx};
+            }
+            leaf_corners.resize((data[0] -> size(3)) - patch_corners.size() + (data[1]) -> size(3));
+            for (auto& [leaf_idx, level_levelIdx] : from_leaf_to_level_idx) {
+                if (level_levelIdx[0] == 0) {
+                    leaf_corners[leaf_idx] =
+                        (*data[0]).geometry_.geomVector(std::integral_constant<int,3>()).get(level_levelIdx[1]);
+                }
+                else {
+                        leaf_corners[leaf_idx] = (*data[1]).geometry_.geomVector(std::integral_constant<int,3>()).get(level_levelIdx[1]);
                     }
                 }
             }
-        }
         
             /*   //
             // FACES
