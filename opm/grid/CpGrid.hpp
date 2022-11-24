@@ -828,6 +828,52 @@ namespace Dune
                         leaf_corners[leaf_idx] = (*data[1]).geometry_.geomVector(std::integral_constant<int,3>()).get(level_levelIdx[1]);
                     }
                 }
+
+            // FACES
+            //
+            // 3RD COORDINATE CONSTANT
+            //
+            // LEAF_KFACES_MAP
+            // Each entry {{level, k_face index in that level}, leaf k_face index}.
+            std::map<std::tuple<int,std::array<int,3>>, int> leaf_Kfaces_map;
+            // Auxiliary integers:
+            int x_kface_shift = cells_per_dim[0];
+            int y_kface_shift = cells_per_dim[1]*cells_per_dim[0]*level0_dim[2];
+            int z_kface_shift = cells_per_dim[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1];
+            // Stored following 'kji' with i the fastest, separated by level.
+            // Add K_FACES from level 0 that do not belong to the refined patch.
+            for (int k = 0; k < level0_dim[2] +1; ++k) {
+                for (int j = 0; j < level0_dim[1]; ++j) {
+                    for (int i = 0; i < level0_dim[0]; ++i) {
+                        // K_FACECS from level 0 that do NOT belong to the patch (that got refined)
+                        if ( ! ( (k > start_ijk[2]-1) && (k < end_ijk[2]+1) 
+                                 && (j > start_ijk[1]-1) && (j < end_ijk[1]) 
+                                 && (i > start_ijk[0]-1) && (i < end_ijk[0]) ) )  {
+                            // K_FACE associated to {i,j,k} in level 0 corresponds to
+                            // K_FACE with index (k*z_kface_shift) + (j*y_kface_shift) + (i*x_kface_shift)
+                            // on the leaf view. 
+                            leaf_Kfaces_map[{0, {i,j,k}}] = (k*z_kface_shift) + (j*y_kface_shift) + (i*x_kface_shift);
+                        } // end-if
+                    } // end k-for-loop
+                } // end i-for-loop
+            } // end j-for-loop
+            // Add K_FACES from level 1, all the refined corners. 
+            for (int k = 0; k < level1_dim[2] +1; ++k) {
+                for (int j = 0; j < level1_dim[1]; ++j) {
+                    for (int i = 0; i < level1_dim[0]; ++i) {
+                        // K_FACE associated to {i,j,k} in level 1 corresponds to
+                        // K_FACE with index on the leaf view:
+                        // "start_ijk shifted" (that is:
+                        // (start_ijk[2]*z_kface_shift) + (start_ijk[1]*y_kface_shift) + (start_ijk[0]*z_kface_shift))
+                        //  + (j*y_shift/cells_per_dim[1]) + (i*x_shift/cells_per_dim[0]) + k) 
+                        leaf_Kfaces_map[{1, {i,j,k}}] = (start_ijk[2]*z_kface_shift) + (start_ijk[1]*y_kface_shift)
+                            + (start_ijk[0]*x_kface_shift)  + (k*z_kface_shift/cells_per_dim[2])
+                            + (j*y_kface_shift/cells_per_dim[1]) + k;
+                    } // end k-for-loop
+                } // end i-for-loop
+            } // end j-for-loop
+           
+            
             }
         
             /*   //
