@@ -891,6 +891,7 @@ namespace Dune
                     + leaf_IJK[0];
                 leafId_to_levelIJK_Kfaces[leafId] = level_IJK;
             }
+            // Auxiliary integers to compute fake index of corners in the imaginaty huge grid.
             int factor_corn_xz = ((cells_per_dim[0]*level0_dim[0])+1)*((cells_per_dim[2]*level0_dim[2])+1);
             int factor_corn_x  =((cells_per_dim[0]*level0_dim[0])+1);
             leaf_faces.resize((data[0] -> face_to_cell_.size()) - patch_faces.size() + (data[1]) -> face_to_cell_.size());
@@ -942,19 +943,19 @@ namespace Dune
                     // corner '0' {1, {i,j,k}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
                     leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1])*factor_corn_xz) +
                                              (((start_ijk[0]*cells_per_dim[0]) + ijk_face[0])*factor_corn_x)
-                                             + ((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])],
+                                             + (start_ijk[2]*cells_per_dim[2]) + ijk_face[2]],
                     // corner '1' {1, {i+1,j,k}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
                     leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1])*factor_corn_xz) +
                                              (((start_ijk[0]*cells_per_dim[0]) + ijk_face[0] + 1)*factor_corn_x)
-                                             + ((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])],
+                                             + (start_ijk[2]*cells_per_dim[2]) + ijk_face[2]],
                     // corner '2' {1, {i,j+1,k}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
                     leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1] + 1)*factor_corn_xz) +
                                              (((start_ijk[0]*cells_per_dim[0]) + ijk_face[0])*factor_corn_x)
-                                             + ((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])],
+                                             + (start_ijk[2]*cells_per_dim[2]) + ijk_face[2]],
                     // corner '3' {1, {i+1,j+1,k}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
                     leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1] + 1)*factor_corn_xz) +
                                              (((start_ijk[0]*cells_per_dim[0]) + ijk_face[0] + 1)*factor_corn_x)
-                                             + ((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])]};
+                                             + (start_ijk[2]*cells_per_dim[2]) + ijk_face[2]]};
                 }
                 
                 leaf_kface_idx +=1;
@@ -1027,8 +1028,6 @@ namespace Dune
                     + leaf_IJK[0];
                 leafId_to_levelIJK_Ifaces[leafId] = level_IJK;
             }
-            int factor_corn_yz = ((cells_per_dim[1]*level0_dim[1])+1)*((cells_per_dim[2]*level0_dim[2])+1);
-            int factor_corn_y  =((cells_per_dim[1]*level0_dim[1])+1);
             std::map<int,int> leafIdx_Ifaces;
             // Each entry looks like {leafId_iface [KEY], leaf (consecutive) Iface INDEX [VALUE]}
             int leaf_iface_idx = std::count(mutable_face_tags.begin(), mutable_face_tags.end(), face_tag::K_FACE);
@@ -1050,17 +1049,17 @@ namespace Dune
                                              (ijk_face[0]*cells_per_dim[0]*factor_corn_x)
                                              + (ijk_face[2]*cells_per_dim[2])],
                     // corner '1' {0, {i,j+1,k}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
-                    leafId_to_leafIdx_corners[(ijk_face[1]*cells_per_dim[1]*factor_corn_xz) +
-                                             ((ijk_face[0]+1)*cells_per_dim[0]*factor_corn_x)
-                                             + (ijk_face[2]*cells_per_dim[2])],
-                    // corner '2' {0, {i,j,k+1}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
-                    leafId_to_leafIdx_corners[((ijk_face[1]+1)*cells_per_dim[1]*factor_corn_xz) +
+                    leafId_to_leafIdx_corners[((ijk_face[1] +1)*cells_per_dim[1]*factor_corn_xz) +
                                              (ijk_face[0]*cells_per_dim[0]*factor_corn_x)
                                              + (ijk_face[2]*cells_per_dim[2])],
+                    // corner '2' {0, {i,j,k+1}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
+                    leafId_to_leafIdx_corners[(ijk_face[1]*cells_per_dim[1]*factor_corn_xz) +
+                                             (ijk_face[0]*cells_per_dim[0]*factor_corn_x)
+                                              + ((ijk_face[2] +1)*cells_per_dim[2])],
                     // corner '3' {0, {i,j+1,k+1}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
-                    leafId_to_leafIdx_corners[((ijk_face[1]+1)*cells_per_dim[1]*factor_corn_xz) +
-                                             ((ijk_face[0]+1)*cells_per_dim[0]*factor_corn_x)
-                                             + (ijk_face[2]*cells_per_dim[2])]};
+                    leafId_to_leafIdx_corners[((ijk_face[1] +1)*cells_per_dim[1]*factor_corn_xz) +
+                                             (ijk_face[0]*cells_per_dim[0]*factor_corn_x)
+                                              + ((ijk_face[2] +1)*cells_per_dim[2])]};
                 }
                 else {
                     leaf_faces[leaf_iface_idx] = (*data[1]).geometry_.geomVector(std::integral_constant<int,1>())
@@ -1073,19 +1072,19 @@ namespace Dune
                     // corner '0' {1, {i,j,k}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
                     leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1])*factor_corn_xz) +
                                              (((start_ijk[0]*cells_per_dim[0]) + ijk_face[0])*factor_corn_x)
-                                             + ((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])],
+                                             + (start_ijk[2]*cells_per_dim[2]) + ijk_face[2]],
                     // corner '1' {1, {i,j+1,k}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
-                    leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1])*factor_corn_xz) +
-                                             (((start_ijk[0]*cells_per_dim[0]) + ijk_face[0] + 1)*factor_corn_x)
-                                             + ((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])],
-                    // corner '2' {1, {i,j,k+1}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
-                    leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1] + 1)*factor_corn_xz) +
+                    leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1] +1)*factor_corn_xz) +
                                              (((start_ijk[0]*cells_per_dim[0]) + ijk_face[0])*factor_corn_x)
-                                             + ((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])],
+                                             + (start_ijk[2]*cells_per_dim[2]) + ijk_face[2]],
+                    // corner '2' {1, {i,j,k+1}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
+                    leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1])*factor_corn_xz) +
+                                             (((start_ijk[0]*cells_per_dim[0]) + ijk_face[0])*factor_corn_x)
+                                             + (start_ijk[2]*cells_per_dim[2]) + ijk_face[2] +1],
                     // corner '3' {1, {i,j+1,k+1}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
                     leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1] + 1)*factor_corn_xz) +
-                                             (((start_ijk[0]*cells_per_dim[0]) + ijk_face[0] + 1)*factor_corn_x)
-                                             + ((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])]};
+                                             (((start_ijk[0]*cells_per_dim[0]) + ijk_face[0])*factor_corn_x)
+                                             + (start_ijk[2]*cells_per_dim[2]) + ijk_face[2] +1]};
                 }
                 
                 leaf_iface_idx +=1;
@@ -1094,8 +1093,8 @@ namespace Dune
             //
             // LEAF_J_FACES_MAP
             //
-            int total_imaginary_ifaces = cells_per_dim[1]*level0_dim[1]*cells_per_dim[2]*level0_dim[2]
-                *((cells_per_dim[0]*level0_dim[0])+1);
+            int total_imaginary_ifaces =
+                cells_per_dim[1]*level0_dim[1]*cells_per_dim[2]*level0_dim[2]*((cells_per_dim[0]*level0_dim[0])+1);
             //
             // Each entry {{level, j_face IJK in that level}, fake leaf j_face IJK}.
             // With fake we mean that we imagine a grid of size scalar product of 
@@ -1158,12 +1157,11 @@ namespace Dune
                     + leaf_IJK[0];
                 leafId_to_levelIJK_Jfaces[leafId] = level_IJK;
             }
-            // int factor_corn_yz = ((cells_per_dim[1]*level0_dim[1])+1)*((cells_per_dim[2]*level0_dim[2])+1);
-            //int factor_corn_y  =((cells_per_dim[1]*level0_dim[1])+1);
             std::map<int,int> leafIdx_Jfaces;
             // Each entry looks like {leafId_iface [KEY], leaf (consecutive) Iface INDEX [VALUE]}
             int leaf_jface_idx = leaf_kface_idx + leaf_iface_idx;
-                //std::count(mutable_face_tags.begin(), mutable_face_tags.end(), face_tag::I_FACE);
+                // std::count(mutable_face_tags.begin(), mutable_face_tags.end(), face_tag::K_FACE)
+                //+ std::count(mutable_face_tags.begin(), mutable_face_tags.end(), face_tag::I_FACE);
             for (auto& [leafId, level_levelIdx] : leafId_to_levelIdx_Jfaces) {
                 leafIdx_Jfaces[leafId] = leaf_jface_idx;
                 std::tuple<int,std::array<int,3>> level_ijk_face =  leafId_to_levelIJK_Jfaces[leafId];
@@ -1181,18 +1179,18 @@ namespace Dune
                     leafId_to_leafIdx_corners[(ijk_face[1]*cells_per_dim[1]*factor_corn_xz) +
                                              (ijk_face[0]*cells_per_dim[0]*factor_corn_x)
                                              + (ijk_face[2]*cells_per_dim[2])],
-                    // corner '1' {0, {i,j+1,k}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
+                    // corner '1' {0, {i+1,j,k}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
                     leafId_to_leafIdx_corners[(ijk_face[1]*cells_per_dim[1]*factor_corn_xz) +
                                              ((ijk_face[0]+1)*cells_per_dim[0]*factor_corn_x)
                                              + (ijk_face[2]*cells_per_dim[2])],
                     // corner '2' {0, {i,j,k+1}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
-                    leafId_to_leafIdx_corners[((ijk_face[1]+1)*cells_per_dim[1]*factor_corn_xz) +
+                    leafId_to_leafIdx_corners[(ijk_face[1]*cells_per_dim[1]*factor_corn_xz) +
                                              (ijk_face[0]*cells_per_dim[0]*factor_corn_x)
-                                             + (ijk_face[2]*cells_per_dim[2])],
-                    // corner '3' {0, {i,j+1,k+1}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
-                    leafId_to_leafIdx_corners[((ijk_face[1]+1)*cells_per_dim[1]*factor_corn_xz) +
+                                              + ((ijk_face[2]+1)*cells_per_dim[2])],
+                    // corner '3' {0, {i+1,j,k+1}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
+                    leafId_to_leafIdx_corners[(ijk_face[1]*cells_per_dim[1]*factor_corn_xz) +
                                              ((ijk_face[0]+1)*cells_per_dim[0]*factor_corn_x)
-                                             + (ijk_face[2]*cells_per_dim[2])]};
+                                              + ((ijk_face[2]+1)*cells_per_dim[2])]};
                 }
                 else {
                     leaf_faces[leaf_jface_idx] = (*data[1]).geometry_.geomVector(std::integral_constant<int,1>())
@@ -1206,23 +1204,28 @@ namespace Dune
                     leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1])*factor_corn_xz) +
                                              (((start_ijk[0]*cells_per_dim[0]) + ijk_face[0])*factor_corn_x)
                                              + ((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])],
-                    // corner '1' {1, {i,j+1,k}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
+                    // corner '1' {1, {i+1,j,k}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
                     leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1])*factor_corn_xz) +
                                              (((start_ijk[0]*cells_per_dim[0]) + ijk_face[0] + 1)*factor_corn_x)
                                              + ((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])],
                     // corner '2' {1, {i,j,k+1}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
-                    leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1] + 1)*factor_corn_xz) +
+                    leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1])*factor_corn_xz) +
                                              (((start_ijk[0]*cells_per_dim[0]) + ijk_face[0])*factor_corn_x)
-                                             + ((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])],
-                    // corner '3' {1, {i,j+1,k+1}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
-                    leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1] + 1)*factor_corn_xz) +
+                                             + ((start_ijk[2]*cells_per_dim[2]) + ijk_face[2] +1)],
+                    // corner '3' {1, {i+1,j,k+1}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
+                    leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1])*factor_corn_xz) +
                                              (((start_ijk[0]*cells_per_dim[0]) + ijk_face[0] + 1)*factor_corn_x)
-                                             + ((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])]};
+                                             + ((start_ijk[2]*cells_per_dim[2]) + ijk_face[2]+ 1)]};
                 }
                 
                 leaf_jface_idx +=1;
             }
-          
+
+            // LEAF FACE_TO_POINT
+            for (int face = 0; face < aux_face_to_point.size(); ++face) {
+                leaf_face_to_point.appendRow(aux_face_to_point[face].begin(), aux_face_to_point[face].end());
+            }
+            
 
             
         }
