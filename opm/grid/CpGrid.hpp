@@ -716,6 +716,7 @@ namespace Dune
             }
         }
 
+        // --------------- GET LEAF VIEW FROM 2 LEVELS
         // Assume we have Level 0. We add Level 1 to "data", created via refinement of a patch
         // from level 0. We want to add to "data" as a third entry the LeafView with only these
         // 2 levels.
@@ -1225,7 +1226,65 @@ namespace Dune
             for (int face = 0; face < aux_face_to_point.size(); ++face) {
                 leaf_face_to_point.appendRow(aux_face_to_point[face].begin(), aux_face_to_point[face].end());
             }
-            
+
+            // CELLS
+            std::map<std::tuple<int, std::array<int,3>>, std::array<int,3>> level_to_leaf_IJKcells;
+             for (int k = 0; k < level0_dim[2]; ++k) {
+                for (int j = 0; j < level0_dim[1]; ++j) {
+                    for (int i = 0; i < level0_dim[0]; ++i) {
+                        // Cells from level 0 that do NOT belong to the patch (that got refined)
+                        if ( ! ( (k > start_ijk[2]-1) && (k < end_ijk[2]) 
+                                 && (j > start_ijk[1]-1) && (j < end_ijk[1]) 
+                                 && (i > start_ijk[0]-1) && (i < end_ijk[0]) ) )  { 
+                            level_to_leaf_IJKcells[{0, {i,j,k}}] = {i*cells_per_dim[0], j*cells_per_dim[1], k*cells_per_dim[2]};
+                        } // end-if
+                    } // end i-for-loop
+                } // end j-for-loop
+            } // end k-for-loop
+            // Add cells from level 1, all the refined cells. 
+            for (int k = 0; k < level1_dim[2]; ++k) {
+                for (int j = 0; j < level1_dim[1]; ++j) {
+                    for (int i = 0; i < level1_dim[0]; ++i) {
+                        // Cell associated to {i,j,k} in level 1 corresponds to
+                        // the following  IJK in the imaginary grid. 
+                        level_to_leaf_IJKcells[{1, {i,j,k}}] =  { (start_ijk[0]*cells_per_dim[0]) + i,
+                            (start_ijk[1]*cells_per_dim[1]) + j, (start_ijk[2]*cells_per_dim[2]) + k};
+                    } // end i-for-loop
+                } // end j-for-loop
+            } // end k-for-loop
+            std::map<std::array<int,3>, std::array<int,2>> leafIJK_to_levelIdx_cells;
+            for (auto& [level_IJK, leaf_IJK] : level_to_leaf_IJKcells) {
+                int levelIdx;
+                if (std::get<0>(level_IJK) == 0) {
+                    levelIdx = (std::get<1>(level_IJK)[2]*level0_dim[0]*level0_dim[1])
+                        + (std::get<1>(level_IJK)[1]*level0_dim[0]) + std::get<1>(level_IJK)[0];
+                }
+                else {
+                    levelIdx = (std::get<1>(level_IJK)[2]*level1_dim[0]*level1_dim[1])
+                        + (std::get<1>(level_IJK)[1]*level1_dim[0]) + std::get<1>(level_IJK)[0];
+                }
+                leafIJK_to_levelIdx_cells[leaf_IJK] = {std::get<0>(level_IJK), levelIdx};
+            }
+            leaf_cells.resize((data[0] -> size(0)) - patch_cells.size() + (data[1]) -> size(0));
+            std::map<int,int> leafId_to_leafIdx_cells;
+            // Each entry looks like { leafId [KEY], leaf (consecutive) corner INDEX [VALUE]}
+            int leaf_cell_idx = 0;
+            for (auto& [leaf_IJK, level_levelIdx] : leafIJK_to_levelIdx_cells) {
+                int leafId = (leaf_IJK[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
+                    + (leaf_IJK[1]*cells_per_dim[0]*level0_dim[0]) + leaf_IJK[0]; 
+                leafId_to_leafIdx_corners[leafId] = leaf_corn_idx;
+                if (level_levelIdx[0] == 0) {
+                    leaf_cells[leaf_cell_idx] =
+                        (*data[0]).geometry_.geomVector(std::integral_constant<int,0>())
+                         [Dune::cpgrid::EntityRep<0>(level_levelIdx[1], true)];
+                }
+                else {
+                        leaf_cells[leaf_cell_idx] =
+                            (*data[1]).geometry_.geomVector(std::integral_constant<int,0>())
+                             [Dune::cpgrid::EntityRep<0>(level_levelIdx[1], true)];
+                }
+                leaf_cell_idx +=1;
+            }
 
             
         }
