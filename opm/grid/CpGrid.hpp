@@ -767,14 +767,29 @@ namespace Dune
             Dune::cpgrid::EntityVariableBase<enum face_tag>& mutable_face_tags = leaf_face_tags;
             Dune::cpgrid::EntityVariableBase<PointType>& mutable_face_normals = leaf_face_normals;
 
+            // LEAF CORNERS/FACES/CELLS NUMBERING - DESCRIPTION
+            // Level 0 and level 1 grids have probably different dimension, in the sense that
+            // level 0 has level0_dim[0]([1],[2]) cells in x(y,z)-direction respectively,
+            // level 1 has level1_dim[0]([1],[2]) cells in x(y,z)-direction respectively.
+            // Notice that, level 1 is created via refinenment of a selected patch from
+            // level 0, so level 1 dimension is the cells_per_dim[0]([1],[2])*patch_dim[0]([1],[2])
+            // cells in the x(y,z)-direction respectively.
+            // To 'unify' dimension and facilitate the construction of face and cell topological features,
+            // we will introduce auxiliary leaf ids, thinking that we hace an auxiliary huge grid of
+            // dimension {level0_dim[0]*cells_per_dim[0], level0_dim[1]*cells_per_dim[1], level0_dim[2]*cells_per_dim[2]}.
+            // We can easily associate corners/faces/cells in level l with 'position ijk' with the leaf id
+            // {l, {i,j,k}} <-> leaf id
+            // First, we associate a fake leaf ijk, then a leaf id, and finally, we get the leaf index (consecutive):
+            // {0, {i,j,k}} <-> fake leaf ijk {cells_per_dim[0]*i, cells_per_dim[1]*j, cells_per_dim[2]*k}
+            // {1, {i,j,k}} <-> fake leaf ijk
+            //  {cells_per_dim[0]*start_ijk[0] +i, cells_per_dim[1]*start_ijk[1]+j, cells_per_dim[2]*start_ijk[2] + k}.
+            //
             // 
-            // LEAF_CORNER_MAP
+            // LEAF CORNER MAP
+            // For each level, each corner ijk of that level, we associate to it a new ijk in the imaginary
+            // huge grid. We call it 'fake leaf ijk' and store this in "level_to_leaf_IJKcorners".
+            // Each entry looks like {{level, (level) {i,j,k}}, (fake leaf) {i_, j_, k_}}.  
             std::map<std::tuple<int,std::array<int,3>>, std::array<int,3>> level_to_leaf_IJKcorners;
-            // level_to_leaf_IJKcorners: each entry
-            // {(KEY) {0, {i,j,k}}, (VALUE) {fake leaf i, fake leaf j, fake leaf k}}
-            // We imagine we have a huge grid of size scalar product of 
-            // cells_per_dim and level0_dim, where we can identify easly indices of corners
-            // coming from level 0 or 1. 
             // Stored following the Dune order criteria (from bottom to top 'k',from left to right 'i',
             // from front to back 'j'; 'jik' with k the fastest), separated by level as described above.
             // Add corners from level 0 that do not belong to the refined patch.
@@ -795,37 +810,48 @@ namespace Dune
                 for (int i = 0; i < level1_dim[0] +1; ++i) {
                     for (int k = 0; k < level1_dim[2] +1; ++k) {
                         // Corner associated to {i,j,k} in level 1 corresponds to
-                        // corner with index on the leaf view:
+                        // the fake leaf 'ijk':
                         level_to_leaf_IJKcorners[{1, {i,j,k}}] =  { (start_ijk[0]*cells_per_dim[0]) + i,
                             (start_ijk[1]*cells_per_dim[1]) + j, (start_ijk[2]*cells_per_dim[2]) + k};
                     } // end k-for-loop
                 } // end i-for-loop
             } // end j-for-loop
+            // Map from 'fake leaf ijk' indices to level index (of each corner).
+            // Each entry looks like  {(fake leaf){i,j,k}, {level, level index}}.
             std::map<std::array<int,3>, std::array<int,2>> leafIJK_to_levelIdx_corners;
             for (auto& [level_IJK, leaf_IJK] : level_to_leaf_IJKcorners) {
+                // To store the level index. 
                 int levelIdx;
+                // Compute the level index for corners coming from level 0.
                 if (std::get<0>(level_IJK) == 0) {
                     levelIdx = (std::get<1>(level_IJK)[1]*(level0_dim[0]+1)*(level0_dim[2]+1))
                         + (std::get<1>(level_IJK)[0]*(level0_dim[2]+1)) + std::get<1>(level_IJK)[2];
                 }
+                // Compute the level index for corners coming from level 1. 
                 else {
                     levelIdx = (std::get<1>(level_IJK)[1]*(level1_dim[0]+1)*(level1_dim[2]+1))
                         + (std::get<1>(level_IJK)[0]*(level1_dim[2]+1)) + std::get<1>(level_IJK)[2];
                 }
+                // Add the entry {(fake leaf) {i,j,k}, {level, level index}} to the map. 
                 leafIJK_to_levelIdx_corners[leaf_IJK] = {std::get<0>(level_IJK), levelIdx};
             }
+            // Resiize the container of the leaf corners (size: total level 0 - patch + total level 1). 
             leaf_corners.resize((data[0] -> size(3)) - patch_corners.size() + (data[1]) -> size(3));
+            // Map from leaf Ids to leaf indices (consecutive).
+            // Each entry looks like {leaf id, leaf index}.
             std::map<int,int> leafId_to_leafIdx_corners;
-            // Each entry looks like { leafId [KEY], leaf (consecutive) corner INDEX [VALUE]}
             int leaf_corn_idx = 0;
             for (auto& [leaf_IJK, level_levelIdx] : leafIJK_to_levelIdx_corners) {
+                // Compute the leaf Id (from the fake leaf ijk).
                 int leafId = (leaf_IJK[1]*((cells_per_dim[0]*level0_dim[0])+1)*((cells_per_dim[2]*level0_dim[2])+1))
                     + (leaf_IJK[0]*((cells_per_dim[0]*level0_dim[0])+1)) + leaf_IJK[2]; 
                 leafId_to_leafIdx_corners[leafId] = leaf_corn_idx;
+                // Store the corners coming from level 0. 
                 if (level_levelIdx[0] == 0) {
                     leaf_corners[leaf_corn_idx] =
                         (*data[0]).geometry_.geomVector(std::integral_constant<int,3>()).get(level_levelIdx[1]);
                 }
+                // Store the corners coming from level 1. 
                 else {
                         leaf_corners[leaf_corn_idx] =
                             (*data[1]).geometry_.geomVector(std::integral_constant<int,3>()).get(level_levelIdx[1]);
@@ -835,12 +861,10 @@ namespace Dune
 
             // FACES
             //
-            // LEAF_K_FACES_MAP
-            //
-            // Each entry {{level, k_face IJK index in that level}, fake leaf k_face IJK}.
-            // With fake we mean that we imagine a grid of size scalar product of 
-            // cells_per_dim and level0_dim, where we can easily identify indices of faces
-            // when they come from level 0 or 1.
+            // LEAF K FACES MAP
+            // For each level, each k_face ijk of that level, we associate to it a new ijk in the imaginary
+            // huge grid. We call it 'fake leaf ijk' and store this in "level_to_leaf_IJK_Kfaces".
+            // Each entry looks like {{level, (level) {i,j,k}}, (fake leaf) {i_, j_, k_}}.
             std::map<std::tuple<int,std::array<int,3>>, std::array<int,3>> level_to_leaf_IJK_Kfaces;
             // Stored following 'kji' with i the fastest, separated by level.
             // Add K_FACES from level 0 that do not belong to the refined patch.
@@ -868,55 +892,75 @@ namespace Dune
                     } // end k-for-loop
                 } // end i-for-loop
             } // end j-for-loop
+            //
+            // Map from 'leaf Id' to level index (of each K FACE).
+            // Each entry looks like  {leaf Id, {level, level index}}.
             std::map<int, std::array<int,2>> leafId_to_levelIdx_Kfaces;
+            //
+            // Map from 'leaf Id' to level IJK (of each K FACE).
+            // Each entry looks like  {leaf Id, {level, (level){i,j,k}}}.
+            std::map<int, std::tuple<int, std::array<int,3>>> leafId_to_levelIJK_Kfaces;
+            //
             for (auto& [level_IJK, leaf_IJK] : level_to_leaf_IJK_Kfaces) {
+                // To store the level index. 
                 int levelIdx;
+                // Compute the leaf Id.
                 int leafId = (leaf_IJK[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
                     + (leaf_IJK[1]*cells_per_dim[0]*level0_dim[0])
                     + leaf_IJK[0];
+                // Compute the level index/IJK for k_faces coming from level 0. 
                 if (std::get<0>(level_IJK) == 0) {
                     levelIdx = (std::get<1>(level_IJK)[2]*level0_dim[0]*level0_dim[1])
                         + (std::get<1>(level_IJK)[1]*level0_dim[0]) + std::get<1>(level_IJK)[0];
                 }
+                // Compute the level index for k_faces coming from level 1. 
                 else {
                     levelIdx = (std::get<1>(level_IJK)[2]*level1_dim[0]*level1_dim[1])
                         + (std::get<1>(level_IJK)[1]*level1_dim[1]) + std::get<1>(level_IJK)[0];
                 }
+                // Add the entry {leaf id, {level, level index}} in "leafId_to_levelIdx_Kfaces".
                 leafId_to_levelIdx_Kfaces[leafId] = {std::get<0>(level_IJK), levelIdx};
-            }
-            std::map<int, std::tuple<int, std::array<int,3>>> leafId_to_levelIJK_Kfaces;
-            // {leaf index, {level, {i,j,k}}}
-            for (auto& [level_IJK, leaf_IJK] : level_to_leaf_IJK_Kfaces) {
-                int leafId = (leaf_IJK[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                    + (leaf_IJK[1]*cells_per_dim[0]*level0_dim[0])
-                    + leaf_IJK[0];
+                // Add the entry {leaf id, {level, level {i,j,k}}} in "leafId_to_levelIJK_Kfaces".
                 leafId_to_levelIJK_Kfaces[leafId] = level_IJK;
             }
-            // Auxiliary integers to compute fake index of corners in the imaginaty huge grid.
+            // Auxiliary integers to compute fake index of corners in the imaginary huge grid.
             int factor_corn_xz = ((cells_per_dim[0]*level0_dim[0])+1)*((cells_per_dim[2]*level0_dim[2])+1);
             int factor_corn_x  =((cells_per_dim[0]*level0_dim[0])+1);
+            // Resize leaf_faces, mutable_face_tags/normals. 
             leaf_faces.resize((data[0] -> face_to_cell_.size()) - patch_faces.size() + (data[1]) -> face_to_cell_.size());
             mutable_face_tags.resize((data[0] -> face_to_cell_.size()) - patch_faces.size() + (data[1]) -> face_to_cell_.size());
             mutable_face_normals.resize((data[0] -> face_to_cell_.size()) - patch_faces.size() + (data[1]) -> face_to_cell_.size());
+            // To store leaf indices for K faces.
+            // Each entry looks like {leaf Id, lead index (consecutive)}.
             std::map<int,int> leafIdx_Kfaces;
-            // Each entry looks like {leafId_kface [KEY], leaf (consecutive) Kface INDEX [VALUE]}
             int leaf_kface_idx = 0;
+            // Vector to store, in each entry, the four corners of a leaf (k,i,j-)face.
+            // (We do not store this face_to_point information directly into leaf_face_to_point
+            // since, if we appendRow to add each entry, we will not store them in the consecutive order).
             std::vector<std::array<int,4>> aux_face_to_point;
             aux_face_to_point.resize((data[0] -> face_to_cell_.size()) - patch_faces.size() + (data[1]) -> face_to_cell_.size());
+            // Create the leaf k-faces, their tags, normals, and 4 corners.
             for (auto& [leafId, level_levelIdx] : leafId_to_levelIdx_Kfaces) {
+                // Map the leaf Id with the leak k-face index. 
                 leafIdx_Kfaces[leafId] = leaf_kface_idx;
+                // Get the {level, level ijk}, via the leaf Id.  
                 std::tuple<int,std::array<int,3>> level_ijk_face =  leafId_to_levelIJK_Kfaces[leafId];
+                // Get the level ijk of the face. 
                 std::array<int,3> ijk_face = {std::get<1>(level_ijk_face)[0],
                     std::get<1>(level_ijk_face)[1], std::get<1>(level_ijk_face)[2]};
+                // Compute k-face, face tag, normal, 4 corners, for k_faces coming from level 0. 
                 if (level_levelIdx[0] == 0) {
+                    // Get the face geometry.
                     leaf_faces[leaf_kface_idx] = (*data[0]).geometry_.geomVector(std::integral_constant<int,1>())
                         [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
+                    // Get the face tag.
                     mutable_face_tags[leaf_kface_idx] = (*data[0]).face_tag_ [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
+                    // Get the face normal. 
                     mutable_face_normals[leaf_kface_idx] = (*data[0]).face_normals_[Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
                     // Get the  leaf indices of corners of the face. Add this info to aux_face_to_point
-                    // in the right entry to later on populate leaf_face_to_point using append().
+                    // in the right entry to later on populate leaf_face_to_point using appendRow().
                     aux_face_to_point[leaf_kface_idx] = {
-                    // corner '0'   {0, {i,j,k}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
+                    // corner '0' {0, {i,j,k}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
                     leafId_to_leafIdx_corners[(ijk_face[1]*cells_per_dim[1]*factor_corn_xz) +
                                              (ijk_face[0]*cells_per_dim[0]*factor_corn_x)
                                              + (ijk_face[2]*cells_per_dim[2])],
@@ -933,13 +977,17 @@ namespace Dune
                                              ((ijk_face[0]+1)*cells_per_dim[0]*factor_corn_x)
                                              + (ijk_face[2]*cells_per_dim[2])]};
                 }
+                // Compute k_face, tag, normal, 4 corners for k_faces coming from level 1. 
                 else {
+                    // Get the face geometry.
                     leaf_faces[leaf_kface_idx] = (*data[1]).geometry_.geomVector(std::integral_constant<int,1>())
                         [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
+                    // Get the face tag. 
                     mutable_face_tags[leaf_kface_idx] = (*data[0]).face_tag_ [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
+                    // Get the face normal. 
                     mutable_face_normals[leaf_kface_idx] = (*data[0]).face_normals_[Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
                     // Get the  leaf indices of corners of the face. Add this info to aux_face_to_point
-                    // in the right entry to later on populate leaf_face_to_point using append().
+                    // in the right entry to later on populate leaf_face_to_point using appendRow().
                     aux_face_to_point[leaf_kface_idx]= {
                     // corner '0' {1, {i,j,k}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
                     leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1])*factor_corn_xz) +
@@ -963,15 +1011,13 @@ namespace Dune
             }
             //
             //
-            // LEAF_I_FACES_MAP
-            //
+            // LEAF I FACES MAP
+            // For the leaf Id, we start counting I_faces not at 0, but at 'total amount of (imaginary) k_faces'.
             int total_imaginary_kfaces = cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1]
                 *((cells_per_dim[2]*level0_dim[2])+1);
-            //
-            // Each entry {{level, i_face IJK in that level}, fake leaf i_face IJK}.
-            // With fake we mean that we imagine a grid of size scalar product of 
-            // cells_per_dim and level0_dim, where we can easily identify indices of faces
-            // when they come from level 0 or 1.
+            // For each level, each i_face ijk of that level, we associate to it a new ijk in the imaginary
+            // huge grid. We call it 'fake leaf ijk' and store this in "level_to_leaf_IJK_Ifaces".
+            // Each entry looks like {{level, (level) {i,j,k}}, (fake leaf) {i_, j_, k_}}.
             std::map<std::tuple<int,std::array<int,3>>, std::array<int,3>> level_to_leaf_IJK_Ifaces;
             // Stored following 'ikj' with j the fastest, separated by level.
             // Add I_FACES from level 0 that do not belong to the refined patch.
@@ -999,51 +1045,65 @@ namespace Dune
                     } // end j-for-loop
                 } // end k-for-loop
             } // end i-for-loop
+            // Auxiliary quantities to compute the level indices of each i_face. 
             int total_level0_k_faces = std::count((*data[0]).face_tag_.begin(), (*data[0]).face_tag_.end(), face_tag::K_FACE);
             int total_level1_k_faces = std::count((*data[1]).face_tag_.begin(), (*data[1]).face_tag_.end(), face_tag::K_FACE);
+            // Map from 'leaf Id' to level index (of each I FACE).
+            // Each entry looks like  {leaf Id, {level, level index}}.
             std::map<int, std::array<int,2>> leafId_to_levelIdx_Ifaces;
+            // Map from 'leaf Id' to level IJK (of each I FACE).
+            // Each entry looks like  {leaf Id, {level, (level){i,j,k}}}.
+            std::map<int, std::tuple<int, std::array<int,3>>> leafId_to_levelIJK_Ifaces;
             for (auto& [level_IJK, leaf_IJK] : level_to_leaf_IJK_Ifaces) {
                 int levelIdx;
+                // Compute the leaf Id.
                 int leafId = total_imaginary_kfaces +
-                    (leaf_IJK[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                    + (leaf_IJK[1]*cells_per_dim[0]*level0_dim[0])
-                    + leaf_IJK[0];
+                    (leaf_IJK[0]*cells_per_dim[1]*level0_dim[1]*cells_per_dim[2]*level0_dim[2])
+                    + (leaf_IJK[2]*cells_per_dim[1]*level0_dim[1])
+                    + leaf_IJK[1];
+                // Compute the level index for i-faces coming from level 0.
                 if (std::get<0>(level_IJK) == 0) {
                     levelIdx = total_level0_k_faces +
                         (std::get<1>(level_IJK)[2]*level0_dim[0]*level0_dim[1])
                         + (std::get<1>(level_IJK)[1]*level0_dim[0]) + std::get<1>(level_IJK)[0];
                 }
+                // Compute the level index for i-faces coming from level 1. 
                 else {
                     levelIdx = total_level1_k_faces +
                         (std::get<1>(level_IJK)[2]*level1_dim[0]*level1_dim[1])
                         + (std::get<1>(level_IJK)[1]*level1_dim[1]) + std::get<1>(level_IJK)[0];
                 }
+                // Add the entry {leaf id, {level, level index}} in "leafId_to_levelIdx_Ifaces".
                 leafId_to_levelIdx_Ifaces[leafId] = {std::get<0>(level_IJK), levelIdx};
-            }
-            std::map<int, std::tuple<int, std::array<int,3>>> leafId_to_levelIJK_Ifaces;
-            // {leafId, {level, {i,j,k}}}
-            for (auto& [level_IJK, leaf_IJK] : level_to_leaf_IJK_Ifaces) {
-                int leafId = total_imaginary_kfaces +
-                    (leaf_IJK[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                    + (leaf_IJK[1]*cells_per_dim[0]*level0_dim[0])
-                    + leaf_IJK[0];
+                // Add the entry {leaf id, {level, level {i,j,k}}} in "leafId_to_levelIJK_Ifaces".
                 leafId_to_levelIJK_Ifaces[leafId] = level_IJK;
             }
+            // To store leaf indices for K faces.
+            // Each entry looks like {leaf Id, lead index (consecutive)}.
             std::map<int,int> leafIdx_Ifaces;
-            // Each entry looks like {leafId_iface [KEY], leaf (consecutive) Iface INDEX [VALUE]}
-            int leaf_iface_idx = std::count(mutable_face_tags.begin(), mutable_face_tags.end(), face_tag::K_FACE);
+            // We start counting the I-faces not from 0 but the total amount of leaf K faces.
+            int leaf_iface_idx =  leaf_kface_idx;
+                //std::count(mutable_face_tags.begin(), mutable_face_tags.end(), face_tag::K_FACE);
+            // Create the leaf i-face, its tag, normal, 4 corners. 
             for (auto& [leafId, level_levelIdx] : leafId_to_levelIdx_Ifaces) {
+                // Map to make the index consecutive.
                 leafIdx_Ifaces[leafId] = leaf_iface_idx;
+                // Get the {level, level ijk} of the face. 
                 std::tuple<int,std::array<int,3>> level_ijk_face =  leafId_to_levelIJK_Ifaces[leafId];
+                // Get the {level ijk} of the face.
                 std::array<int,3> ijk_face = {std::get<1>(level_ijk_face)[0],
                     std::get<1>(level_ijk_face)[1], std::get<1>(level_ijk_face)[2]};
+                // Compute the i-faces coming from level 0. 
                 if (level_levelIdx[0] == 0) {
+                    // Get face geometry.
                     leaf_faces[leaf_iface_idx] = (*data[0]).geometry_.geomVector(std::integral_constant<int,1>())
                         [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
+                    // Get face tag.
                     mutable_face_tags[leaf_iface_idx] = (*data[0]).face_tag_ [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
+                    // Get face normal.
                     mutable_face_normals[leaf_iface_idx] = (*data[0]).face_normals_[Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
                     // Get the  leaf indices of corners of the face. Add this info to aux_face_to_point
-                    // in the right entry to later on populate leaf_face_to_point using append().
+                    // in the right entry to later on populate leaf_face_to_point using appendRow().
                     aux_face_to_point[leaf_iface_idx] = {
                     // corner '0' {0, {i,j,k}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
                     leafId_to_leafIdx_corners[(ijk_face[1]*cells_per_dim[1]*factor_corn_xz) +
@@ -1063,12 +1123,15 @@ namespace Dune
                                               + ((ijk_face[2] +1)*cells_per_dim[2])]};
                 }
                 else {
+                    // Get the face geometry.
                     leaf_faces[leaf_iface_idx] = (*data[1]).geometry_.geomVector(std::integral_constant<int,1>())
                         [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
+                    // Get face tag.
                     mutable_face_tags[leaf_iface_idx] = (*data[0]).face_tag_ [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
+                    // Get face normal.
                     mutable_face_normals[leaf_iface_idx] = (*data[0]).face_normals_[Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
                     // Get the  leaf indices of corners of the face. Add this info to aux_face_to_point
-                    // in the right entry to later on populate leaf_face_to_point using append().
+                    // in the right entry to later on populate leaf_face_to_point using appendRow().
                     aux_face_to_point[leaf_iface_idx]= {
                     // corner '0' {1, {i,j,k}} -> (fake) leaf corner Id -> (actual) leaf corner Idx
                     leafId_to_leafIdx_corners[(((start_ijk[1]*cells_per_dim[1]) + ijk_face[1])*factor_corn_xz) +
@@ -1090,17 +1153,14 @@ namespace Dune
                 
                 leaf_iface_idx +=1;
             }
-           //
             //
-            // LEAF_J_FACES_MAP
-            //
+            // LEAF J FACES MAP
+            // For the leaf Id, we start counting I_faces not at 0, but at 'total amount of (imaginary) k_faces + i_faces'.
             int total_imaginary_ifaces =
                 cells_per_dim[1]*level0_dim[1]*cells_per_dim[2]*level0_dim[2]*((cells_per_dim[0]*level0_dim[0])+1);
-            //
-            // Each entry {{level, j_face IJK in that level}, fake leaf j_face IJK}.
-            // With fake we mean that we imagine a grid of size scalar product of 
-            // cells_per_dim and level0_dim, where we can easily identify indices of faces
-            // when they come from level 0 or 1.
+            // For each level, each j_face ijk of that level, we associate to it a new ijk in the imaginary
+            // huge grid. We call it 'fake leaf ijk' and store this in "level_to_leaf_IJK_Jfaces".
+            // Each entry looks like {{level, (level) {i,j,k}}, (fake leaf) {i_, j_, k_}}.
             std::map<std::tuple<int,std::array<int,3>>, std::array<int,3>> level_to_leaf_IJK_Jfaces;
             // Stored following 'jik' with k the fastest, separated by level.
             // Add J_FACES from level 0 that do not belong to the refined patch.
@@ -1128,38 +1188,36 @@ namespace Dune
                     } // end k-for-loop
                 } // end i-for-loop
             } // end j-for-loop
+            // Auxiliary quantities to compute the level indices of each j_face.
             int total_level0_i_faces = std::count((*data[0]).face_tag_.begin(), (*data[0]).face_tag_.end(), face_tag::I_FACE);
             int total_level1_i_faces = std::count((*data[1]).face_tag_.begin(), (*data[1]).face_tag_.end(), face_tag::I_FACE);
+            // To store leaf indices for J faces.
+            // Each entry looks like {leaf Id, lead index (consecutive)}.
             std::map<int, std::array<int,2>> leafId_to_levelIdx_Jfaces;
+            std::map<int, std::tuple<int, std::array<int,3>>> leafId_to_levelIJK_Jfaces;
             for (auto& [level_IJK, leaf_IJK] : level_to_leaf_IJK_Jfaces) {
                 int levelIdx;
+                // Compute lead Id.
                 int leafId = total_imaginary_kfaces + total_imaginary_ifaces +
-                    (leaf_IJK[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                    + (leaf_IJK[1]*cells_per_dim[0]*level0_dim[0])
-                    + leaf_IJK[0];
+                    (leaf_IJK[1]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[2]*level0_dim[2])
+                    + (leaf_IJK[0]*cells_per_dim[2]*level0_dim[2])
+                    + leaf_IJK[2];
                 if (std::get<0>(level_IJK) == 0) {
+                    // Compute level index of j-faces coming from level 0.
                     levelIdx = total_level0_k_faces + total_level0_i_faces +
                         (std::get<1>(level_IJK)[2]*level0_dim[0]*level0_dim[1])
                         + (std::get<1>(level_IJK)[1]*level0_dim[0]) + std::get<1>(level_IJK)[0];
                 }
                 else {
+                      // Compute level index of j-faces coming from level 1. 
                     levelIdx = total_level1_k_faces + total_level1_i_faces +
                         (std::get<1>(level_IJK)[2]*level1_dim[0]*level1_dim[1])
                         + (std::get<1>(level_IJK)[1]*level1_dim[1]) + std::get<1>(level_IJK)[0];
                 }
                 leafId_to_levelIdx_Jfaces[leafId] = {std::get<0>(level_IJK), levelIdx};
-            }
-            std::map<int, std::tuple<int, std::array<int,3>>> leafId_to_levelIJK_Jfaces;
-            // {leafId, {level, {i,j,k}}}
-            for (auto& [level_IJK, leaf_IJK] : level_to_leaf_IJK_Jfaces) {
-                int leafId = total_imaginary_kfaces + total_imaginary_ifaces +
-                    (leaf_IJK[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                    + (leaf_IJK[1]*cells_per_dim[0]*level0_dim[0])
-                    + leaf_IJK[0];
                 leafId_to_levelIJK_Jfaces[leafId] = level_IJK;
             }
             std::map<int,int> leafIdx_Jfaces;
-            // Each entry looks like {leafId_iface [KEY], leaf (consecutive) Iface INDEX [VALUE]}
             int leaf_jface_idx = leaf_kface_idx + leaf_iface_idx;
                 // std::count(mutable_face_tags.begin(), mutable_face_tags.end(), face_tag::K_FACE)
                 //+ std::count(mutable_face_tags.begin(), mutable_face_tags.end(), face_tag::I_FACE);
