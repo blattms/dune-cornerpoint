@@ -539,64 +539,43 @@ namespace Dune
             return seed;
         }
       
-        // ADD LEVEL, 'PREDICT' LEAF CELLS/CORNERS/FACES (void; we add a new entry to 3 exisiting objects)
-        // Take as references a vector with shared pointers of type CpGridData ("data") and 2 vectors with the
-        // indices of cells/corners, coming possible from different levels, that all together would form the leaf cells/corners,
-        // (kind of predicting the "future_leaf_cells/corners"). 
-        // Construct an LGR choosing an existing entry of "data", given the amount of
-        // children cells in each direction, and the begining and end of the patch to be refined.
-        // Add this 'level' to "data" and its corresponding index-access information in "future_leaf_view".
+        // ADD LEVEL, 'PREDICT' LEAF CELLS/CORNERS/FACES 
+        // Add a level to "data"(vector with shared pointers of type CpGridData).
+        // The new level is built via refineBlockPatch(), selecting a patch from
+        // any previous level stored in "data".
         // @param data                          Vector of shared pointers of type CpGridData (each ptr ~ one level).
-        // @param future_leaf_corners           Vector. Each entry looks like: {corner level, corner index}.
-        //                                      corner level = which entry of "data" points at the CpGridData object
-        //                                                   where the corner belongs.
-        //                                      corner index -> to access the Geometry<0,3> via the entry of "data"
-        //                                                    that points at the CpGridData object
-        //                                                    where the corners belongs.
-        // @param future_leaf_faces             Vector. Each entry looks like: {face level, face index}.
-        // @param future_leaf_cells             Vector. Each entry looks like: {cell level, cell index}.
-        //                                      cell level = which entry of "data" points at the CpGridData object
-        //                                                   where the cell belongs.
-        //                                      cell index -> to access the Geometry<3,3> via the entry of "data"
-        //                                                    that points at the CpGridData object
-        //                                                    where the cell belongs.
+        // @param future_leaf_corners           Vector. Each entry looks like: {(entity) level, (entity) index on that level}.
+        // @param future_leaf_faces             (entity) level = which entry of "data" points at the CpGridData object
+        // @param future_leaf_cells                              where that entity belongs.
+        //                                      (entity) index on that level -> to access the entity via the entry of "data"
+        //                                                    that points at the CpGridData object where the entity belongs.
         // @param level_to_refine               Integer (smaller than data.size()) representing the level from where
-        //                                      the patch to refine is taken.      
-        // @param cells_per_dim                 Number of sub-cells in each direction (for each cell) in the lgr.
-        // @param start_ijk                     Minimum values of i,j,k where the patch/lgr 'starts'.
-        // @param end_ijk                       Maximum values of i,j,k where the patch/lgr 'ends'.
+        //                                      the patch to be refined is taken.      
+        // @param cells_per_dim                 Number of sub-cells in each direction (for each cell) in the LGR.
+        // @param start_ijk                     Minimum values of i,j,k where the patch 'starts'.
+        // @param end_ijk                       Maximum values of i,j,k where the patch 'ends'.
         //
-        // Idea of "future_leaf_cells":
+        // Idea of "future_leaf_(entity)", e.g. cells:
         // We start with a grid that plays the role of level 0, so then "future_leaf_cells" will contain all
         // the (active) cells of the grid, with a 0 to indicate they were born in level 0:
         // {{0, cell index}, {0, next cell index}, ..., {0, last cell index}}
         // For example, {{0,0}, {0,1}, ...,  {0,23}} for a grid with 4,3,2 cells in x,y,z-direction respectively.
         // When constructing an LGR out of the grid from level 0, we call it level 1 and will erase from "future_leaf_cells"
-        // all the std::array<int,2> which correspond to parents of this patch. 
+        // all the std::array<int,2> which correspond to parent cells (i.e., cells of the patch to be refined). 
         // In the previous example, let's say our patch consists of the cells with indices 0,1,4,5
         // (strat_ijk = {0,0,0}, end_ijk = {2,2,1}). Then we earase from "future_leaf_cells" the entries
         // {0,0}, {0,1}, {0,4}, {0,5}, and 'replace' them [push_back] by (if, for instance, cells_per_dim = {5,6,7})
         // {1,0}, {1,1}, ..., {1, ([2x2x1]x[5x6x7]) -1}.
         // Then the vector "future_leaf_cells", after 'level 1'-refinement, looks like:
         // {{0,2}, {0,3}, {0,6}, {0,7}, ..., {0,23}, {1,0}, {1,1}, ..., {1, ([2x2x1]x[5x6x7]) -1}}.
-        // Notice that 'the union of the cells stored in "future_leaf_cells"' would give us the leaf cells  IN THE END.
-        // Every time we refine, we delete the parent cells and replace them with their children. 
-        // Now, when we build level 2 we choose a patch in level 0 or level 1, we proceed in the same way.
+        // Notice that 'the union of the cells stored in "future_leaf_cells"' would give us the leaf cells IN THE END.
+        // Every time we refine (we add a new level to "data"), we delete the parent cells and replace them with their children. 
+        // Now, when we add level 2 we choose a patch in level 0 or level 1, we proceed in the same way.
         // First delete from "future_leaf_cells" the parent cells, then push back the new child cells with
         // their correspongind level.
-        // To construct a leaf view, it 'will(might) be' enough to iterate on the entries of "future_leaf_cells".
+        // These containers might help when constructing the leaf view.
         // Remark: in this code only a block patch belonging to one level can be refined,
         // namely, we cannot refine in the same LGR 'a cell from some_level' and 'a cell from some_other_level'.
-        //
-        // Idea of "future_leaf_corners" (same for faces):
-        // In the same spitit as in "future_leaf_cells", we want to delete in each refinement to avoid repetition.
-        // Assume that before the first refinement, "future_leaf_corners" looks like:
-        // {{0, corner 0}, {0, corner 1}, ..., {0, total_corners -1}}.
-        // Let's say we want to refine the 'cell 0'. For a grid with 4x3x2 cells, this means that our 'cell 0'
-        // has corners with indices { 0,3,15,18 (bottom) , 1,4,16,19 (top) } (fake{0,1,..,7}).
-        // Then, we delete from "future_leaf_corners" the following entries:
-        // {0,0}, {0,1}, {0,3}, {0,4}, {0,15}, {0,16}, {0,18}, {0,19}
-        // and 'replace them' (push_back) the new corners arising from the first LGR ('level 1').
         void addLevel(std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>>& data,
                       int level_to_refine,
                       const std::array<int,3>& cells_per_dim,
@@ -605,29 +584,25 @@ namespace Dune
                       std::vector<std::array<int,2>>& future_leaf_faces,
                       std::vector<std::array<int,2>>& future_leaf_cells)
         {
-            if (data.size()==1)
-            {
-                std::array<int,3> level0_dim = (*data[0]).logicalCartesianSize();
-                int total_cells_level0 = data[0] -> size(0);
-                future_leaf_cells.reserve(total_cells_level0);
-                for (int cells = 0; cells < total_cells_level0; ++cells) {
+            // If data has only one entry, we construct populate accordingly the future_leaf_*, meaning that
+            // we add the integer 0 that represents the level: {0, entity index}.
+            if (data.size()==1) {
+                future_leaf_cells.reserve(data[0] -> size(0));
+                for (int cells = 0; cells < data[0] -> size(0); ++cells) {
                     future_leaf_cells.push_back({0, cells});
-                }
-                int total_corners_level0 = data[0]->size(3); 
-                future_leaf_corners.reserve(total_corners_level0);
-                for (int corners = 0; corners < total_corners_level0; ++corners) {
+                }                
+                future_leaf_corners.reserve(data[0]->size(3));
+                for (int corners = 0; corners < data[0]->size(3); ++corners) {
                     future_leaf_corners.push_back({0, corners});
                 }
-                int total_faces_level0 = data[0]->face_to_cell_.size();
-                future_leaf_faces.reserve(total_faces_level0);
-                    for (int faces = 0; faces < total_faces_level0; ++faces) {
-                        future_leaf_faces.push_back({0, faces});
-                    }
-
+                future_leaf_faces.reserve(data[0]->face_to_cell_.size());
+                for (int faces = 0; faces < data[0]->face_to_cell_.size(); ++faces) {
+                    future_leaf_faces.push_back({0, faces});
+                }
             }
             // Add Level to "data".
-            // Use *data.back() instead, if we only want to allow refinement based on the last level stored in data
-            auto [new_data_entry, parent_to_children_corners, parent_to_children_faces, parent_to_children_cells,
+            // Use *data.back() instead, if we only want to allow refinement based on the last level stored in data.
+            auto [new_data_entry, parent_to_children_faces, parent_to_children_cells,
                   child_to_parent_ijk_faces, child_to_parent_ijk_cells] =
                 (*data[level_to_refine]).refineBlockPatch(cells_per_dim, start_ijk, end_ijk);
             data.push_back(new_data_entry);
@@ -664,7 +639,6 @@ namespace Dune
             for (int new_corner = 0; new_corner < total_new_corners; ++new_corner) {
                 future_leaf_corners.push_back({data.size() +1, new_corner});
             }
-            
             // FACES
             // Get the indices of the faces of the patch (to be deleted).
             int start_level_face_to_refine = 0;
@@ -733,7 +707,7 @@ namespace Dune
             // @TODO Check if we actually need all these parent/children relationships.
             //
             // Build level 1 from the selected patch from level 0 (level 0 = data[0]).
-            auto [level1_ptr, parent_to_children_corners, parent_to_children_faces, parent_to_children_cells,
+            auto [level1_ptr, parent_to_children_faces, parent_to_children_cells,
                   child_to_parent_ijk_faces, child_to_parent_ijk_cells] =
                 (*data[0]).refineBlockPatch(cells_per_dim, start_ijk, end_ijk);
             // Add level 1 to "data".
@@ -1424,7 +1398,6 @@ namespace Dune
                 }
                 leaf_cell_idx +=1;
             }
-            
             // LEAF FACE TO CELL
             // Vector to store, in each entry, the four corners of a leaf (k,i,j-)face.
             // (We do not store this face_to_point information directly into leaf_face_to_point
