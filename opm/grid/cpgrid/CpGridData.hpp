@@ -306,15 +306,15 @@ public:
                 for (int m = start_mixed[1]; m < end_mixed[1]; ++m) {
                     for (int n = start_mixed[2]; n < end_mixed[2]; ++n) {
                         switch(constant_direction) {
-                        case 0:  // {l,m,n} = {k,j,i}, constant in z-direction
+                        case 0:  // {l,m,n} = {k,j,i}, K_FACE constant in z-direction
                             patch_faces.push_back((l*logical_cartesian_size_[0]*logical_cartesian_size_[1])
                                                   + (m*logical_cartesian_size_[0]) + n);
-                        case 1:  // {l,m,n} = {i,k,j}, constant in the x-direction
+                        case 1:  // {l,m,n} = {i,k,j}, I_FACE constant in the x-direction
                             patch_faces.push_back((logical_cartesian_size_[0]*
                                                    logical_cartesian_size_[1]*(logical_cartesian_size_[2]+1))+
                                                   (l*logical_cartesian_size_[1]*logical_cartesian_size_[2]) +
                                                   (m*logical_cartesian_size_[1]) + n);
-                        case 2: // {l,m,n} = {j,i,k}, constant in the y-direction
+                        case 2: // {l,m,n} = {j,i,k}, J_FACE constant in the y-direction
                             patch_faces.push_back((logical_cartesian_size_[0]*logical_cartesian_size_[1]*
                                                    (logical_cartesian_size_[2] +1))
                                                   + ((logical_cartesian_size_[0]+1)*logical_cartesian_size_[1]*logical_cartesian_size_[2])
@@ -420,6 +420,40 @@ public:
         return {hexa_volume, hexa_center};    
     }
     
+    // Refine a single cell and return a shared pointer of CpGridData type.
+    // REFINE A SINGLE CELL
+    // @param cells_per_dim                 Number of sub-cells in each direction.
+    // @param parent_ijk                    Parent ijk index.
+    // @return refined_grid_ptr             Shared pointer pointing at refined_grid.
+    std::shared_ptr<CpGridData> refineSingleCell(const std::array<int,3>& cells_per_dim,
+                       const std::array<int,3>& parent_ijk)
+    {
+        std::shared_ptr<CpGridData> refined_grid_ptr = std::make_shared<CpGridData>(ccobj_);
+        auto& refined_grid = *refined_grid_ptr;
+        DefaultGeometryPolicy& refined_geometries = refined_grid.geometry_;
+        std::vector<std::array<int,8>>& refined_cell_to_point = refined_grid.cell_to_point_;
+        cpgrid::OrientedEntityTable<0,1>& refined_cell_to_face = refined_grid.cell_to_face_;
+        Opm::SparseTable<int>& refined_face_to_point = refined_grid.face_to_point_;
+        cpgrid::OrientedEntityTable<1,0>& refined_face_to_cell = refined_grid.face_to_cell_;
+        cpgrid::EntityVariable<enum face_tag,1>& refined_face_tags = refined_grid.face_tag_;
+        cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& refined_face_normals = refined_grid.face_normals_;
+        // Get parent index
+        int parent_idx = (parent_ijk[2]*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+            + (parent_ijk[1]*logical_cartesian_size_[1]) + parent_ijk[0];
+        // Get parent cell
+        cpgrid::Geometry<3,3> parent_cell = geometry_.geomVector(std::integral_constant<int,0>())[EntityRep<0>(parent_idx, true)];
+        // Refine parent cell
+        parent_cell.refine({cells_per_dim[0], cells_per_dim[1], cells_per_dim[2]},
+                           refined_geometries,
+                           refined_cell_to_point,
+                           refined_cell_to_face,
+                           refined_face_to_point,
+                           refined_face_to_cell,
+                           refined_face_tags,
+                           refined_face_normals);
+        return refined_grid_ptr;
+    }
+    
     // Refine a (connected block of cells) patch
     // REFINE A PATCH of CONNECTED (CONSECUTIVE in each direction) cells with 'uniform' regular intervals.
     // (meaning that the amount of children per cell is the same for all parent cells (cells of the patch)).
@@ -440,7 +474,7 @@ public:
                std::vector<std::array<int,3>>,
                std::vector<std::array<int,3>>>
     refineBlockPatch(const std::array<int,3>& cells_per_dim,
-                       std::array<int,3> start_ijk, std::array<int,3> end_ijk)
+                     const std::array<int,3> start_ijk, const std::array<int,3> end_ijk)
     {
         std::shared_ptr<CpGridData> refined_grid_ptr = std::make_shared<CpGridData>(ccobj_);
         auto& refined_grid = *refined_grid_ptr;

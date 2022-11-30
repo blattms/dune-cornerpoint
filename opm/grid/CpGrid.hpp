@@ -577,9 +577,9 @@ namespace Dune
         // Remark: in this code only a block patch belonging to one level can be refined,
         // namely, we cannot refine in the same LGR 'a cell from some_level' and 'a cell from some_other_level'.
         void addLevel(std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>>& data,
-                      int level_to_refine,
+                      const int level_to_refine,
                       const std::array<int,3>& cells_per_dim,
-                      std::array<int,3> start_ijk, std::array<int,3> end_ijk,
+                      const std::array<int,3> start_ijk, const std::array<int,3> end_ijk,
                       std::vector<std::array<int,2>>& future_leaf_corners,
                       std::vector<std::array<int,2>>& future_leaf_faces,
                       std::vector<std::array<int,2>>& future_leaf_cells)
@@ -606,15 +606,12 @@ namespace Dune
                   child_to_parent_ijk_faces, child_to_parent_ijk_cells] =
                 (*data[level_to_refine]).refineBlockPatch(cells_per_dim, start_ijk, end_ijk);
             data.push_back(new_data_entry);
-
-            // Path dimension, corner/face/cell indices.
+            // Patch dimension (total cells in each direction).
             auto patch_dim = (*data[level_to_refine]).getPatchDim(start_ijk, end_ijk);
+            // Patch corner, face, and cell indices (from the level they belong to). 
             auto [patch_corners, patch_faces, patch_cells]  = (*data[level_to_refine]).getPatchGeomIndices(start_ijk, end_ijk);
-
             // CORNERS
-            // Delete the corners of the coarse level involved in the patch,
-            // to avoid repetition.
-            // Get size of the coarse level where the pacth is (needed to compute corner indices to be deleted).
+            // Get dimension of the level_to_refine (amount of cells in each direction).
             std::array<int,3> coarse_level_dim = (*data[level_to_refine]).logicalCartesianSize();
             for (int j = start_ijk[1]; j < end_ijk[1] +1; ++j) {
                 for (int i = start_ijk[0]; i < end_ijk[0] +1; ++i) {
@@ -659,14 +656,13 @@ namespace Dune
                 + (cells_per_dim[0]*patch_dim[0]*(cells_per_dim[1]*patch_dim[1]+1)*cells_per_dim[2]*patch_dim[2]); // 'front/back faces'
             // Add the (child) faces to "future_leaf_faces". We do not separate them by 'parent'.
             // Recall that the numbering for faces follows the rule:
-            // - Bottom-top faces -> 3rd coordinate constant in each face.
-            // - Left-right faces -> 1st coordinate constant in each face.
-            // - Front-back faces -> 2nd coordinate constant in each face.
+            // - Bottom-top faces -> 3rd coordinate constant in each face. K_FACES
+            // - Left-right faces -> 1st coordinate constant in each face. I_FACES
+            // - Front-back faces -> 2nd coordinate constant in each face. J_FACES
             // First, we store suvivors of level 0 [in the previous order], then suvivors of level 1, and so on.
             for (int new_face = 0; new_face < total_new_faces; ++new_face) {
                 future_leaf_faces.push_back({data.size() +1, new_face});
             }
-
             // CELLS
             int start_level_cell_to_refine = 0;
             for (const auto& [level, cell_idx] : future_leaf_cells) {
@@ -696,16 +692,8 @@ namespace Dune
         // 2 levels.
         void getLeafView2Levels(std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>>& data,
                                 const std::array<int,3>& cells_per_dim,
-                                std::array<int,3> start_ijk, std::array<int,3> end_ijk)
+                                const std::array<int,3>& start_ijk, const std::array<int,3>& end_ijk)
         {
-            // @TODO Generalize this function to be able to get the leaf view from a vector of shared pointers
-            // of CpGridData object, where the data[0] represent the initial grid, and data[level]
-            // for level = 1, ..., last_level represent each LGR. The refinement (LGR) constists in choosing
-            // a patch (a range of (consecutive) indicies ijk) and apply "refine_block_patch()" method.
-            // Use *data.back() instead, if we only want to allow refinement based on the last level stored in data
-            //
-            // @TODO Check if we actually need all these parent/children relationships.
-            //
             // Build level 1 from the selected patch from level 0 (level 0 = data[0]).
             auto [level1_ptr, parent_to_children_faces, parent_to_children_cells,
                   child_to_parent_ijk_faces, child_to_parent_ijk_cells] =
@@ -749,15 +737,14 @@ namespace Dune
             // level 0, so level 1 dimension is the cells_per_dim[0]([1],[2])*patch_dim[0]([1],[2])
             // cells in the x(y,z)-direction respectively.
             // To 'unify' dimension and facilitate the construction of face and cell topological features,
-            // we will introduce auxiliary leaf ids, thinking that we hace an auxiliary huge grid of
+            // we will introduce auxiliary leaf ids, thinking of an auxiliary/imaginary huge grid of
             // dimension {level0_dim[0]*cells_per_dim[0], level0_dim[1]*cells_per_dim[1], level0_dim[2]*cells_per_dim[2]}.
             // We can easily associate corners/faces/cells in level l with 'position ijk' with the leaf id
             // {l, {i,j,k}} <-> leaf id
             // First, we associate a fake leaf ijk, then a leaf id, and finally, we get the leaf index (consecutive):
-            // {0, {i,j,k}} <-> fake leaf ijk {cells_per_dim[0]*i, cells_per_dim[1]*j, cells_per_dim[2]*k}
-            // {1, {i,j,k}} <-> fake leaf ijk
+            // {(level) 0, {i,j,k}} <-> fake leaf ijk {cells_per_dim[0]*i, cells_per_dim[1]*j, cells_per_dim[2]*k}
+            // {(level) 1, {i,j,k}} <-> fake leaf ijk
             //  {cells_per_dim[0]*start_ijk[0] +i, cells_per_dim[1]*start_ijk[1]+j, cells_per_dim[2]*start_ijk[2] + k}.
-            //
             //
             // LEAF CORNER MAP
             // For each level, each corner ijk of that level, we associate to it a new ijk in the imaginary
@@ -832,7 +819,6 @@ namespace Dune
                 }
                 leaf_corn_idx +=1;
             }
-
             // FACES
             //
             // LEAF K FACES MAP
@@ -984,8 +970,6 @@ namespace Dune
 
                 leaf_kface_idx +=1;
             }
-            //
-            //
             // LEAF I FACES MAP
             // For the leaf Id, we start counting I_faces not at 0, but at 'total amount of (imaginary) k_faces'.
             int total_imaginary_kfaces = cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1]
@@ -1256,7 +1240,6 @@ namespace Dune
 
                 leaf_jface_idx +=1;
             }
-            
             // CELLS
             std::map<std::tuple<int, std::array<int,3>>, std::array<int,3>> level_to_leaf_IJKcells;
             for (int k = 0; k < level0_dim[2]; ++k) {
