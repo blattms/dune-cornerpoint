@@ -431,10 +431,17 @@ public:
     // Refine a single cell and return a shared pointer of CpGridData type.
     // REFINE A SINGLE CELL
     // @param cells_per_dim                 Number of sub-cells in each direction.
-    // @param parent_ijk                    Parent ijk index.
+    // @param parent_idx                    Parent index.
     // @return refined_grid_ptr             Shared pointer pointing at refined_grid.
+    //         parent_to_children_faces
+    //         parent_to_children_cells
+    /* std::tuple<std::shared_ptr<CpGridData>,
+               std::vector<std::tuple<bool,std::vector<int>>>,
+               std::vector<std::tuple<bool,std::vector<int>>>,
+               std::vector<std::array<int,3>>,
+               std::vector<std::array<int,3>>>*/
     std::shared_ptr<CpGridData> refineSingleCell(const std::array<int,3>& cells_per_dim,
-                       const std::array<int,3>& parent_ijk)
+                       const int& parent_idx)
     {
         std::shared_ptr<CpGridData> refined_grid_ptr = std::make_shared<CpGridData>(ccobj_);
         auto& refined_grid = *refined_grid_ptr;
@@ -445,9 +452,6 @@ public:
         cpgrid::OrientedEntityTable<1,0>& refined_face_to_cell = refined_grid.face_to_cell_;
         cpgrid::EntityVariable<enum face_tag,1>& refined_face_tags = refined_grid.face_tag_;
         cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& refined_face_normals = refined_grid.face_normals_;
-        // Get parent index
-        int parent_idx = (parent_ijk[2]*logical_cartesian_size_[0]*logical_cartesian_size_[1])
-            + (parent_ijk[1]*logical_cartesian_size_[1]) + parent_ijk[0];
         // Get parent cell
         cpgrid::Geometry<3,3> parent_cell = geometry_.geomVector(std::integral_constant<int,0>())[EntityRep<0>(parent_idx, true)];
         // Refine parent cell
