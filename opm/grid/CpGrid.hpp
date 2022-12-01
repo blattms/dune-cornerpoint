@@ -611,56 +611,37 @@ namespace Dune
             // Patch corner, face, and cell indices (from the level they belong to). 
             auto [patch_corners, patch_faces, patch_cells]  = (*data[level_to_refine]).getPatchGeomIndices(start_ijk, end_ijk);
             // CORNERS
-            // Get dimension of the level_to_refine (amount of cells in each direction).
-            std::array<int,3> coarse_level_dim = (*data[level_to_refine]).logicalCartesianSize();
-            for (int j = start_ijk[1]; j < end_ijk[1] +1; ++j) {
-                for (int i = start_ijk[0]; i < end_ijk[0] +1; ++i) {
-                    for (int k = start_ijk[2]; k < end_ijk[2] +1; ++k) {
-                        // Index (in the coarse level) of the corner we want to delete
-                        std::array<int,2> corner_to_erase = {level_to_refine,
-                            (j*(coarse_level_dim[0]+1)*(coarse_level_dim[2]+1))
-                            + (i*(coarse_level_dim[2]+1)) +k};
-                        auto corner_to_erase_it = std::find(future_leaf_corners.begin(),
-                                                            future_leaf_corners.end(),
-                                                            corner_to_erase);
-                        future_leaf_corners.erase(corner_to_erase_it);
-                    } // end k-for-loop
-                } // end i-for-loop
-            } // end j-for-loop
-            // Get the size of the new corners
-            int total_new_corners = ((cells_per_dim[0]*patch_dim[0]) + 1) *
-                ((cells_per_dim[1]*patch_dim[1]) + 1) * ((cells_per_dim[2]*patch_dim[2]) + 1);
-            // Add the (child) corners to "future_leaf_corners". We do not separate them by 'parent'.
-            // Recall that the numbering for corners follows the rule:
-            // from bottom to top - from left to right - from front to back.
-            for (int new_corner = 0; new_corner < total_new_corners; ++new_corner) {
+            // Get the deleting starting entry for corners (to be deleted).
+            int start_level_corner_to_refine = 0;
+            for (const auto& [level, corner_idx] : future_leaf_corners) {
+                while (level< level_to_refine) {
+                    start_level_corner_to_refine += 1;
+                }
+            }
+            // Delete corners.
+            for (const auto& idx : patch_corners) {
+                auto corner_to_erase_it = future_leaf_corners.begin() + start_level_corner_to_refine + idx;
+                future_leaf_corners.erase(corner_to_erase_it);
+            }
+            // Add new corners.
+            for (int new_corner = 0; new_corner < (data[1]->size(3)); ++new_corner) {
                 future_leaf_corners.push_back({data.size() +1, new_corner});
             }
             // FACES
-            // Get the indices of the faces of the patch (to be deleted).
+            // Get the deleting starting entry of the faces (to be deleted).
             int start_level_face_to_refine = 0;
             for (const auto& [level, face_idx] : future_leaf_faces) {
                 while (level< level_to_refine) {
                     start_level_face_to_refine += 1;
                 }
             }
-            // Delete faces
+            // Delete faces.
             for (const auto& idx : patch_faces) {
                 auto face_to_erase_it = future_leaf_cells.begin() + start_level_face_to_refine + idx;
                 future_leaf_cells.erase(face_to_erase_it);
             }
-            // Get size of new faces
-            int total_new_faces =
-                (cells_per_dim[0]*patch_dim[0]*cells_per_dim[1]*patch_dim[1]*(cells_per_dim[2]*patch_dim[2]+1)) // 'bottom/top faces'
-                + ((cells_per_dim[0]*patch_dim[0]+1)*cells_per_dim[1]*patch_dim[1]*cells_per_dim[2]*patch_dim[2]) // 'left/right faces'
-                + (cells_per_dim[0]*patch_dim[0]*(cells_per_dim[1]*patch_dim[1]+1)*cells_per_dim[2]*patch_dim[2]); // 'front/back faces'
-            // Add the (child) faces to "future_leaf_faces". We do not separate them by 'parent'.
-            // Recall that the numbering for faces follows the rule:
-            // - Bottom-top faces -> 3rd coordinate constant in each face. K_FACES
-            // - Left-right faces -> 1st coordinate constant in each face. I_FACES
-            // - Front-back faces -> 2nd coordinate constant in each face. J_FACES
-            // First, we store suvivors of level 0 [in the previous order], then suvivors of level 1, and so on.
-            for (int new_face = 0; new_face < total_new_faces; ++new_face) {
+            // Add new faces.
+            for (int new_face = 0; new_face < (data[1]->face_to_cell_.size()); ++new_face) {
                 future_leaf_faces.push_back({data.size() +1, new_face});
             }
             // CELLS
@@ -670,18 +651,13 @@ namespace Dune
                     start_level_cell_to_refine += 1;
                 }
             }
+            // Delete cells.
             for (const auto& idx : patch_cells) {
                 auto cell_to_erase_it = future_leaf_cells.begin() + start_level_cell_to_refine + idx;
                 future_leaf_cells.erase(cell_to_erase_it);
             }
-            // Add the (all) child cells to "future_leaf_cells". We do not separate them by 'parent'.
-            // Recall that the numbering for cells follows the rule:
-            // from left to right (increasing i/x-direction),
-            // front to back (increasing j/y-direction),
-            // from bottom to top (increasing k/z-direction).
-            // First, we store the survivors from level 0, then suvivors from level 1, and so on.
-            for (int new_cell = 0; new_cell < patch_dim[0]*cells_per_dim[0]
-                     *patch_dim[1]*cells_per_dim[1]*patch_dim[2]*cells_per_dim[2]; ++new_cell) {
+            // Add new cells.
+            for (int new_cell = 0; new_cell < (data[1]->size(0)); ++new_cell) {
                 future_leaf_cells.push_back({data.size() +1, new_cell});
             }
         }

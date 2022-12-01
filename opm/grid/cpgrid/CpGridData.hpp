@@ -117,7 +117,11 @@ template<int> class EntityRep;
 
 void refine_and_check(const Dune::cpgrid::Geometry<3, 3>&,
                       const std::array<int, 3>&,
-                      bool);
+                    bool);
+void refinePatch_and_check(const std::array<int,3>&,
+                           const std::array<int,3>&,
+                           const std::array<int,3>&);
+
 namespace Dune
 {
 namespace cpgrid
@@ -141,6 +145,10 @@ class CpGridData
     void ::refine_and_check(const Dune::cpgrid::Geometry<3, 3>&,
                             const std::array<int, 3>&,
                             bool);
+    friend
+    void::refinePatch_and_check(const std::array<int,3>&,
+                        const std::array<int,3>&,
+                        const std::array<int,3>&);
 
 private:
     CpGridData(const CpGridData& g);
