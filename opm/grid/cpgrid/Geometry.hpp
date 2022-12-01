@@ -1004,12 +1004,12 @@ namespace Dune
             //                                      patch_dim[2] = #cells in direction z.
             // @param parents_cell_to_point         Indices of the 8 corners of each parent cell.
             // @param all_geom                      Geometry Policy for the refined geometries.
-            Geometry<3,3> cellfyPatch( std::vector<cpgrid::Geometry<3,3>> patch_to_refine,
-                                          std::vector<int> patch_cells_indices,
-                                          const std::array<int,3>& patch_dim,
-                                          std::vector<std::array<int,8>> parents_cell_to_point,
-                                          std::array<int,8>& cellfiedPatch_to_point,
-                                          DefaultGeometryPolicy& cellfied_patch_geometry)
+            Geometry<3,3> cellfyPatch( const std::vector<cpgrid::Geometry<3,3>> patch_to_refine,
+                                       const std::vector<int> patch_cells_indices,
+                                       const std::array<int,3>& patch_dim,
+                                       const std::vector<std::array<int,8>> parents_cell_to_point,
+                                       std::array<int,8>& cellfiedPatch_to_point,
+                                       DefaultGeometryPolicy& cellfied_patch_geometry)
             {
                 if (patch_cells_indices.empty()){
                     OPM_THROW(std::logic_error, "Empty patch. Cannot convert patch into cell.");

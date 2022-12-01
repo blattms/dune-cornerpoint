@@ -91,6 +91,7 @@ list (APPEND TEST_SOURCE_FILES
   tests/cpgrid/facetag_test.cpp
   tests/cpgrid/grid_pinch.cpp
   tests/cpgrid/geometry_test.cpp
+  tests/cpgrid/grid_lgr_test.cpp
   tests/cpgrid/orientedentitytable_test.cpp
   tests/cpgrid/partition_iterator_test.cpp
   tests/cpgrid/zoltan_test.cpp

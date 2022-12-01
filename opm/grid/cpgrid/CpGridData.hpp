@@ -443,7 +443,7 @@ public:
         // Get parent cell
         cpgrid::Geometry<3,3> parent_cell = geometry_.geomVector(std::integral_constant<int,0>())[EntityRep<0>(parent_idx, true)];
         // Refine parent cell
-        parent_cell.refine({cells_per_dim[0], cells_per_dim[1], cells_per_dim[2]},
+        parent_cell.refine(cells_per_dim,
                            refined_geometries,
                            refined_cell_to_point,
                            refined_cell_to_face,
