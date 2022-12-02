@@ -785,7 +785,7 @@ namespace Dune
                     } // end l-for-loop
                 } // end r-for-loop
                 /// --- END REFINED FACES ---
-
+                
                 /// --- REFINED CELLS ---
                 // We need to populate "refined_cells"
                 // "refined_cells"'s size is cells_per_dim[0] * cells_per_dim[1] * cells_per_dim[2].

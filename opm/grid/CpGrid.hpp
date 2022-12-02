@@ -665,13 +665,14 @@ namespace Dune
                                 const int& parent_idx)
         {
             // Build level 1 from the selected patch from level 0 (level 0 = data[0]).
-            auto level1_ptr = (*data[0]).refineSingleCell(cells_per_dim, parent_idx);
+            auto [level1_ptr, parent_to_8refined_corners, parent_to_children_faces]
+                = (*data[0]).refineSingleCell(cells_per_dim, parent_idx);
             // Add level 1 to "data".
             data.push_back(level1_ptr);
             // Get some information about the parent cell. It will be used to compute the leaf amount of
             // corners, faces, cells.
-            auto parent_corners =  (*data[0]).cell_to_point_[parent_idx];
-            auto parent_faces =  (*data[0]).cell_to_face_ [Dune::cpgrid::EntityRep<0>(parent_idx, true)];
+            auto& parent_corners =  (*data[0]).cell_to_point_[parent_idx];
+            auto& parent_faces =  (*data[0]).cell_to_face_[Dune::cpgrid::EntityRep<0>(parent_idx, true)];
             // Get the dimension of level 0, {amount of cells in x-direction, ... y-direction, ... z-direction}.
             auto level0_dim =  (*data[0]).logicalCartesianSize();
             // Get the dimension of level 1, {amount of cells in x-direction, ... y-direction, ... z-direction}.
@@ -697,13 +698,13 @@ namespace Dune
                 leaf_geometries.geomVector(std::integral_constant<int,0>());
             Dune::cpgrid::EntityVariableBase<enum face_tag>& mutable_face_tags = leaf_face_tags;
             Dune::cpgrid::EntityVariableBase<PointType>& mutable_face_normals = leaf_face_normals;
-            
+
             // LEAF CORNER MAP
             int corner_count = 0;
             std::map<std::array<int,2>, int> level_to_leaf_corners;
             // Corners coming from the level 0, EXCLUDING parent_corners.
             for (int corner = 0; corner < (data[0]->size(3)) - parent_corners.size(); ++corner) {
-                if (std::find(parent_corners.begin(), parent_corners.end(), corner) ==  parent_corners.end()){
+                if (std::find(parent_corners.begin(), parent_corners.end(), corner) == parent_corners.end()){
                     level_to_leaf_corners[{0, corner}] = corner_count;
                     corner_count +=1;
                 }
@@ -712,9 +713,9 @@ namespace Dune
             // Notice that new born corners start at entry "total level 0 corners - parent_corners.size()"
             int start_new_corners = (data[0]-> size(3)) - parent_corners.size();
             for (int corner = 0; corner < (data[1]->size(3)); ++corner) {
-                    level_to_leaf_corners[{1, corner}] = corner_count;
-                    corner_count +=1;
-                }
+                level_to_leaf_corners[{1, corner}] = corner_count;
+                corner_count +=1;
+            }
             // Resiize the container of the leaf corners (size: total level 0 - parent+ total level 1).
             leaf_corners.resize((data[0] -> size(3)) - parent_corners.size() + (data[1]) -> size(3));
             for (auto& [level_levelIdx, leaf_idx] : level_to_leaf_corners) {
@@ -729,32 +730,12 @@ namespace Dune
                         (*data[1]).geometry_.geomVector(std::integral_constant<int,3>()).get(level_levelIdx[1]);
                 }
             }
-            // HOW TO GET PARENT CORNERS IN THE LEAF VIEW
-            // Selected corners from level 1 (those boundary corners that coincide with parent corners)
-            //  Index: (j*(cells_per_dim[0]+1)*(cells_per_dim[2]+1)) + (i*(cells_per_dim[2]+1)) +k
-            std::vector<int> selected_boundary_corners = {
-                // corner 0
-                0,
-                // corner 1
-                cells_per_dim[0]*(cells_per_dim[2]+1),
-                // corner 2
-                cells_per_dim[1]*(cells_per_dim[0]+1)*(cells_per_dim[2]+1),
-                // corner 3
-                (cells_per_dim[1]*(cells_per_dim[0]+1)*(cells_per_dim[2]+1)) + (cells_per_dim[0]*(cells_per_dim[2]+1)), 
-                // corner 4
-                cells_per_dim[2],
-                // corner 5
-                (cells_per_dim[0]*(cells_per_dim[2]+1)) + cells_per_dim[2],
-                // corner 6
-                cells_per_dim[1]*(cells_per_dim[0]+1)*(cells_per_dim[2]+1) + cells_per_dim[2],
-                // corner 7
-                (cells_per_dim[1]*(cells_per_dim[0]+1)*(cells_per_dim[2]+1)) + (cells_per_dim[0]*(cells_per_dim[2]+1))
-                + cells_per_dim[2]};
+
             // Assume parent_corners.size() = 8 (maybe allowing repetition of corners?)
-            std::map<std::array<int,2>, std::array<int,2>> parent_to_selectedBoundary_corners;
+            // parent_to_8refined_corners = {{parent 0, refined 0}, {parent 1, refined '1'}, ...}
+            std::map<std::array<int,2>, std::array<int,2>> old_to_new_corners;
             for (int corner = 0; corner < 8; ++corner) {
-                parent_to_selectedBoundary_corners[{0, parent_corners[corner]}] = {1, selected_boundary_corners[corner]};
-                    
+                old_to_new_corners[{0,  parent_to_8refined_corners[corner][0]}] = {1, parent_to_8refined_corners[corner][1]};
             }
             // FACES
             int face_count = 0;
@@ -764,14 +745,14 @@ namespace Dune
                 if (std::find(parent_faces.begin(), parent_faces.end(), face) ==  parent_faces.end()) {
                     level_to_leaf_faces[{0, face}] = face_count;
                     face_count +=1;
-                } 
+                }
             }
             // Faces coming from level 1, i.e. refined faces.
             // Notice that new born faces start at entry "total level 0 faces - parent_faces.size()"
             int start_new_faces = (data[0]-> face_to_cell_.size()) - parent_faces.size();
             for (int face = 0; face < (data[1]-> face_to_cell_.size()); ++face) {
-                    level_to_leaf_faces[{1, face}] = face_count;
-                    face_count +=1;
+                level_to_leaf_faces[{1, face}] = face_count;
+                face_count +=1;
             }
             // Resize leaf_faces, mutable_face_tags/normals.
             leaf_faces.resize((data[0] -> face_to_cell_.size()) - parent_faces.size() + (data[1]) -> face_to_cell_.size());
@@ -779,6 +760,7 @@ namespace Dune
             mutable_face_normals.resize((data[0] -> face_to_cell_.size()) - parent_faces.size() + (data[1]) -> face_to_cell_.size());
             // Create the leaf faces, their tags, normals, and 4 corners.
             std::vector<std::vector<int>> aux_face_to_point;
+            // std::map<int, std::vector<cpgrid::EntityRep<0>>> aux_face_to_cell; // {leaf Idx, {{cell leaf index, orientation}, {...}}
             for (auto& [level_levelIdx, leaf_idx] : level_to_leaf_faces) {
                 // Compute face, face tag, normal, and corners, for faces coming from level 0.
                 if (level_levelIdx[0] == 0) {
@@ -794,14 +776,21 @@ namespace Dune
                     auto old_face_to_point = (*data[0]).face_to_point_[level_levelIdx[1]];
                     aux_face_to_point[leaf_idx].reserve(old_face_to_point.size());
                     for (int corn = 0; corn < old_face_to_point.size(); ++corn) {
-                        if (std::find(parent_corners.begin(), parent_corners.end(), corn)!=  parent_corners.end()) {
-                            aux_face_to_point[leaf_idx].push_back(
-                                                        level_to_leaf_corners
-                                                        [parent_to_selectedBoundary_corners[{0, old_face_to_point[corn]}]]);  
+                        if (std::find(parent_corners.begin(), parent_corners.end(), corn) != parent_corners.end()) {
+                            //if ((corn != parent_faces[0]) && (corn != parent_faces[1])
+                            // && (corn != parent_faces[2]) && (corn != parent_faces[3])
+                            //&& (corn != parent_faces[4]) && (corn != parent_faces[5])) {
+
+                            aux_face_to_point[leaf_idx].push_back(level_to_leaf_corners[{0, old_face_to_point[corn]}]);
                         }
                         else {
-                            aux_face_to_point[leaf_idx].push_back(level_to_leaf_corners[{0, old_face_to_point[corn]}]);
-                        }     
+                            aux_face_to_point[leaf_idx].push_back(
+                                                                  level_to_leaf_corners
+                                                                  [old_to_new_corners[{0, old_face_to_point[corn]}]]);
+                        }
+                        //  for (auto& neigh_cell : (*data[0]).face_to_cell_[level_levelIdx[1]]) { // {cell, true/false}
+                        //       aux_face_to_cell[leaf_idx].push_back({level_to_leaf_faces[{0, neigh_cell[0]}], neigh_cell[1]});
+                        //  }
                     }
                 }
                 // Compute face, tag, normal, corners for faces coming from level 1.
@@ -827,43 +816,86 @@ namespace Dune
                 leaf_face_to_point.appendRow(aux_face_to_point[face].begin(), aux_face_to_point[face].end());
             }
             
+            // Get relation between "gone/removed faces of the parent" and "new born faces".
+            auto parent_cell_to_face = (*data[0]).cell_to_face_[Dune::cpgrid::EntityRep<0>(parent_idx, true)];
+            std::vector<int> parent_idx_faces;
+            parent_idx_faces.reserve(parent_cell_to_face.size());
+            for (auto& face : parent_cell_to_face) {
+                parent_idx_faces.push_back(face.index());
+            };
+
+            std::map<std::array<int,2>,std::vector<std::array<int,2>>> old_to_new_faces;
+            for (int parent_face = 0; parent_face < parent_to_children_faces.size(); ++parent_face){
+                int parent_face_idx = std::get<0>(parent_to_children_faces[parent_face]);
+                std::vector<int> children = std::get<1>(parent_to_children_faces[parent_face]);
+                for (int child = 0; child < children.size(); ++child) {
+                    old_to_new_faces[{0,parent_face_idx}].push_back({1, children[child]});
+                } 
+            }
+            
+        
             // CELLS
             int cell_count = 0;
             std::map<std::array<int,2>, int> level_to_leaf_cells;
             // Cells coming from the level 0, that are not the parent cell (that got refined).
             for (int cell = 0; cell < (data[0]-> size(0)) - 1; ++cell) {
                 level_to_leaf_cells[{0, cell}] = cell_count;
-                    cell_count +=1;
+                cell_count +=1;
             }
             // Cells coming from level 1, i.e. refined cells.
             // Notice that new born cells start at entry "total level 0 cells - 1"
             int start_new_cells = (data[0]-> face_to_cell_.size()) - 1;
             for (int cell = 0; cell < (data[1]-> size(0)); ++cell) {
-                    level_to_leaf_cells[{1, cell}] = cell_count;
-                    cell_count +=1;
+                level_to_leaf_cells[{1, cell}] = cell_count;
+                cell_count +=1;
             }
             leaf_cells.resize((data[0] -> size(0)) - 1 + (data[1]) -> size(0));
             leaf_cell_to_point.resize((data[0] -> size(0)) - 1 + (data[1]) -> size(0));
-            std::vector<std::vector<int>> aux_cell_to_point;
+            std::map<int,std::vector<int>> aux_cell_to_point;
+            std::map<int,std::vector<cpgrid::EntityRep<1>>> aux_cell_to_face;
             for (auto& [level_levelIdx, leaf_idx] : level_to_leaf_cells) {
+            auto cell_old_faces = (*data[level_levelIdx[0]]).cell_to_face_[Dune::cpgrid::EntityRep<0>(level_levelIdx[1], true)];
+            std::vector<int> cell_old_idx_faces;
+            std::vector<bool> cell_old_faces_orientation;
+            cell_old_idx_faces.reserve(cell_old_faces.size());
+            cell_old_faces_orientation.reserve(cell_old_faces.size());
+            for (auto& face : cell_old_faces) {
+                cell_old_idx_faces.push_back(face.index());
+                cell_old_faces_orientation.push_back(face.orientation());   
+            };
                 if (level_levelIdx[0] == 0) {
                     leaf_cells[leaf_idx] = (*data[0]).geometry_.geomVector(std::integral_constant<int,0>())
                         [Dune::cpgrid::EntityRep<0>(level_levelIdx[1], true)];
                     // CELL TO POINT
-                     // Get the  leaf indices of corners of the face. Add this info to aux_face_to_point
+                    // Get the  leaf indices of corners of the face. Add this info to aux_face_to_point
                     // in the right entry to later on populate leaf_face_to_point using appendRow().
                     auto old_cell_to_point = (*data[0]).cell_to_point_[level_levelIdx[1]];
                     aux_cell_to_point[leaf_idx].reserve(old_cell_to_point.size());
                     for (int corn = 0; corn < old_cell_to_point.size(); ++corn) {
                         if (std::find(parent_corners.begin(), parent_corners.end(), corn)!=  parent_corners.end()) {
                             aux_cell_to_point[leaf_idx].push_back(
-                                                        level_to_leaf_corners
-                                                        [parent_to_selectedBoundary_corners[{0, old_cell_to_point[corn]}]]);  
+                                                                  level_to_leaf_corners
+                                                                  [old_to_new_corners[{0, old_cell_to_point[corn]}]]);
                         }
                         else {
                             aux_cell_to_point[leaf_idx].push_back(level_to_leaf_corners[{0, old_cell_to_point[corn]}]);
-                        }     
+                        }
                     }
+                    // CELL TO FACE
+                    for (int face = 0; face < cell_old_idx_faces.size(); ++face) { 
+                        if (std::find(parent_idx_faces.begin(), parent_idx_faces.end(), cell_old_idx_faces[face]) !=
+                            parent_idx_faces.end()) {
+                            for (auto& level_newFace : old_to_new_faces[{0, cell_old_idx_faces[face]}]) {
+                                aux_cell_to_face[leaf_idx].push_back({level_to_leaf_faces[level_newFace],
+                                        cell_old_faces_orientation[face]}); // orientation
+                            }
+                        }
+                        else {
+                            aux_cell_to_face[leaf_idx].push_back({level_to_leaf_faces[{0, cell_old_idx_faces[face]}], // neigh cell
+                                    cell_old_faces_orientation[face]}); // orientation
+                        }
+                    }
+
                 }
                 else {
                     leaf_cells[leaf_idx] = (*data[1]).geometry_.geomVector(std::integral_constant<int,0>())
@@ -876,229 +908,22 @@ namespace Dune
                     for (int corn = 0; corn < old_cell_to_point.size(); ++corn) {
                         aux_cell_to_point[leaf_idx].push_back(level_to_leaf_corners[{1, old_cell_to_point[corn]}]);
                     }
-                }     
-            }
-            /*  // LEAF FACE TO CELL
-            // Vector to store, in each entry, the four corners of a leaf (k,i,j-)face.
-            // (We do not store this face_to_point information directly into leaf_face_to_point
-            // since, if we appendRow to add each entry, we will not store them in the consecutive order).
-            std::map<int, std::vector<cpgrid::EntityRep<0>>> aux_face_to_cell; // {leaf Idx, {{cell leaf index, orientation}, {...}}
-            //
-            // LEAF K_FACE TO CELL
-            for (auto& [leafId, level_levelIdx] : leafId_to_levelIdx_Kfaces) {
-                // Get the {level, level ijk}, via the leaf Id.
-                std::tuple<int,std::array<int,3>> level_ijk_face =  leafId_to_levelIJK_Kfaces[leafId];
-                // Get the level ijk of the face.
-                std::array<int,3> ijk_face = {std::get<1>(level_ijk_face)[0],
-                    std::get<1>(level_ijk_face)[1], std::get<1>(level_ijk_face)[2]};
-                // Recall leafId_leafIdx_faces[leafId] = lead (consecutive) index.
-                if (level_levelIdx[0] == 0) {
-                    if (ijk_face[2] != 0) {
-                        int leafId_neigh_cell =
-                            // Leaf Id of the cell that has this face as its top face.
-                            ((ijk_face[2]-1)*cells_per_dim[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                            + (ijk_face[1]*cells_per_dim[1]*cells_per_dim[0]*level0_dim[0])
-                            + ijk_face[0]*cells_per_dim[0];
-                        aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], true});
-                    }
-                    if (ijk_face[2] != level0_dim[2]) {
-                        int leafId_neigh_cell =
-                            // Leaf Id of the cell that has this face as its bottom face.
-                            (ijk_face[2]*cells_per_dim[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                            + (ijk_face[1]*cells_per_dim[1]*cells_per_dim[0]*level0_dim[0])
-                            + ijk_face[0]*cells_per_dim[0];
-                        aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], false});
-                    }
-                }       
-                else {
-                    if (ijk_face[2] != 0) {
-                        // LeafId of the cell (coming from level 1) with this face as its top face.
-                        int leafId_neigh_cell =
-                            (((start_ijk[2]*cells_per_dim[2]) + ijk_face[2]-1)
-                             *cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                            + (((start_ijk[1]*cells_per_dim[1]) + ijk_face[1])*cells_per_dim[0]*level0_dim[0])
-                            + (start_ijk[0]*cells_per_dim[0]) + ijk_face[0];
-                        aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], true});
-                    }
-                    if (ijk_face[2] != level1_dim[2]) {
-                        // LeafId of the cell (coming from level 1) with this face as its bottom face.
-                        int leafId_neigh_cell =
-                             (((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])
-                             *cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                            + (((start_ijk[1]*cells_per_dim[1]) + ijk_face[1])*cells_per_dim[0]*level0_dim[0])
-                            + (start_ijk[0]*cells_per_dim[0]) + ijk_face[0];
-                        aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], false});
-                    }
-                    if ((ijk_face[2] == 0) && (start_ijk[2] != 0)) {
-                        // LeafId of the cell in level 0 with this face as ONE OF its top face.
-                        int leafId_neigh_cell =
-                            // (start_ijk[2]-1)*cells_per_dim[2] -> 'k in the fake huge grid'
-                             ((start_ijk[2]-1)*cells_per_dim[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                            // ijk_face[1]/cells_per_dim[1]->'j in level 0'-> ijk_face[1] = j*cells_per_dim[1] is 'j in fake huge grid'
-                            + (ijk_face[1]*cells_per_dim[0]*level0_dim[0])
-                            // ijk_face[0]/cells_per_dim[0]->'i in level 0'-> ijk_face[0] = i*cells_per_dim[0] is 'i in fake huge grid'
-                               + ijk_face[0];
-                         aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], false});
-                    }
-                    if ((ijk_face[2] == level1_dim[2]) && (end_ijk[2] != level0_dim[2])) {
-                        // LeafId of the cell in level 0 with this face as ONE OF its bottom faces.
-                        int leafId_neigh_cell =
-                            // end_ijk[2]*cells_per_dim[2] -> 'k in the fake huge grid'
-                            (end_ijk[2]*cells_per_dim[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                            // ijk_face[1]/cells_per_dim[1]->'j in level 0'-> ijk_face[1] = j*cells_per_dim[1] is 'j in fake huge grid'
-                            + (ijk_face[1]*cells_per_dim[0]*level0_dim[0])
-                            // ijk_face[0]/cells_per_dim[0]->'i in level 0'-> ijk_face[0] = i*cells_per_dim[0] is 'i in fake huge grid'
-                               + ijk_face[0];
-                         aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], false});
-                    }
+                    for (int face = 0; face < cell_old_idx_faces.size(); ++face) { 
+                    aux_cell_to_face[leaf_idx].push_back({level_to_leaf_faces[{1, cell_old_idx_faces[face]}], // neigh cell
+                            cell_old_faces_orientation[face]}); // orientation
+                      }
                 }
             }
-            // LEAF I_FACE TO CELL
-            for (auto& [leafId, level_levelIdx] : leafId_to_levelIdx_Ifaces) {
-                // Get the {level, level ijk}, via the leaf Id.
-                std::tuple<int,std::array<int,3>> level_ijk_face =  leafId_to_levelIJK_Ifaces[leafId];
-                // Get the level ijk of the face.
-                std::array<int,3> ijk_face = {std::get<1>(level_ijk_face)[0],
-                    std::get<1>(level_ijk_face)[1], std::get<1>(level_ijk_face)[2]};
-                if (level_levelIdx[0] == 0) {
-                    if (ijk_face[0] != 0) {
-                        // Leaf Id of the cell that has this face as its right face.
-                        int leafId_neigh_cell =
-                            (ijk_face[2]*cells_per_dim[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                            + (ijk_face[1]*cells_per_dim[1]*cells_per_dim[0]*level0_dim[0])
-                            + (ijk_face[0]-1)*cells_per_dim[0];
-                        aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], true});
-                    }
-                    if (ijk_face[0] != level0_dim[0]) {
-                        // Leaf Id of the cell that has this face as its left face.
-                        int leafId_neigh_cell =
-                            (ijk_face[2]*cells_per_dim[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                            + (ijk_face[1]*cells_per_dim[1]*cells_per_dim[0]*level0_dim[0])
-                            + ijk_face[0]*cells_per_dim[0];
-                        aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], false});
-                    }
-                }       
-                else {
-                    if (ijk_face[0] != 0) {
-                        // LeafId of the cell(coming from level 1) with this face as its right face.
-                        int leafId_neigh_cell =
-                            (((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])
-                             *cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                            + (((start_ijk[1]*cells_per_dim[1]) + ijk_face[1])*cells_per_dim[0]*level0_dim[0])
-                            + (start_ijk[0]*cells_per_dim[0]) + ijk_face[0]-1;
-                        aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], true});
-                    }
-                    if (ijk_face[0] != level1_dim[0]) {
-                        // LeafId of the cell (coming from level 1) with this face as its left face.
-                        int leafId_neigh_cell =
-                             (((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])
-                             *cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                            + (((start_ijk[1]*cells_per_dim[1]) + ijk_face[1])*cells_per_dim[0]*level0_dim[0])
-                            + (start_ijk[0]*cells_per_dim[0]) + ijk_face[0];
-                        aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], false});
-                    }
-                    if ((ijk_face[0] == 0) && (start_ijk[0] != 0)) {
-                        // LeafId of the cell (coming from level 0) with this face as ONE OF its right faces.
-                        int leafId_neigh_cell =
-                            // ijk_face[2]/cells_per_dim[2]->'k in level 0'-> ijk_face[2] is 'k in the fake huge grid'
-                             (ijk_face[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                            // ijk_face[1]/cells_per_dim[1]->'j in level 0'-> ijk_face[1] = j*cells_per_dim[1] is 'j in fake huge grid'
-                            + (ijk_face[1]*cells_per_dim[0]*level0_dim[0])
-                            // (start_ijk[0]-1)*cells_per_dim[0]-> 'i in fake huge grid'
-                            + ((start_ijk[0] -1)*cells_per_dim[0]);
-                         aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], false});
-                    }
-                    if ((ijk_face[0] == level1_dim[0]) && (end_ijk[0] != level0_dim[0])) {
-                        // LeafId of the cell (coming from level 0) with this face as ONE OF its left faces.
-                        int leafId_neigh_cell =
-                            // ijk_face[2] -> 'k in the fake huge grid'
-                           (ijk_face[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                            // ijk_face[1] -> 'j in fake huge grid'
-                            + (ijk_face[1]*cells_per_dim[0]*level0_dim[0])
-                            // end_ijk[0]*cells_per_dim[0]-> 'i in fake huge grid'
-                            + (end_ijk[0]*cells_per_dim[0]);
-                         aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], false});
-                    }
-                }
+            // LEAF CELL TO FACE
+            for (int cell = 0; cell < aux_cell_to_face.size(); ++cell) {
+                leaf_cell_to_face.appendRow(aux_cell_to_face[cell].begin(), aux_cell_to_face[cell].end());
             }
-            // LEAF J_FACE TO CELL
-            for (auto& [leafId, level_levelIdx] : leafId_to_levelIdx_Jfaces) {
-                // Get the {level, level ijk}, via the leaf Id.
-                std::tuple<int,std::array<int,3>> level_ijk_face =  leafId_to_levelIJK_Jfaces[leafId];
-                // Get the level ijk of the face.
-                std::array<int,3> ijk_face = {std::get<1>(level_ijk_face)[0],
-                    std::get<1>(level_ijk_face)[1], std::get<1>(level_ijk_face)[2]};
-                if (level_levelIdx[0] == 0) {
-                    if (ijk_face[1] != 0) {
-                        // Leaf Id of the cell that has this face as its back face.
-                        int leafId_neigh_cell =
-                            (ijk_face[2]*cells_per_dim[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                            + ((ijk_face[1]-1)*cells_per_dim[1]*cells_per_dim[0]*level0_dim[0])
-                            + (ijk_face[0]*cells_per_dim[0]);
-                        aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], true});
-                    }
-                    if (ijk_face[1] != level0_dim[1]) {
-                        // Leaf Id of the cell that has this face as its front face.
-                        int leafId_neigh_cell =
-                            (ijk_face[2]*cells_per_dim[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                            + (ijk_face[1]*cells_per_dim[1]*cells_per_dim[0]*level0_dim[0])
-                            + ijk_face[0]*cells_per_dim[0];
-                        aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], false});
-                    }
-                }       
-                else {
-                    if (ijk_face[1] != 0) {
-                        // LeafId of the cell (coming from level 1) with this face as its back face.
-                        int leafId_neigh_cell =
-                            (((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])
-                             *cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                            + (((start_ijk[1]*cells_per_dim[1]) + ijk_face[1] -1)*cells_per_dim[0]*level0_dim[0])
-                            + (start_ijk[0]*cells_per_dim[0]) + ijk_face[0];
-                        aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], true});
-                    }
-                    if (ijk_face[1] != level1_dim[1]) {
-                        // LeafId of the cell (coming from level 1) with this face as its front face.
-                        int leafId_neigh_cell =
-                             (((start_ijk[2]*cells_per_dim[2]) + ijk_face[2])
-                             *cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                            + (((start_ijk[1]*cells_per_dim[1]) + ijk_face[1])*cells_per_dim[0]*level0_dim[0])
-                            + (start_ijk[0]*cells_per_dim[0]) + ijk_face[0];
-                        aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], false});
-                    }
-                    if ((ijk_face[1] == 0) && (start_ijk[1] != 0)) {
-                        // LeafId of the cell (coming from level 0) with this face as ONE OF its back faces.
-                        int leafId_neigh_cell =
-                            // ijk_face[2] -> 'k in the fake huge grid'
-                             (ijk_face[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                             // (start_ijk[1]-1)*cells_per_dim[1]-> 'j in fake huge grid'
-                            + ((start_ijk[1]-1)*cells_per_dim[1]*cells_per_dim[0]*level0_dim[0])
-                            // ijk_face[0]-> 'i in fake huge grid'
-                            + ijk_face[0];
-                         aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], false});
-                    }
-                    if ((ijk_face[1] == level1_dim[1]) && (end_ijk[1] != level0_dim[1])) {
-                        // LeafId of the cell (coming from level 0) with this face as ONE OF its front faces.
-                        int leafId_neigh_cell =
-                            // ijk_face[2] -> 'k in the fake huge grid'
-                             (ijk_face[2]*cells_per_dim[0]*level0_dim[0]*cells_per_dim[1]*level0_dim[1])
-                             // (end_ijk[1]*cells_per_dim[1]-> 'j in fake huge grid'
-                            + (end_ijk[1]*cells_per_dim[1]*cells_per_dim[0]*level0_dim[0])
-                            // ijk_face[0]-> 'i in fake huge grid'
-                            + ijk_face[0];
-                         aux_face_to_cell[leafId_leafIdx_faces[leafId]].push_back({leafId_to_leafIdx_cells[leafId_neigh_cell], false});
-                    }
-                }    
-                } 
-            //
-            // LEAF FACE_TO_POINT
-            // LEAF FACE_TO_FACE
-            for (int face = 0; face < aux_face_to_cell.size(); ++face) {
-                leaf_face_to_point.appendRow(aux_face_to_point[face].begin(), aux_face_to_point[face].end());
-                leaf_face_to_cell.appendRow(aux_face_to_cell[face].begin(), aux_face_to_cell[face].end());
-            }
-            // LEAF CELL_TO_FACE
-            leaf_face_to_cell.makeInverseRelation(leaf_cell_to_face); */
+            // LEAF FACE TO CELL
+            leaf_cell_to_face.makeInverseRelation(leaf_face_to_cell);
         }
+
+        
+        
         
         /*  No refinement implemented. GridDefaultImplementation's methods will be used.
 
