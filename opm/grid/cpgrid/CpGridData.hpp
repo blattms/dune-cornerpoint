@@ -433,16 +433,6 @@ public:
     // @param cells_per_dim                 Number of sub-cells in each direction.
     // @param parent_idx                    Parent index.
     // @return refined_grid_ptr             Shared pointer pointing at refined_grid.
-    //         parent_to_children_faces
-    //         parent_to_children_cells
-    /* std::tuple<std::shared_ptr<CpGridData>,
-               std::vector<std::tuple<bool,std::vector<int>>>,
-               std::vector<std::tuple<bool,std::vector<int>>>,
-               std::vector<std::array<int,3>>,
-               std::vector<std::array<int,3>>>*/
-    // return parent_to_children_faces                     For each parent face, we store its child face indices.
-    //                                                     map, each entry:
-    //                                                     {parent face index in coarse level, {indices of its children in refined level}}
     //        parent_to_8refined_cornes                    For each parent corner, we store the index of the
     //                                                     refined corner that coincides with the old one.
     //                                                     We assume they are ordered 0,1,..7
@@ -450,6 +440,9 @@ public:
     //                                                      2---3   |   | TOP FACE
     //                                                      |   |   4---5
     //                                                      0---1 BOTTOM FACE
+    //        parent_to_children_faces      For each parent face, we store its child face indices.
+    //                                      Each entry:
+    //                                      {parent face index in coarse level, {indices of its children in refined level}}
     std::tuple< const std::shared_ptr<CpGridData>,
                 const std::vector<std::array<int,2>>,
                 std::vector<std::tuple<int,std::vector<int>>> > 
