@@ -576,7 +576,7 @@ namespace Dune
         // These containers might help when constructing the leaf view.
         // Remark: in this code only a block patch belonging to one level can be refined,
         // namely, we cannot refine in the same LGR 'a cell from some_level' and 'a cell from some_other_level'.
-        /*  void addLevel(std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>>& data,
+        void addLevel(std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>>& data,
                       const int level_to_refine,
                       const std::array<int,3>& cells_per_dim,
                       const int& parent_idx,
@@ -603,7 +603,7 @@ namespace Dune
             // Add Level to "data".
             // Use *data.back() instead, if we only want to allow refinement based on the last level stored in data.
             auto new_data_entry = (*data[level_to_refine]).refineSingleCell(cells_per_dim, parent_idx);
-            data.push_back(new_data_entry);
+            data.push_back(std::get<0>(new_data_entry));
             // Parent corners and faces (from the level they belong to). 
             auto parent_corners = (*data[level_to_refine]).cell_to_point_[parent_idx];
             auto parent_faces = (*data[level_to_refine]).cell_to_face_[Dune::cpgrid::EntityRep<0>(parent_idx, true)];
@@ -633,9 +633,9 @@ namespace Dune
                 }
             }
             // Delete faces.
-            for (const auto& idx : parent_faces) {
-                auto face_to_erase_it = future_leaf_cells.begin() + start_level_face_to_refine + idx;
-                future_leaf_cells.erase(face_to_erase_it);
+            for (const auto& face : parent_faces) {
+                auto face_to_erase_it = future_leaf_faces.begin() + start_level_face_to_refine + face.index();
+                future_leaf_faces.erase(face_to_erase_it);
             }
             // Add new faces.
             for (int new_face = 0; new_face < (data[1]->face_to_cell_.size()); ++new_face) {
@@ -656,7 +656,7 @@ namespace Dune
                 future_leaf_cells.push_back({data.size() +1, new_cell});
             }
         }
-        */
+        
         // --------------- GET LEAF VIEW FROM 2 LEVELS
         // Assume we have Level 0. We add Level 1 to "data", created via refinement of a single cell
         // from level 0.
