@@ -665,16 +665,21 @@ namespace Dune
                                 const int& parent_idx)
         {
             // Build level 1 from the selected patch from level 0 (level 0 = data[0]).
-            auto [level1_ptr, parent_to_8refined_corners, parent_to_children_faces]
+            const auto& [level1_ptr, parent_to_8refined_corners, parent_to_children_faces]
                 = (*data[0]).refineSingleCell(cells_per_dim, parent_idx);
             // Add level 1 to "data".
             data.push_back(level1_ptr);
             // Get some information about the parent cell. It will be used to compute the leaf amount of
             // corners, faces, cells.
-            auto& parent_corners =  (*data[0]).cell_to_point_[parent_idx];
-            auto& parent_faces =  (*data[0]).cell_to_face_[Dune::cpgrid::EntityRep<0>(parent_idx, true)];
+            const auto& parent_corners =  (*data[0]).cell_to_point_[parent_idx];
+            const auto& parent_faces =  (*data[0]).cell_to_face_[Dune::cpgrid::EntityRep<0>(parent_idx, true)];
+            std::vector<int> parent_faces_idx;
+            parent_faces_idx.reserve(parent_faces.size());
+            for (auto& face : parent_faces) {
+                parent_faces_idx.push_back(face.index());
+            }
             // Get the dimension of level 0, {amount of cells in x-direction, ... y-direction, ... z-direction}.
-            auto level0_dim =  (*data[0]).logicalCartesianSize();
+            const auto& level0_dim =  (*data[0]).logicalCartesianSize();
             // Get the dimension of level 1, {amount of cells in x-direction, ... y-direction, ... z-direction}.
             //auto level1_dim = (*data[1]).logicalCartesianSize();
 
@@ -742,7 +747,7 @@ namespace Dune
             std::map<std::array<int,2>, int> level_to_leaf_faces;
             // Faces coming from the level 0, that do not belong to the parent cell (that got refined).
             for (int face = 0; face < (data[0]->face_to_cell_.size()) - parent_faces.size(); ++face) {
-                if (std::find(parent_faces.begin(), parent_faces.end(), face) ==  parent_faces.end()) {
+                if (std::find(parent_faces_idx.begin(), parent_faces_idx.end(), face) ==  parent_faces_idx.end()) {
                     level_to_leaf_faces[{0, face}] = face_count;
                     face_count +=1;
                 }
