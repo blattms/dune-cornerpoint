@@ -270,7 +270,7 @@ public:
     const std::array<int,3> getPatchDim(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) const
     {
         return {end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]};
-    }
+    } 
     
     std::array<std::vector<int>,3> getPatchGeomIndices(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk)
     {
@@ -346,6 +346,8 @@ public:
         } // end k-for-loop
         return {patch_corners, patch_faces, patch_cells};
     }
+
+    
     
     // AREA (via sum of 4 triangles) and CENTROID of a face given its 4 corners.
     // ----------- IN PROGRESS --------------
@@ -362,7 +364,7 @@ public:
         
         return {face_area, face_centroid};
         
-    }
+        }
     
     // VOLUME (via sum of 24 tetrahedra)  and CENTER of a hexaedron
     // given its corner and face indices.
@@ -443,6 +445,7 @@ public:
     //        parent_to_children_faces      For each parent face, we store its child face indices.
     //                                      Each entry:
     //                                      {parent face index in coarse level, {indices of its children in refined level}}
+    
     std::tuple< const std::shared_ptr<CpGridData>,
                 const std::vector<std::array<int,2>>,
                 std::vector<std::tuple<int,std::vector<int>>> > 
@@ -468,7 +471,7 @@ public:
                            refined_face_to_cell,
                            refined_face_tags,
                            refined_face_normals);
-         //
+
         // Get parent cell corners.
         std::array<int,8> parent_to_point = this->cell_to_point_[parent_idx];
         std::vector<std::array<int,2>> parent_to_8refined_corners{
@@ -571,13 +574,28 @@ public:
     //                                      initial CpGridData (where the patch to refine is selected). 
     //         child_to_parent_ijk_faces    For each child-face, we store its parent face IJK index.
     //         child_to_parent_ijk_cells    For each child-cell, we store its parent cell IJK index.
+
+    //  parent_cells_to_new_cornes           For each parent cell, for each of its corners, we store the index of the
+    //                                      refined corner that coincides with the old one.
+    //                                      We assume they are ordered 0,1,..7
+    //                                                              6---7
+    //                                                      2---3   |   | TOP FACE
+    //                                                      |   |   4---5
+    //                                                      0---1 BOTTOM FACE
+    // parent_cells_to_new_faces             For each parent cell, for each of its faces, we store its child face indices.
+    //                                      Each parent cell entry will contain the following information:
+    //                                      {parent face index in coarse level, {indices of its children in refined level}}
+    
     std::tuple<std::shared_ptr<CpGridData>,
-               std::vector<std::tuple<bool,std::vector<int>>>,
-               std::vector<std::tuple<bool,std::vector<int>>>,
-               std::vector<std::array<int,3>>,
-               std::vector<std::array<int,3>>>
+               // std::vector<std::tuple<bool,std::vector<int>>>,
+               // std::vector<std::tuple<bool,std::vector<int>>>,
+               // std::vector<std::array<int,3>>,
+               // std::vector<std::array<int,3>>,
+               std::map<int, std::vector<std::array<int,2>>>,
+               std::map<int, std::vector<std::tuple<int,std::vector<int>>>>, 
+               std::vector<std::tuple<bool,std::vector<int>>>> 
     refineBlockPatch(const std::array<int,3>& cells_per_dim,
-                     const std::array<int,3> start_ijk, const std::array<int,3> end_ijk)
+                     const std::array<int,3>& start_ijk, const std::array<int,3>& end_ijk)
     {
         std::shared_ptr<CpGridData> refined_grid_ptr = std::make_shared<CpGridData>(ccobj_);
         auto& refined_grid = *refined_grid_ptr;
@@ -608,8 +626,12 @@ public:
                                                                              parents_cell_to_point,
                                                                              cellfiedPatch_to_point,
                                                                              cellfied_patch_geometry);
+        // Some integers to reduce notation later.
+        int xfactor = cells_per_dim[0]*patch_dim[0];
+        int yfactor = cells_per_dim[1]*patch_dim[1];
+        int zfactor = cells_per_dim[2]*patch_dim[2];
         // Refine the cell "cellfied_patch"
-        cellfied_patch.refine({cells_per_dim[0]*patch_dim[0], cells_per_dim[1]*patch_dim[1], cells_per_dim[2]*patch_dim[2]},
+        cellfied_patch.refine({xfactor, yfactor, zfactor},
                               refined_geometries,
                               refined_cell_to_point,
                               refined_cell_to_face,
@@ -620,7 +642,128 @@ public:
         //
         // Coarse grid dimension
         const std::array<int,3> grid_dim = this -> logicalCartesianSize();
-        //
+        // For each cell of the patch, we select the 8 refined corners that coincide with the
+        // original cell corners, and the refined child-faces that ('all' together) 'coincide' with
+        // each of the 6 original faces of the cell.
+        // To store the 8 new refined corners coinciding with the 8 original corners of each cell of the patch,
+        // we choose a map, key = cell index in the coarse grid, value = {{old corner '0', new corner '0'}, ...}
+        std::map<int, std::vector<std::array<int,2>>> parent_cells_to_new_corners;
+        // To store the new refined faces 'replacing' the 6 original faces of each cell of the patch,
+        // we choose a map, key = cell index in the coarse grid, value = {{old face '0', its child-faces}, ...}
+        std::map<int, std::vector<std::tuple<int,std::vector<int>>>> parent_cells_to_new_faces;
+        for (int k = 0; k < patch_dim[2]; ++k) {
+            for (int j = 0; j < patch_dim[1]; ++j) {
+                for (int i = 0; i < patch_dim[0]; ++i) {
+                    // Each cell associated with ijk
+                    // Get parent cell index
+                    int parent_idx = ((start_ijk[2]+k)*grid_dim[0]*grid_dim[1]) + ((start_ijk[1]+j)*grid_dim[0]) + start_ijk[0]+i;
+                    // Get parent cell corners.
+                    std::array<int,8> parent_to_point = this->cell_to_point_[parent_idx];
+                    std::vector<std::array<int,2>> parent_to_8refined_corners{
+                        // replacing parent-cell corner '0'
+                        {parent_to_point[0], (cells_per_dim[1]*j*(xfactor +1)*(zfactor +1)) + (cells_per_dim[0]*i*(zfactor +1))
+                         + (cells_per_dim[2]*k)},
+                        // replacing parent-cell corner '1'
+                        {parent_to_point[1], (cells_per_dim[1]*j*(xfactor +1)*(zfactor +1)) + (cells_per_dim[0]*(i+1)*(zfactor +1))
+                         + (cells_per_dim[2]*k)},
+                        // replacing parent-cell corner '2'
+                         {parent_to_point[2], (cells_per_dim[1]*(j+1)*(xfactor +1)*(zfactor +1))
+                          + (cells_per_dim[0]*i*(zfactor +1)) + (cells_per_dim[2]*k)},
+                        // replacing parent-cell corner '3'
+                        {parent_to_point[3], (cells_per_dim[1]*(j+1)*(xfactor +1)*(zfactor +1)) + (cells_per_dim[0]*(i+1)*(zfactor +1))
+                         + (cells_per_dim[2]*k)},
+                        // replacing parent-cell corner '4'
+                        {parent_to_point[4], (cells_per_dim[1]*j*(xfactor +1)*(zfactor +1)) + (cells_per_dim[0]*i*(zfactor +1))
+                         + (cells_per_dim[2]*(k+1))},
+                        // replacing parent-cell corner '5'
+                        {parent_to_point[5], (cells_per_dim[1]*j*(xfactor +1)*(zfactor +1)) + (cells_per_dim[0]*(i+1)*(zfactor +1))
+                         + (cells_per_dim[2]*(k+1))},
+                        // replacing parent-cell corner '6'
+                        {parent_to_point[6], (cells_per_dim[1]*(j+1)*(xfactor +1)*(zfactor +1)) + (cells_per_dim[0]*i*(zfactor +1))
+                         + (cells_per_dim[2]*(k+1))},
+                        // replacing parent-cell corner '7'
+                        {parent_to_point[7], (cells_per_dim[1]*(j+1)*(xfactor +1)*(zfactor +1)) + (cells_per_dim[0]*(i+1)*(zfactor +1))
+                         + (cells_per_dim[2]*(k+1))}};
+                    // Add the value = parent_to_8refined_corners with key = parent_idx
+                    parent_cells_to_new_corners[parent_idx] = parent_to_8refined_corners;
+                    // Get relation between "gone/removed faces of the parent" and "new born faces".
+                    // Get information from the parent.
+                    // parent_cell_to_face = { {face, orientation}, {another face, its orientation}, ...}
+                    std::vector<std::tuple<int,std::vector<int>>>  parent2children_faces;
+                    parent2children_faces.reserve(6);
+                    auto parent_cell_to_face = (this-> cell_to_face_[EntityRep<0>(parent_idx, true)]);
+                    std::vector<int> parent_faces;
+                    std::vector<bool> parent_orientations;
+                    for (auto& face : parent_cell_to_face) {
+                        parent_faces.push_back(face.index());
+                        parent_orientations.push_back(face.orientation());
+                    }
+                    // Some integers to reduce notation
+                    int refined_Kfaces = xfactor*yfactor*(zfactor+1);
+                    int refined_Ifaces = (xfactor+1)*yfactor*zfactor;
+                    for (int face = 0; face < parent_faces.size(); ++face) { // face = {face index, orientation (true/false)}
+                        auto parent_face_tag = (this-> face_tag_[Dune::cpgrid::EntityRep<1>(parent_faces[face], true)]);
+                        std::vector<int> children_faces;
+                        // Notation: l (fake i, x-direction indices), m (fake j, y-direction indices), n (fake k, z-direction indices) 
+                        // K_FACES
+                        if (parent_face_tag == face_tag::K_FACE) {
+                            for (int m = cells_per_dim[1]*j; m < cells_per_dim[1]*(j+1); ++m) {
+                                for (int l = cells_per_dim[0]*i; l < cells_per_dim[0]*(i+1); ++l) {
+                                    if (!parent_orientations[face]) { // false -> BOTTOM FACE -> 'n = cells_per_dim[2]*k'
+                                        children_faces.push_back((cells_per_dim[2]*k*xfactor*yfactor) + (m*xfactor) + l);
+                                    }
+                                    else { // true -> TOP FACE -> 'n = cells_per_dim[2]*(k+1)' 
+                                        children_faces.push_back((cells_per_dim[2]*(k+1)*xfactor*yfactor) + (m*xfactor) + l);
+                                    }
+                                }
+                            }
+                        }
+                        // I_FACES
+                        if (parent_face_tag == face_tag::I_FACE) {
+                            for (int n = cells_per_dim[2]*k; n < cells_per_dim[2]*(k+1); ++n) {
+                                for (int m = cells_per_dim[1]*j; m < cells_per_dim[1]*m; ++m) {
+                                    if (!parent_orientations[face]) { // false -> LEFT FACE -> 'l = cells_per_dim[0]*i'
+                                        children_faces.push_back(refined_Kfaces
+                                                                 + (cells_per_dim[0]*i*yfactor*zfactor)
+                                                                 + (n*yfactor) + m);
+                                    }
+                                    else { // true -> RIGHT FACE -> 'l = cells_per_dim[0]*(i+1)'
+                                        children_faces.push_back(refined_Kfaces +
+                                                                 + (cells_per_dim[0]*(i+1)*yfactor*zfactor)
+                                                                 + (n*yfactor) + m);
+                                    }
+                                }
+                            }
+                        }
+                        // J_FACES
+                        if (parent_face_tag == face_tag::J_FACE) {
+                            for (int l = cells_per_dim[0]*i; l < cells_per_dim[0]*(i+1); ++l) {
+                                for (int n = cells_per_dim[2]*k; n < cells_per_dim[2]*(k+1); ++n) {
+                                    if (!parent_orientations[face]) { // false -> FRONT FACE -> 'm = cells_per_dim[1]*j'
+                                        children_faces.push_back(refined_Kfaces + refined_Ifaces 
+                                                                 + (cells_per_dim[1]*j*xfactor*zfactor)
+                                                                 + (l*zfactor) + n);
+                                    }
+                                    else { // true -> BACK FACE -> 'm = cells_per_dim[1]*(j+1)'
+                                        children_faces.push_back(refined_Kfaces + refined_Ifaces 
+                                                                 + (cells_per_dim[1]*(j+1)*xfactor*zfactor)
+                                                                 + (l*zfactor) + n);
+                                    }   
+                                }
+                            }
+                        }
+                        // Tuple storing { each face of the parent (index in coarse grid), its child-faces (indices in refinement)}
+                        std::tuple<int,std::vector<int>> aux_tuple = std::make_tuple(parent_faces[face], children_faces);
+                        // Vector with 6 entries (one per face), each entry {face index, that face children indices}
+                        parent2children_faces.push_back(aux_tuple);
+                    }
+                    // Map to store the value "parent_to_children_faces" with key = parent_idx
+                    parent_cells_to_new_faces[parent_idx] = parent2children_faces;
+                } // end i-for-loop
+            } // end j-for-loop
+        } // end k-for-loop 
+        // --------------------------------------
+
         // PARENT TO CHILDREN - FACES
         //
         std::vector<std::tuple<bool,std::vector<int>>> parent_to_children_faces;
@@ -723,7 +866,7 @@ public:
         } // end constant-direction
         //--- END PARENT TO CHILDREN FACES ---
         //
-        // PARENT TO CHILDREN - CELLS
+    /* // PARENT TO CHILDREN - CELLS
         //
         // To store children indices for each parent. Each entry looks like
         // {parent index in the coarse grid, index of one of its children in the refined grid}
@@ -762,8 +905,10 @@ public:
                 } // end i-for-loop
             } // end j-for-loop
         } // end k-for-loop   
-        return {refined_grid_ptr, parent_to_children_faces, parent_to_children_cells,
-            child_to_parent_ijk_faces, child_to_parent_ijk_cells};  
+    */
+    return {refined_grid_ptr,  parent_cells_to_new_corners, parent_cells_to_new_faces, parent_to_children_faces};
+            //parent_to_children_faces, parent_to_children_cells,
+            // child_to_parent_ijk_faces, child_to_parent_ijk_cells};  
     }
     
     // Get ijk from a face index (with the order given in Geometry.hpp, refine())
