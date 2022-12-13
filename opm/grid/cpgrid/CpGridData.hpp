@@ -448,7 +448,7 @@ public:
     
     std::tuple< const std::shared_ptr<CpGridData>,
                 const std::vector<std::array<int,2>>,
-                std::vector<std::tuple<int,std::vector<int>>> > 
+                const std::vector<std::tuple<int,std::vector<int>>> > 
     refineSingleCell(const std::array<int,3>& cells_per_dim, const int& parent_idx)
     {
         std::shared_ptr<CpGridData> refined_grid_ptr = std::make_shared<CpGridData>(ccobj_);
@@ -591,9 +591,10 @@ public:
                // std::vector<std::tuple<bool,std::vector<int>>>,
                // std::vector<std::array<int,3>>,
                // std::vector<std::array<int,3>>,
-               std::map<int, std::vector<std::array<int,2>>>,
-               std::map<int, std::vector<std::tuple<int,std::vector<int>>>>, 
-               std::vector<std::tuple<bool,std::vector<int>>>> 
+               const std::vector<std::array<int,2>>, // boundary_old_to_new_corners
+               const std::vector<std::tuple<int, std::vector<int>>>, // boundary_old_to_new_faces
+               // const std::map<int, std::vector<std::tuple<int,std::vector<int>>>>, 
+               const std::vector<std::tuple<bool,std::vector<int>>>> 
     refineBlockPatch(const std::array<int,3>& cells_per_dim,
                      const std::array<int,3>& start_ijk, const std::array<int,3>& end_ijk)
     {
@@ -607,13 +608,20 @@ public:
         cpgrid::EntityVariable<enum face_tag,1>& refined_face_tags = refined_grid.face_tag_;
         cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& refined_face_normals = refined_grid.face_normals_;
         // Patch information (built from the grid).
-        auto patch_dim = getPatchDim(start_ijk, end_ijk);
-        auto [patch_corners, patch_faces, patch_cells] = getPatchGeomIndices(start_ijk, end_ijk);
+        const auto& patch_dim = getPatchDim(start_ijk, end_ijk);
+        const auto& [patch_corners, patch_faces, patch_cells] = getPatchGeomIndices(start_ijk, end_ijk);
+        // ADD IF-STATEMENT TO COMPUTE REFINEMENT IN CASE OF PATCH = SINGLE CELL, TO AVOID UNNECESARY COMPUTATIONS. 
+        // Inner patch (excluding boundary cells, i.e., those that belong to the patch and are not in contact with cells outside the patch).
+        //  if (patch_cells.size()!=1) {
+        const auto& inner_patch_dim = getPatchDim(start_ijk, end_ijk);
+        const auto& [inner_patch_corners, inner_patch_faces, inner_patch_cells] =
+            getPatchGeomIndices({start_ijk[0]+1, start_ijk[1]+1, start_ijk[2]+1}, {end_ijk[0]-1, end_ijk[1]-1, end_ijk[2]-1});
+            // }
         std::vector<cpgrid::Geometry<3,3>> patch_to_refine;
         std::vector<std::array<int,8>> parents_cell_to_point;  
         patch_to_refine.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
         parents_cell_to_point.reserve(patch_dim[0]*patch_dim[1]*patch_dim[2]);
-        for (auto idx : patch_cells) {
+        for (const auto& idx : patch_cells) {
             patch_to_refine.push_back((geometry_.geomVector(std::integral_constant<int,0>()))[EntityRep<0>(idx, true)]);
             parents_cell_to_point.push_back(cell_to_point_[idx]);
         }
@@ -641,16 +649,66 @@ public:
                               refined_face_normals);
         //
         // Coarse grid dimension
-        const std::array<int,3> grid_dim = this -> logicalCartesianSize();
+        const std::array<int,3>& grid_dim = this -> logicalCartesianSize();
         // For each cell of the patch, we select the 8 refined corners that coincide with the
         // original cell corners, and the refined child-faces that ('all' together) 'coincide' with
         // each of the 6 original faces of the cell.
         // To store the 8 new refined corners coinciding with the 8 original corners of each cell of the patch,
         // we choose a map, key = cell index in the coarse grid, value = {{old corner '0', new corner '0'}, ...}
-        std::map<int, std::vector<std::array<int,2>>> parent_cells_to_new_corners;
-        // To store the new refined faces 'replacing' the 6 original faces of each cell of the patch,
+        std::vector<std::array<int,2>> boundary_old_to_new_corners;
+        boundary_old_to_new_corners.reserve(patch_corners.size() - inner_patch_corners.size());
+        for (int j = start_ijk[1]; j < end_ijk[1]+1; ++j) {
+            for (int i = start_ijk[0]; i < end_ijk[0]+1; ++i) {
+                for (int k = start_ijk[2]; k < end_ijk[2]+1; ++k) {
+                    if ( (j == start_ijk[1]) || (j == end_ijk[1])  // front or back of the patch
+                        || (i == start_ijk[0]) || (i == end_ijk[0])  // left or right of the patch
+                        || (k == start_ijk[2]) || (k == end_ijk[2])) { // bottom or top of the patch
+                    // WE ARE ASSUMING THE GRID FROM LEVEL 0 HAS THE DUNE NUMBERING OF CORNERS.
+                    int old_corner_idx = (j*(grid_dim[2]+1)*(grid_dim[0]+1)) + (i*(grid_dim[2]+1)) + k;
+                    int new_corner_idx = (cells_per_dim[1]*(j-start_ijk[1])*(xfactor +1)*(zfactor +1))
+                        + (cells_per_dim[0]*(i-start_ijk[0])*(zfactor +1))
+                        + (cells_per_dim[2]*(k-start_ijk[2]));
+                    boundary_old_to_new_corners.push_back({old_corner_idx, new_corner_idx});
+                    }
+                } // end k-for-loop
+            } // end i-for-loop
+        } // end j-for-loop
+
+        std::vector<std::tuple<int, std::vector<int>>> boundary_old_to_new_faces; // {face index, its children indices}
+        boundary_old_to_new_faces.reserve(patch_faces.size() - inner_patch_faces.size());
+        // Auxiliary vector for indices of faces on the boundary of the patch
+        std::vector<int> boundary_patch_faces;
+        boundary_patch_faces.reserve(patch_faces.size() - inner_patch_faces.size());
+        for (auto& face : patch_faces) {
+            if (std::find(inner_patch_faces.begin(), inner_patch_faces.end(), face) == inner_patch_faces.end()) {
+                boundary_patch_faces.push_back(face);
+            }
+        }
+        
+           
+        
+    /*  for (int j = start_ijk[1]; j < end_ijk[1]+1; ++j) {
+            for (int i = start_ijk[0]; i < end_ijk[0]+1; ++i) {
+                for (int k = start_ijk[2]; k < end_ijk[2]+1; ++k) {
+                    if ( (j == start_ijk[1]) || (j == end_ijk[1])  // front or back of the patch
+                         (i == start_ijk[0]) || (i == end_ijk[0])  // left or right of the patch
+                         (k == start_ijk[2]) || (k == end_ijk[2])) { // bottom or top of the patch
+                    // WE ARE ASSUMING THE GRID FROM LEVEL 0 HAS THE DUNE NUMBERING OF CORNERS.
+                    int old_corner_idx = (j*(grid_dim[2]+1)*(grid_dim[0]+1)) + (i*(grid_dim[2]+1)) + k;
+                    int new_corner_idx = (cells_per_dim[1]*(j-start_ijk[1])*(xfactor +1)*(zfactor +1))
+                        + (cells_per_dim[0]*(i-start_ijk[0])*(zfactor +1))
+                        + (cells_per_dim[2]*(k-start_ijk[2]));
+                    boundary_old_to_new_corners.push_back({old_corner_idx, new_corner_idx});
+                    }
+                } // end k-for-loop
+            } // end i-for-loop
+        } // end j-for-loop
+    */
+        
+        
+        /* // To store the new refined faces 'replacing' the 6 original faces of each cell of the patch,
         // we choose a map, key = cell index in the coarse grid, value = {{old face '0', its child-faces}, ...}
-        std::map<int, std::vector<std::tuple<int,std::vector<int>>>> parent_cells_to_new_faces;
+            std::map<int, std::vector<std::tuple<int,std::vector<int>>>> parent_cells_to_new_faces;
         for (int k = 0; k < patch_dim[2]; ++k) {
             for (int j = 0; j < patch_dim[1]; ++j) {
                 for (int i = 0; i < patch_dim[0]; ++i) {
@@ -684,8 +742,13 @@ public:
                         // replacing parent-cell corner '7'
                         {parent_to_point[7], (cells_per_dim[1]*(j+1)*(xfactor +1)*(zfactor +1)) + (cells_per_dim[0]*(i+1)*(zfactor +1))
                          + (cells_per_dim[2]*(k+1))}};
+                    // Make tuple with parent_idx and the vector relating its old and new corners.
+                    std::tuple<int,std::vector<std::array<int,2>>> aux_tuple_corn
+                        = std::make_tuple(parent_idx, parent_to_8refined_corners);
+                    // Add the info in the vector
+                    parent_cells_to_new_corners.push_back(aux_tuple_corn);
                     // Add the value = parent_to_8refined_corners with key = parent_idx
-                    parent_cells_to_new_corners[parent_idx] = parent_to_8refined_corners;
+                    //parent_cells_to_new_corners[parent_idx] = parent_to_8refined_corners;
                     // Get relation between "gone/removed faces of the parent" and "new born faces".
                     // Get information from the parent.
                     // parent_cell_to_face = { {face, orientation}, {another face, its orientation}, ...}
@@ -763,6 +826,7 @@ public:
             } // end j-for-loop
         } // end k-for-loop 
         // --------------------------------------
+        */
 
         // PARENT TO CHILDREN - FACES
         //
@@ -854,6 +918,10 @@ public:
                                     } // end l-for-loop      
                                 } // end m-for-loop  
                             } // end n-for-loop
+                            if (std::find(boundary_patch_faces.begin(), boundary_patch_faces.end(), face_idx) !=
+                                boundary_patch_faces.end()) {
+                                boundary_old_to_new_faces.push_back(std::make_tuple(face_idx, children_list));
+                            }
                         } // end if 'patch-faces'
                         else {
                             children_list = {face_idx};
@@ -906,7 +974,7 @@ public:
             } // end j-for-loop
         } // end k-for-loop   
     */
-    return {refined_grid_ptr,  parent_cells_to_new_corners, parent_cells_to_new_faces, parent_to_children_faces};
+        return {refined_grid_ptr, boundary_old_to_new_corners, boundary_old_to_new_faces, parent_to_children_faces};
             //parent_to_children_faces, parent_to_children_cells,
             // child_to_parent_ijk_faces, child_to_parent_ijk_cells};  
     }
