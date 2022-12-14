@@ -476,7 +476,7 @@ public:
 
         // Get parent cell corners.
         std::array<int,8> parent_to_point = this->cell_to_point_[parent_idx];
-        std::vector<std::array<int,2>> parent_to_8refined_corners{
+        std::vector<std::array<int,2>> parent_to_refined_corners{
                 // replacing parent-cell corner '0'
             {parent_to_point[0], 0},
                 // replacing parent-cell corner '1'
@@ -833,9 +833,8 @@ public:
          // IS PARENT - FACES
         // Map {index face, true/false}
         // true-> the face got refined (has children), false -> the face hasn't been refined (does not have children).
-        std::map<int,bool> isParent_faces; 
-        isParent_faces.reserve(this->face_to_cell_.size());
-        for (int face = 0; face < this-> face_to_cell.size(); ++face) {
+        std::map<int,bool> isParent_faces;
+        for (int face = 0; face < this-> face_to_cell_.size(); ++face) {
             isParent_faces[face] = false;
         }
         // Rewrite the entries of the map for those faces that got refined. 
@@ -845,8 +844,7 @@ public:
         // IS PARENT - CELLS
         // Map {index cell, true/false}
         // true-> cell got refined (has children), false -> cell hasn't been refined (does not have children).
-        std::map<int,bool> isParent_cells; 
-        isParent_cells.reserve(this-> size(0));
+        std::map<int,bool> isParent_cells;
         for (int cell = 0; cell < this-> size(0); ++cell) {
             isParent_cells[cell] = false;
         }
@@ -856,7 +854,7 @@ public:
         }
        
         return {refined_grid_ptr, boundary_old_to_new_corners, boundary_old_to_new_faces,
-            parent_to_children_faces, // @TOMODIFY
+            parent_to_children_faces, parent_to_children_cells,// @TOMODIFY
             // @TODO parent_to_children_cells};
             isParent_faces, isParent_cells};
             // child_to_parent_ijk_faces, child_to_parent_ijk_cells};  
