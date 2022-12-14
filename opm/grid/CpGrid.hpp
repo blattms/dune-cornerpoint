@@ -538,7 +538,7 @@ namespace Dune
         {
             return seed;
         }
-        
+
         // --------------- GET LEAF VIEW FROM 2 LEVELS------SINGLE CELL------
         // Assume we have Level 0 (a CpGridData object) stored in the entry 0
         // of a vector "data" of shared pointers of CpGridData objects.
@@ -577,19 +577,19 @@ namespace Dune
             data.push_back(level1_ptr);
             // Get some information about the parent cell.
             // Parent cell corners.
-            std::vector<int> parent_corners; //(*data[0]).cell_to_point_[parent_idx];
+            std::vector<int> parent_corners; 
             parent_corners.resize(parent_to_refined_corners.size());
             for (int c = 0; c < parent_to_refined_corners.size(); ++c){
                 parent_corners[c] = parent_to_refined_corners[c][0];
             }
             // Parent cell faces.
             const auto& parent_faces =  (*data[0]).cell_to_face_[Dune::cpgrid::EntityRep<0>(parent_idx, true)];
-            // Get the indices of each face of the parent cell. (Extract index from {face index, face orientation}).
+            /* // Get the indices of each face of the parent cell. (Extract index from {face index, face orientation}).
             std::vector<int> parent_idx_faces;
             parent_idx_faces.reserve(parent_faces.size());
             for (auto& face : parent_faces) {
                 parent_idx_faces.push_back(face.index());
-            }
+                }*/
 
             // To store the leaf view.
             typedef Dune::FieldVector<double,3> PointType;
@@ -656,12 +656,17 @@ namespace Dune
             // This map will generate a consecutive index-numbering, associating this leaf index with
             // the corresponding level (0 or 1) index.
             int face_count = 0;
+            // Auxiliary bool to check if a face coincides with a parent cell face.
+            bool isThere = false;
             std::map<std::array<int,2>, int> level_to_leaf_faces;
             // Faces coming from the level 0, that do not belong to the parent cell (that got refined).
             // Check all the faces from level 0.
             for (int face = 0; face < data[0]->face_to_cell_.size(); ++face) {
                 // If the face does not belong to the cell to be refined, store it.
-                if (std::find(parent_idx_faces.begin(), parent_idx_faces.end(), face) ==  parent_idx_faces.end()) {
+                for(auto& parent_cell_face : parent_faces) {
+                    isThere = isThere || (face == parent_cell_face.index()); // true if face coincides with one of the parent cell faces
+                }
+                if(!isThere) {
                     level_to_leaf_faces[{0, face}] = face_count;
                     face_count +=1;
                 }
@@ -681,20 +686,25 @@ namespace Dune
             // combine it with the leaf face map, to store the topogolical information with the
             // consecutive index numbering of entities in the leaf view.
             std::vector<std::vector<int>> aux_face_to_point;
+            // Auxiliary integer to count the total points in leaf_face_to_point.
+            int num_points = 0;
             for (auto& [level_levelIdx, leaf_idx] : level_to_leaf_faces) {
                 // Compute face, face tag, normal, and corners, for faces coming from level 0.
-                if (level_levelIdx[0] == 0) {
-                    // Get the face geometry.
-                    leaf_faces[leaf_idx] = (*data[0]).geometry_.geomVector(std::integral_constant<int,1>())
+                 // Get the face geometry.
+                    leaf_faces[leaf_idx] = (*data[level_levelIdx[0]]).geometry_.geomVector(std::integral_constant<int,1>())
                         [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
                     // Get the face tag.
-                    mutable_face_tags[leaf_idx] = (*data[0]).face_tag_[Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
+                    mutable_face_tags[leaf_idx] = (*data[level_levelIdx[0]]).face_tag_
+                        [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
                     // Get the face normal.
-                    mutable_face_normals[leaf_idx] = (*data[0]).face_normals_[Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
+                    mutable_face_normals[leaf_idx] = (*data[level_levelIdx[0]]).face_normals_
+                        [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
                     // Get the  leaf indices of corners of the face. Add this info to aux_face_to_point
                     // in the right entry to later on populate leaf_face_to_point using appendRow().
-                    auto old_face_to_point = (*data[0]).face_to_point_[level_levelIdx[1]];
+                    auto old_face_to_point = (*data[level_levelIdx[0]]).face_to_point_[level_levelIdx[1]];
                     aux_face_to_point[leaf_idx].reserve(old_face_to_point.size());
+                    num_points += old_face_to_point.size();
+                if (level_levelIdx[0] == 0) {
                     for (int corn = 0; corn < old_face_to_point.size(); ++corn) {
                         // Check if the corner is one of the parent cell corners that got replaced by a refined one.
                         // In that case, we use the refined corner, via the map connecting old parent corners and
@@ -711,25 +721,14 @@ namespace Dune
                         }
                     }
                 }
-                // Compute face, tag, normal, and corners, for faces coming from level 1.
                 else {
-                    // Get the face geometry.
-                    leaf_faces[leaf_idx] = (*data[1]).geometry_.geomVector(std::integral_constant<int,1>())
-                        [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
-                    // Get the face tag.
-                    mutable_face_tags[leaf_idx] = (*data[1]).face_tag_[Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
-                    // Get the face normal.
-                    mutable_face_normals[leaf_idx] = (*data[1]).face_normals_[Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
-                    // Get the  leaf indices of corners of the face. Add this info to aux_face_to_point
-                    // in the right entry to later on populate leaf_face_to_point using appendRow().
-                    auto old_face_to_point = (*data[1]).face_to_point_[level_levelIdx[1]];
-                    aux_face_to_point[leaf_idx].reserve(old_face_to_point.size());
                     for (int corn = 0; corn < old_face_to_point.size(); ++corn) {
                         aux_face_to_point[leaf_idx].push_back(level_to_leaf_corners[{1, old_face_to_point[corn]}]);
                     }
                 }
             }
             // LEAF FACE_TO_POINT
+            leaf_face_to_point.reserve(face_count, num_points);
             for (int face = 0; face < face_count; ++face) {
                 leaf_face_to_point.appendRow(aux_face_to_point[face].begin(), aux_face_to_point[face].end());
             }
@@ -737,10 +736,10 @@ namespace Dune
 
             // Map to connect each of the old parent faces with its children faces.
             std::map<std::array<int,2>,std::vector<std::array<int,2>>> old_to_new_faces;
-            for (auto& face : parent_idx_faces) {
-                std::vector<int> children = std::get<1>(parent_to_children_faces[face]);
+            for (auto& face : parent_faces) {
+                std::vector<int> children = std::get<1>(parent_to_children_faces[face.index()]);
                 for (int child = 0; child < children.size(); ++child) {
-                    old_to_new_faces[{0,face}].push_back({1, children[child]});
+                    old_to_new_faces[{0,face.index()}].push_back({1, children[child]});
                 }
             }
             // CELLS
@@ -766,77 +765,63 @@ namespace Dune
             leaf_cells.resize(cell_count);
             leaf_cell_to_point.resize(cell_count);
             // As it was done for faces, we store in an additional vector the topological
-            // information cell_to_ponit/face and later on, we will use a map to store with the
-            // consecutive indices the leaf cell_to_point/face information.
-            std::map<int,std::vector<int>> aux_cell_to_point;
+            // information cell_to_face and later on, we will use a map to store with the
+            // consecutive indices the leaf cell_to_face information.
             std::map<int,std::vector<cpgrid::EntityRep<1>>> aux_cell_to_face;
             for (auto& [level_levelIdx, leaf_idx] : level_to_leaf_cells) {
-                auto cell_old_faces = (*data[level_levelIdx[0]]).cell_to_face_[Dune::cpgrid::EntityRep<0>(level_levelIdx[1], true)];
-                // Auxiliary containers to separate the information of cell_to_face: indices and oriantation.
-                std::vector<int> cell_old_idx_faces;
-                std::vector<bool> cell_old_faces_orientation;
-                cell_old_idx_faces.reserve(cell_old_faces.size());
-                cell_old_faces_orientation.reserve(cell_old_faces.size());
-                for (auto& face : cell_old_faces) {
-                    cell_old_idx_faces.push_back(face.index());
-                    cell_old_faces_orientation.push_back(face.orientation());
-                };
-                if (level_levelIdx[0] == 0) {
-                    leaf_cells[leaf_idx] = (*data[0]).geometry_.geomVector(std::integral_constant<int,0>())
+                 leaf_cells[leaf_idx] = (*data[level_levelIdx[0]]).geometry_.geomVector(std::integral_constant<int,0>())
                         [Dune::cpgrid::EntityRep<0>(level_levelIdx[1], true)];
+                auto old_cell_to_face = (*data[level_levelIdx[0]]).cell_to_face_[Dune::cpgrid::EntityRep<0>(level_levelIdx[1], true)];
+                auto old_cell_to_point = (*data[level_levelIdx[0]]).cell_to_point_[level_levelIdx[1]];
+                bool isThere = false;
+                if (level_levelIdx[0] == 0) {
                     // CELL TO POINT
-                    // Get the  leaf indices of corners of the face. Add this info to aux_face_to_point
-                    // in the right entry to later on populate leaf_face_to_point using appendRow().
-                    auto old_cell_to_point = (*data[0]).cell_to_point_[level_levelIdx[1]];
-                    aux_cell_to_point[leaf_idx].reserve(old_cell_to_point.size());
                     for (int corn = 0; corn < old_cell_to_point.size(); ++corn) {
-                        if (std::find(parent_corners.begin(), parent_corners.end(), corn)!=  parent_corners.end()) {
-                            aux_cell_to_point[leaf_idx].push_back(
-                                                                  level_to_leaf_corners
-                                                                  [old_to_new_corners[{0, old_cell_to_point[corn]}]]);
+                          for(auto& parent_cell_corn : parent_corners) {
+                              isThere = isThere || (corn == parent_cell_corn); // true -> corn coincides with one of the parent cell corns
+                          }
+                          if(isThere) {
+                            leaf_cell_to_point[leaf_idx][corn] =
+                                level_to_leaf_corners[old_to_new_corners[{0, old_cell_to_point[corn]}]];
                         }
                         else {
-                            aux_cell_to_point[leaf_idx].push_back(level_to_leaf_corners[{0, old_cell_to_point[corn]}]);
+                            leaf_cell_to_point[leaf_idx][corn] = level_to_leaf_corners[{0, old_cell_to_point[corn]}];
                         }
                     }
                     // CELL TO FACE
-                    for (int face = 0; face < cell_old_idx_faces.size(); ++face) {
-                        // Check if the face is one of those faces that was involved in the refinement.
-                        // If it was, replace it with its children faces.
-                        if (std::find(parent_idx_faces.begin(), parent_idx_faces.end(), cell_old_idx_faces[face]) !=
-                            parent_idx_faces.end()) {
-                            for (auto& level_newFace : old_to_new_faces[{0, cell_old_idx_faces[face]}]) {
+                    for (auto& face : old_cell_to_face) {
+                        for(auto& parent_cell_face : parent_faces) {
+                            isThere = isThere || (face == parent_cell_face);
+                            // true->face coincides with one of the parent cell faces
+                        }
+                        if(isThere) {
+                            for (auto& level_newFace : old_to_new_faces[{0, face.index()}]) {
                                 aux_cell_to_face[leaf_idx].push_back({level_to_leaf_faces[level_newFace],
-                                        cell_old_faces_orientation[face]}); // orientation
-                            }
+                                        face.orientation()}); // orientation
+                            }  
                         }
                         // Otherwise, keep the face but with its new leaf index.
                         else {
-                            aux_cell_to_face[leaf_idx].push_back({level_to_leaf_faces[{0, cell_old_idx_faces[face]}], // neigh cell
-                                    cell_old_faces_orientation[face]}); // orientation
+                            aux_cell_to_face[leaf_idx].push_back({level_to_leaf_faces[{0, face.index()}], // neigh cell
+                                    face.orientation()}); // orientation
                         }
                     }
 
                 }
                 else {
-                    leaf_cells[leaf_idx] = (*data[1]).geometry_.geomVector(std::integral_constant<int,0>())
-                        [Dune::cpgrid::EntityRep<0>(level_levelIdx[1], true)];
                     // CELL TO POINT
-                    // Get the  leaf indices of corners of the face. Add this info to aux_face_to_point
-                    // in the right entry to later on populate leaf_face_to_point using appendRow().
-                    auto old_cell_to_point = (*data[1]).cell_to_point_[level_levelIdx[1]];
-                    aux_cell_to_point[leaf_idx].reserve(old_cell_to_point.size());
                     for (int corn = 0; corn < old_cell_to_point.size(); ++corn) {
-                        aux_cell_to_point[leaf_idx].push_back(level_to_leaf_corners[{1, old_cell_to_point[corn]}]);
+                        leaf_cell_to_point[leaf_idx][corn] = level_to_leaf_corners[{1, old_cell_to_point[corn]}];
                     }
-                    for (int face = 0; face < cell_old_idx_faces.size(); ++face) {
-                        aux_cell_to_face[leaf_idx].push_back({level_to_leaf_faces[{1, cell_old_idx_faces[face]}], // neigh cell
-                                cell_old_faces_orientation[face]}); // orientation
+                    // CELL TO FACE
+                    for (int face = 0; face < old_cell_to_face.size(); ++face) {
+                        aux_cell_to_face[leaf_idx].push_back({level_to_leaf_faces[{1, old_cell_to_face[face].index()}], // neigh cell
+                                old_cell_to_face[face].orientation()}); // orientation
                     }
                 }
             }
             // LEAF CELL TO FACE
-            for (int cell = 0; cell < aux_cell_to_face.size(); ++cell) {
+            for (int cell = 0; cell < cell_count; ++cell) {
                 leaf_cell_to_face.appendRow(aux_cell_to_face[cell].begin(), aux_cell_to_face[cell].end());
             }
             // LEAF FACE TO CELL
@@ -868,8 +853,9 @@ namespace Dune
             // "level1_ptr" is a CpGridData object. New born corners, faces, cells, with
             //              their topological information, e.g., cell_to_face_.
             // boundary_old_to_new_corners
-            // boundary_old_to_new_faces    const std::vector<std::tuple<int, std::vector<int>>>,
-            // parent_to_children_faces     std::vector<std::tuple<bool,std::vector<int>>>
+            // boundary_old_to_new_faces          const std::vector<std::tuple<int, std::vector<int>>>,
+            // parent_to_children_faces/cells     std::vector<std::tuple<bool,std::vector<int>>>
+            // isParent_faces/cells               
             // Add level 1 to "data".
             data.push_back(level1_ptr);
             // To store the leaf view.
@@ -919,18 +905,9 @@ namespace Dune
             // Resize the container of the leaf corners (size: total level 0 - patch_corners.size() + total level 1).
             leaf_corners.resize(corner_count);
             for (auto& [level_levelIdx, leaf_idx] : level_to_leaf_corners) {
-                // Store the corners coming from level 0.
-                if (level_levelIdx[0] == 0) {
-                    leaf_corners[leaf_idx] =
-                        (*data[0]).geometry_.geomVector(std::integral_constant<int,3>()).get(level_levelIdx[1]);
-                }
-                // Store the corners coming from level 1.
-                else {
-                    leaf_corners[leaf_idx] =
-                        (*data[1]).geometry_.geomVector(std::integral_constant<int,3>()).get(level_levelIdx[1]);
-                }
+                leaf_corners[leaf_idx] =
+                        (*data[level_levelIdx[0]]).geometry_.geomVector(std::integral_constant<int,3>()).get(level_levelIdx[1]);
             }
-
             // Assume each parent cell has 8 corners (maybe allowing repetition of corners?).
             // parent_cells_to_new_corners[fixed cell index] = {{parent corner '0', equivalent refined corner '0'},
             //                                                  {parent corner '1', equivalent refined corner '1'}, ...}
@@ -973,20 +950,22 @@ namespace Dune
             std::vector<std::vector<int>> aux_face_to_point;
             for (auto& [level_levelIdx, leaf_idx] : level_to_leaf_faces) {
                 // Compute face, face tag, normal, and corners, for faces coming from level 0.
+                // Get the face geometry.
+                leaf_faces[leaf_idx] = (*data[level_levelIdx[0]]).geometry_.geomVector(std::integral_constant<int,1>())
+                    [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
+                // Get the face tag.
+                mutable_face_tags[leaf_idx] = (*data[level_levelIdx[0]]).face_tag_
+                    [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
+                // Get the face normal.
+                mutable_face_normals[leaf_idx] = (*data[level_levelIdx[0]]).face_normals_
+                    [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
+                // Get the  leaf indices of corners of the face. Add this info to aux_face_to_point
+                // in the right entry to later on populate leaf_face_to_point using appendRow().
+                auto old_face_to_point = (*data[level_levelIdx[0]]).face_to_point_[level_levelIdx[1]];
+                aux_face_to_point[leaf_idx].reserve(old_face_to_point.size()); // we can put 4 here
+                // Add the amount of points to the count num_points.
+                num_points += old_face_to_point.size();
                 if (level_levelIdx[0] == 0) {
-                    // Get the face geometry.
-                    leaf_faces[leaf_idx] = (*data[0]).geometry_.geomVector(std::integral_constant<int,1>())
-                        [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
-                    // Get the face tag.
-                    mutable_face_tags[leaf_idx] = (*data[0]).face_tag_ [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
-                    // Get the face normal.
-                    mutable_face_normals[leaf_idx] = (*data[0]).face_normals_[Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
-                    // Get the  leaf indices of corners of the face. Add this info to aux_face_to_point
-                    // in the right entry to later on populate leaf_face_to_point using appendRow().
-                    auto old_face_to_point = (*data[0]).face_to_point_[level_levelIdx[1]];
-                    aux_face_to_point[leaf_idx].reserve(old_face_to_point.size()); // we can put 4 here
-                    // Add the amount of points to the count num_points.
-                    num_points += old_face_to_point.size();
                     for (int corn = 0; corn < old_face_to_point.size(); ++corn) { // we can put 4 here
                         // Check if the corner is one of the parent cell corners that got replaced by a refined one.
                         // In that case, we use the refined corner, via the map connecting old parent corners and
@@ -1003,21 +982,7 @@ namespace Dune
                         }
                     }
                 }
-                // Compute face, tag, normal, corners for faces coming from level 1.
                 else {
-                    // Get the face geometry.
-                    leaf_faces[leaf_idx] = (*data[1]).geometry_.geomVector(std::integral_constant<int,1>())
-                        [Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
-                    // Get the face tag.
-                    mutable_face_tags[leaf_idx] = (*data[1]).face_tag_[Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
-                    // Get the face normal.
-                    mutable_face_normals[leaf_idx] = (*data[1]).face_normals_[Dune::cpgrid::EntityRep<1>(level_levelIdx[1], true)];
-                    // Get the  leaf indices of corners of the face. Add this info to aux_face_to_point
-                    // in the right entry to later on populate leaf_face_to_point using appendRow().
-                    auto old_face_to_point = (*data[1]).face_to_point_[level_levelIdx[1]];
-                    // Add the amount of points to the count num_points.
-                    num_points += old_face_to_point.size();
-                    aux_face_to_point[leaf_idx].reserve(old_face_to_point.size());
                     for (int corn = 0; corn < old_face_to_point.size(); ++corn) {
                         aux_face_to_point[leaf_idx].push_back(level_to_leaf_corners[{1, old_face_to_point[corn]}]);
                     }
@@ -1053,7 +1018,6 @@ namespace Dune
             }
             // Cells coming from level 1, i.e. refined cells.
             // Notice that new born cells start at entry "total level 0 cells - patch_cells.size()"
-            // int start_new_cells = (data[0]-> size(0)) - patch_cells.size();
             for (int cell = 0; cell < data[1]-> size(0); ++cell) {
                 level_to_leaf_cells[{1, cell}] = cell_count;
                 cell_count +=1;
@@ -1061,40 +1025,30 @@ namespace Dune
             leaf_cells.resize(cell_count);
             leaf_cell_to_point.resize(cell_count);
             // As it was done for faces, we store in an additional vector the topological
-            // information cell_to_ponit/face and later on, we will use a map to store with the
-            // consecutive indices the leaf cell_to_point/face information.
-            std::map<int,std::vector<int>> aux_cell_to_point;
+            // information cell_to_face and later on, we will use a map to store with the
+            // consecutive indices the leaf cell_to_face information.
             std::map<int,std::vector<cpgrid::EntityRep<1>>> aux_cell_to_face;
             for (auto& [level_levelIdx, leaf_idx] : level_to_leaf_cells) {
-                auto cell_old_faces = (*data[level_levelIdx[0]]).cell_to_face_[Dune::cpgrid::EntityRep<0>(level_levelIdx[1], true)];
-                // Auxiliary containers to separate the information of cell_to_face: indices and oriantation.
-                /*  std::vector<int> cell_old_faces_indices;
-                std::vector<bool> cell_old_faces_orientation;
-                cell_old_faces_indices.reserve(cell_old_faces.size());
-                cell_old_faces_orientation.reserve(cell_old_faces.size());
-                for (auto& face : cell_old_faces) {
-                    cell_old_faces_indices.push_back(face.index());
-                    cell_old_faces_orientation.push_back(face.orientation());
-                    }*/
-                if (level_levelIdx[0] == 0) {
-                    leaf_cells[leaf_idx] = (*data[0]).geometry_.geomVector(std::integral_constant<int,0>())
+                // Get the cell geometry.
+                 leaf_cells[leaf_idx] = (*data[level_levelIdx[0]]).geometry_.geomVector(std::integral_constant<int,0>())
                         [Dune::cpgrid::EntityRep<0>(level_levelIdx[1], true)];
+                 // Get old faces of the cell that will be replaced with leaf faces
+                 auto old_cell_to_face = (*data[level_levelIdx[0]]).cell_to_face_[Dune::cpgrid::EntityRep<0>(level_levelIdx[1], true)];
+                auto old_cell_to_point = (*data[level_levelIdx[0]]).cell_to_point_[level_levelIdx[1]];
+                if (level_levelIdx[0] == 0) {
                     // CELL TO POINT
-                    // Get the  leaf indices of corners of the face. Add this info to aux_face_to_point
-                    // in the right entry to later on populate leaf_face_to_point using appendRow().
-                    auto old_cell_to_point = (*data[0]).cell_to_point_[level_levelIdx[1]];
-                    aux_cell_to_point[leaf_idx].reserve(old_cell_to_point.size());
+                    // Get the  leaf indices of corners of the cell.
                     for (int corn = 0; corn < old_cell_to_point.size(); ++corn) {
                         if (std::find(patch_corners.begin(), patch_corners.end(), corn)!=  patch_corners.end()) {
-                            aux_cell_to_point[leaf_idx].push_back(level_to_leaf_corners
-                                                                  [old_to_new_corners[{0, old_cell_to_point[corn]}]]);
+                            leaf_cell_to_point[leaf_idx][corn] =
+                                level_to_leaf_corners[old_to_new_corners[{0, old_cell_to_point[corn]}]];
                         }
                         else {
-                            aux_cell_to_point[leaf_idx].push_back(level_to_leaf_corners[{0, old_cell_to_point[corn]}]);
+                            leaf_cell_to_point[leaf_idx][corn] = level_to_leaf_corners[{0, old_cell_to_point[corn]}];
                         }
                     }
                     // CELL TO FACE
-                    for (auto& face : cell_old_faces)
+                    for (auto& face : old_cell_to_face)
                     {
                         // Check if the face is one of those faces that was involved in the refinement.
                         // If it was, replace it with its children faces.
@@ -1107,51 +1061,27 @@ namespace Dune
                         }
                         // Otherwise, keep the face but with its new leaf index.
                         else {
-                            aux_cell_to_face[leaf_idx].push_back({level_to_leaf_faces[{0, face.index()}], // neigh cell
+                            aux_cell_to_face[leaf_idx].push_back({level_to_leaf_faces[{0, face.index()}], // (new) refined face
                                     face.orientation()}); // orientation
                         }
                     }
-                    /*for (int face = 0; face < cell_old_faces_indices.size(); ++face) {
-                        // Check if the face is one of those faces that was involved in the refinement.
-                        // If it was, replace it with its children faces.
-                        if (std::find(boundary_patch_faces.begin(), boundary_patch_faces.end(), cell_old_faces_indices[face]) !=
-                            boundary_patch_faces.end()) {
-                            for (auto& level_newFace : old_to_new_faces[{0, cell_old_faces_indices[face]}]) {
-                                aux_cell_to_face[leaf_idx].push_back({level_to_leaf_faces[level_newFace], // (new) refined face
-                                        cell_old_faces_orientation[face]}); // orientation
-                            }
-                        }
-                        // Otherwise, keep the face but with its new leaf index.
-                        else {
-                            aux_cell_to_face[leaf_idx].push_back({level_to_leaf_faces[{0, cell_old_faces_indices[face]}], // neigh cell
-                                    cell_old_faces_orientation[face]}); // orientation
-                        }
-                        }*/
-
                 }
                 else {
-                    leaf_cells[leaf_idx] = (*data[1]).geometry_.geomVector(std::integral_constant<int,0>())
-                        [Dune::cpgrid::EntityRep<0>(level_levelIdx[1], true)];
                     // CELL TO POINT
-                    // Get the  leaf indices of corners of the face. Add this info to aux_face_to_point
-                    // in the right entry to later on populate leaf_face_to_point using appendRow().
-                    auto old_cell_to_point = (*data[1]).cell_to_point_[level_levelIdx[1]];
-                    aux_cell_to_point[leaf_idx].reserve(old_cell_to_point.size());
                     for (int corn = 0; corn < old_cell_to_point.size(); ++corn) {
-                        aux_cell_to_point[leaf_idx].push_back(level_to_leaf_corners[{1, old_cell_to_point[corn]}]);
+                         // Get the  leaf indices of corners of the cell.
+                        leaf_cell_to_point[leaf_idx][corn] = level_to_leaf_corners[{1, old_cell_to_point[corn]}];
                     }
-                    for (auto& face : cell_old_faces) {
+                    // CELL TO FACE
+                    for (auto& face : old_cell_to_face) {
+                          // Get the leaf index and orientation of faces of the cell.
                         aux_cell_to_face[leaf_idx].push_back({level_to_leaf_faces[{1, face.index()}], // neigh cell
                                 face.orientation()}); // orientation
                     }
-                     /* for (int face = 0; face < cell_old_faces_indices.size(); ++face) {
-                        aux_cell_to_face[leaf_idx].push_back({level_to_leaf_faces[{1, cell_old_faces_indices[face]}], // neigh cell
-                                cell_old_faces_orientation[face]}); // orientation
-                                }*/
                 }
             }
             // LEAF CELL TO FACE
-            for (int cell = 0; cell < aux_cell_to_face.size(); ++cell) {
+            for (int cell = 0; cell < cell_count; ++cell) {
                 leaf_cell_to_face.appendRow(aux_cell_to_face[cell].begin(), aux_cell_to_face[cell].end());
             }
             // LEAF FACE TO CELL
