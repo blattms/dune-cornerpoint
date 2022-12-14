@@ -442,15 +442,18 @@ public:
     //                                                      2---3   |   | TOP FACE
     //                                                      |   |   4---5
     //                                                      0---1 BOTTOM FACE
-    //         parent_to_children_faces     @TOMODIFY For each parent face, we store its child face indices.
+    //         parent_to_children_faces     For each parent face, we store its child face indices.
     //                                      Each entry:
     //                                      {parent face index in coarse level, {indices of its children in refined level}}
-    //         parent_to_children_cells     @TODO
-    //         isParent_faces               @TODO
-    //         isParent_cells               @TODO
+    //         parent_to_children_cells     {parent cell index (in level '0'), {children cell indices (in level '1')}}
+    //         isParent_faces               
+    //         isParent_cells               
     std::tuple< const std::shared_ptr<CpGridData>,
                 const std::vector<std::array<int,2>>,
-                const std::vector<std::tuple<int,std::vector<int>>> > 
+                const std::vector<std::tuple<int,std::vector<int>>>,
+                const std::tuple<int, std::vector<int>>,
+                const std::map<int,bool>,
+                const std::map<int,bool>> 
     refineSingleCell(const std::array<int,3>& cells_per_dim, const int& parent_idx)
     {
         std::shared_ptr<CpGridData> refined_grid_ptr = std::make_shared<CpGridData>(ccobj_);
@@ -494,26 +497,21 @@ public:
                 // replacing parent-cell corner '7'
             {parent_to_point[7], (cells_per_dim[1]*(cells_per_dim[0]+1)*(cells_per_dim[2]+1)) + (cells_per_dim[0]*(cells_per_dim[2]+1))
              + cells_per_dim[2]}};
-        // Get relation between "gone/removed faces of the parent" and "new born faces".
-        // Get information from the parent.
-        // parent_cell_to_face = { {face, orientation}, {another face, its orientation}, ...}
+        // Get relation old face -> new born faces (children faces)
         std::vector<std::tuple<int,std::vector<int>>>  parent_to_children_faces;
+        // Get parent_cell_to_face = { {face, orientation}, {another face, its orientation}, ...}
         auto parent_cell_to_face = (this-> cell_to_face_[EntityRep<0>(parent_idx, true)]);
-        std::vector<int> parent_faces;
-        std::vector<bool> parent_orientations;
         for (auto& face : parent_cell_to_face) {
-            parent_faces.push_back(face.index());
-            parent_orientations.push_back(face.orientation());
-        }
-        
-        for (int face = 0; face < parent_faces.size(); ++face) { // face = {face index, orientation (true/false)}
-            auto parent_face_tag = (this-> face_tag_[Dune::cpgrid::EntityRep<1>(parent_faces[face], true)]);
+            // Check face tag to identify the type of face (bottom, top, left, right, front, or back).
+            auto parent_face_tag = (this-> face_tag_[Dune::cpgrid::EntityRep<1>(face.index(), true)]);
+            // To store the new born faces for each face.
             std::vector<int> children_faces;
             // K_FACES
             if (parent_face_tag == face_tag::K_FACE) {
+                children_faces.reserve(cells_per_dim[0]*cells_per_dim[1]);
                 for (int j = 0; j < cells_per_dim[1]; ++j) {
                     for (int i = 0; i < cells_per_dim[0]; ++i) {
-                        if (!parent_orientations[face]) { // false -> BOTTOM FACE -> k=0
+                        if (!face.orientation()) { // false -> BOTTOM FACE -> k=0
                             children_faces.push_back((j*cells_per_dim[0]) + i);
                         }
                         else { // true -> TOP FACE -> k=cells_per_dim[2] 
@@ -525,9 +523,10 @@ public:
             }
             // I_FACES
             if (parent_face_tag == face_tag::I_FACE) {
+                children_faces.reserve(cells_per_dim[1]*cells_per_dim[2]);
                 for (int k = 0; k < cells_per_dim[2]; ++k) {
                     for (int j = 0; j < cells_per_dim[1]; ++j) {
-                        if (!parent_orientations[face]) { // false -> LEFT FACE -> i=0
+                        if (!face.orientation()) { // false -> LEFT FACE -> i=0
                             children_faces.push_back((cells_per_dim[0]*cells_per_dim[1]*(cells_per_dim[2]+1))
                                                                                                   + (k*cells_per_dim[1]) + j);
                         }
@@ -540,9 +539,10 @@ public:
             }
             // J_FACES
             if (parent_face_tag == face_tag::J_FACE) {
+                children_faces.reserve(cells_per_dim[0]*cells_per_dim[2]);
                 for (int i = 0; i < cells_per_dim[0]; ++i) {
                     for (int k = 0; k < cells_per_dim[2]; ++k) {
-                        if (!parent_orientations[face]) { // false -> FRONT FACE -> j=0
+                        if (!face.orientation()) { // false -> FRONT FACE -> j=0
                             children_faces.push_back((cells_per_dim[0]*cells_per_dim[1]*(cells_per_dim[2] +1))
                                           + ((cells_per_dim[0]+1)*cells_per_dim[1]*cells_per_dim[2])
                                           + (i*cells_per_dim[2]) + k);
@@ -556,11 +556,41 @@ public:
                     }
                 }
             }
-            std::tuple<int,std::vector<int>> aux_tuple = std::make_tuple(parent_faces[face], children_faces);
-            parent_to_children_faces[face] = aux_tuple;
+            std::tuple<int,std::vector<int>> aux_tuple = std::make_tuple(face.index(), children_faces);
+            parent_to_children_faces.push_back(aux_tuple);
         }
+        // PARENT TO CHILDREN CELLS
+        std::vector<int> children_cells;
+        children_cells.reserve(cells_per_dim[0]*cells_per_dim[1]*cells_per_dim[2]);
+        for (int cell = 0; cell < cells_per_dim[0]*cells_per_dim[1]*cells_per_dim[2]; ++cell) {
+            children_cells.push_back(cell);
+        }
+        std::tuple<int, std::vector<int>> parent_to_children_cells =
+            std::make_tuple(parent_idx, children_cells);
+        // IS PARENT - FACES
+        // Map {index face, true/false}
+        // true-> the face got refined (has children), false -> the face hasn't been refined (does not have children).
+        std::map<int,bool> isParent_faces;
+        for (int face = 0; face < this-> face_to_cell_.size(); ++face) {
+            isParent_faces[face] = false;
+        }
+        // Rewrite the entries of the map for those faces that got refined. 
+        for (auto& face : parent_cell_to_face) {
+            isParent_faces[face.index()] = true;
+        }
+        // IS PARENT - CELLS
+        // Map {index cell, true/false}
+        // true-> cell got refined (has children), false -> cell hasn't been refined (does not have children).
+        std::map<int,bool> isParent_cells;
+        for (int cell = 0; cell < this-> size(0); ++cell) {
+            isParent_cells[cell] = false;
+        }
+        // Rewrite the entries of the map for those faces that got refined.
+        isParent_cells[parent_idx] = true;
         
-        return {refined_grid_ptr, parent_to_refined_corners, parent_to_children_faces};
+        return {refined_grid_ptr, parent_to_refined_corners,
+            parent_to_children_faces, parent_to_children_cells,
+            isParent_faces, isParent_cells};
     }
     // Refine a (connected block of cells) patch
     // REFINE A PATCH of CONNECTED (CONSECUTIVE in each direction) cells with 'uniform' regular intervals.
