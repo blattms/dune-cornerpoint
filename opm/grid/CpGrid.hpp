@@ -557,25 +557,9 @@ namespace Dune
         {
             // Build level 1 from the selected cell from level 0 (level 0 = data[0]).
             const auto& [level1_ptr, parent_to_refined_corners,
-                         parent_to_children_faces, parent_to_children_cells,
+                         parent_to_children_faces, parent_to_children_cells, child_to_parent_faces, child_to_parent_cell,
                          isParent_faces, isParent_cells] 
                 = (*data[0]).refineSingleCell(cells_per_dim, parent_idx);
-            // "level1_ptr" is a CpGridData object. New born corners, faces, cells, with
-            //              their topological information, e.g., cell_to_face_.
-            // "parent_to_refined_corners"  (const std::vector<std::array<int,2>>)
-            //                              For each parent corner, we store the index of the
-            //                              refined corner that coincides with the old one.
-            //                              We assume they are ordered 0,1,..7
-            //                                                              6---7
-            //                                                      2---3   |   | TOP FACE
-            //                                                      |   |   4---5
-            //                                                      0---1 BOTTOM FACE
-            //                              Each entry {(old) parent corner (level 0), (its equivalent new) refined corner (level 1)}
-            // "parent_to_children_faces/cells"  
-            //                              For each parent face/cell, we store its child-face/cell indices. Each entry:
-            //                              {parent face/cell index in coarse level, {indices of its children in refined level}}
-            // "isParent_faces/cells"       map<int, bool> For each face/cell is false, expect for parent cell faces, and parent cell.
-            //
             // Add level 1 to "data".
             data.push_back(level1_ptr);
             // Get some information about the parent cell.
@@ -839,7 +823,7 @@ namespace Dune
         // @param data            Vector of shared pointers of CpGridData type.
         //                        data[0] points at the CpGridData where a patch of cells will be chosen, to be refined.
         // @param cells_per_dim   Amount of new born cells per dimension ({in x-direction, y-direction, z-direction})
-        // @param parent_idx      Index of the chosen cell from level 0 to be refined.
+        // @param start/end_ijk   To build the patch to be refined.
         void getLeafView2LevelsPatch(std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>>& data,
                                      const std::array<int,3>& cells_per_dim,
                                      const std::array<int,3>& start_ijk,
@@ -848,14 +832,11 @@ namespace Dune
             // Build level 1 from the selected patch from level 0 (level 0 = data[0]).
             const auto& [level1_ptr, boundary_old_to_new_corners, boundary_old_to_new_faces,
                          parent_to_children_faces, parent_to_children_cells,
+                         child_to_parent_faces, child_to_parent_cells,
                          isParent_faces, isParent_cells]
                 = (*data[0]).refineBlockPatch(cells_per_dim, start_ijk, end_ijk);
             // "level1_ptr" is a CpGridData object. New born corners, faces, cells, with
             //              their topological information, e.g., cell_to_face_.
-            // boundary_old_to_new_corners
-            // boundary_old_to_new_faces          const std::vector<std::tuple<int, std::vector<int>>>,
-            // parent_to_children_faces/cells     std::vector<std::tuple<bool,std::vector<int>>>
-            // isParent_faces/cells
             // Add level 1 to "data".
             data.push_back(level1_ptr);
             // To store the leaf view.

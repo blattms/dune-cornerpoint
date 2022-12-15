@@ -452,6 +452,8 @@ public:
                 const std::vector<std::array<int,2>>,                // parent_to_refined_corners(~boundary_old_to_new_corners)
                 const std::vector<std::tuple<int,std::vector<int>>>, // parent_to_children_faces (~boundary_old_to_new_faces)
                 const std::tuple<int, std::vector<int>>,             // parent_to_children_cells
+                const std::vector<std::array<int,2>>,                // child_to_parent_faces
+                const std::vector<std::array<int,2>>,                // child_to_parent_cells
                 const std::map<int,bool>,                            // isParent_faces
                 const std::map<int,bool>>                            // isParent_cells
     refineSingleCell(const std::array<int,3>& cells_per_dim, const int& parent_idx)
@@ -501,6 +503,11 @@ public:
         std::vector<std::tuple<int,std::vector<int>>>  parent_to_children_faces;
         // Get parent_cell_to_face = { {face, orientation}, {another face, its orientation}, ...}
         auto parent_cell_to_face = (this-> cell_to_face_[EntityRep<0>(parent_idx, true)]);
+        //
+        std::vector<std::array<int,2>> child_to_parent_faces;
+        child_to_parent_faces.reserve(refined_face_to_cell.size());
+        int k_faces = cells_per_dim[0]*cells_per_dim[1]*(cells_per_dim[2]+1);
+        int i_faces = (cells_per_dim[0]+1)*cells_per_dim[1]*cells_per_dim[2];
         for (auto& face : parent_cell_to_face) {
             // Check face tag to identify the type of face (bottom, top, left, right, front, or back).
             auto parent_face_tag = (this-> face_tag_[Dune::cpgrid::EntityRep<1>(face.index(), true)]);
@@ -513,10 +520,13 @@ public:
                     for (int i = 0; i < cells_per_dim[0]; ++i) {
                         if (!face.orientation()) { // false -> BOTTOM FACE -> k=0
                             children_faces.push_back((j*cells_per_dim[0]) + i);
+                            child_to_parent_faces.push_back({(j*cells_per_dim[0]) + i, face.index()});
                         }
                         else { // true -> TOP FACE -> k=cells_per_dim[2] 
                             children_faces.push_back((cells_per_dim[2]*cells_per_dim[0]*cells_per_dim[1])
-                                                                                                  +(j*cells_per_dim[0]) + i);
+                                                     +(j*cells_per_dim[0]) + i);
+                            child_to_parent_faces.push_back({(cells_per_dim[2]*cells_per_dim[0]*cells_per_dim[1])
+                                    +(j*cells_per_dim[0]) + i, face.index()});
                         }
                     }
                 }
@@ -527,12 +537,14 @@ public:
                 for (int k = 0; k < cells_per_dim[2]; ++k) {
                     for (int j = 0; j < cells_per_dim[1]; ++j) {
                         if (!face.orientation()) { // false -> LEFT FACE -> i=0
-                            children_faces.push_back((cells_per_dim[0]*cells_per_dim[1]*(cells_per_dim[2]+1))
-                                                                                                  + (k*cells_per_dim[1]) + j);
+                            children_faces.push_back(k_faces + (k*cells_per_dim[1]) + j);
+                            child_to_parent_faces.push_back({k_faces + (k*cells_per_dim[1]) + j, face.index()});
                         }
                         else { // true -> RIGHT FACE -> i=cells_per_dim[0]
-                            children_faces.push_back((cells_per_dim[0]*cells_per_dim[1]*(cells_per_dim[2]+1))
-                                          + (cells_per_dim[0]*cells_per_dim[1]*cells_per_dim[2]) + (k*cells_per_dim[1]) + j);
+                            children_faces.push_back(k_faces + (cells_per_dim[0]*cells_per_dim[1]*cells_per_dim[2])
+                                                     + (k*cells_per_dim[1]) + j);
+                            child_to_parent_faces.push_back({k_faces + (cells_per_dim[0]*cells_per_dim[1]*cells_per_dim[2])
+                                    + (k*cells_per_dim[1]) + j, face.index()});
                         }
                     }
                 }
@@ -543,15 +555,14 @@ public:
                 for (int i = 0; i < cells_per_dim[0]; ++i) {
                     for (int k = 0; k < cells_per_dim[2]; ++k) {
                         if (!face.orientation()) { // false -> FRONT FACE -> j=0
-                            children_faces.push_back((cells_per_dim[0]*cells_per_dim[1]*(cells_per_dim[2] +1))
-                                          + ((cells_per_dim[0]+1)*cells_per_dim[1]*cells_per_dim[2])
-                                          + (i*cells_per_dim[2]) + k);
+                            children_faces.push_back(k_faces + i_faces + (i*cells_per_dim[2]) + k);
+                            child_to_parent_faces.push_back({k_faces + i_faces + (i*cells_per_dim[2]) + k, face.index()});
                         }
                         else { // true -> BACK FACE -> j=cells_per_dim[1]
-                            children_faces.push_back((cells_per_dim[0]*cells_per_dim[1]*(cells_per_dim[2] +1))
-                                          + ((cells_per_dim[0]+1)*cells_per_dim[1]*cells_per_dim[2])
-                                          + (cells_per_dim[1]*cells_per_dim[0]*cells_per_dim[2])
+                            children_faces.push_back(k_faces + i_faces  + (cells_per_dim[1]*cells_per_dim[0]*cells_per_dim[2])
                                           + (i*cells_per_dim[2]) + k);
+                            child_to_parent_faces.push_back({k_faces + i_faces  + (cells_per_dim[1]*cells_per_dim[0]*cells_per_dim[2])
+                                    + (i*cells_per_dim[2]) + k, face.index()});
                         }   
                     }
                 }
@@ -561,10 +572,16 @@ public:
         }
         // PARENT TO CHILDREN CELLS
         std::vector<int> children_cells;
+         // Child to parent cell
+        std::vector<std::array<int, 2>> child_to_parent_cell;
         children_cells.reserve(cells_per_dim[0]*cells_per_dim[1]*cells_per_dim[2]);
+        child_to_parent_cell.reserve(cells_per_dim[0]*cells_per_dim[1]*cells_per_dim[2]);
         for (int cell = 0; cell < cells_per_dim[0]*cells_per_dim[1]*cells_per_dim[2]; ++cell) {
             children_cells.push_back(cell);
+            child_to_parent_cell.push_back({cell, parent_idx});
         }
+       
+      
         std::tuple<int, std::vector<int>> parent_to_children_cells =
             std::make_tuple(parent_idx, children_cells);
         // IS PARENT - FACES
@@ -589,33 +606,30 @@ public:
         isParent_cells[parent_idx] = true;
         
         return {refined_grid_ptr, parent_to_refined_corners,
-            parent_to_children_faces, parent_to_children_cells,
+            parent_to_children_faces, parent_to_children_cells, child_to_parent_faces, child_to_parent_cell,
             isParent_faces, isParent_cells};
     }
     // Refine a (connected block of cells) patch
     // REFINE A PATCH of CONNECTED (CONSECUTIVE in each direction) cells with 'uniform' regular intervals.
     // (meaning that the amount of children per cell is the same for all parent cells (cells of the patch)).
-    // @param cells_per_dim                 Number of sub-cells in each direction (for each cell).
-    // @param start_ijk                     Minimum values of i,j,k to construct the patch (start).
-    // @param end_ijk                       Maximum values of i,j,k to construct the patch (end).
-    // @return refined_grid_ptr             Shared pointer of CpGridData type, pointing at the refined_grid
-    //         boundary_old_to_new_corners  Corners on the boundary of the patch get replaced by new born refined one.      
-    //         boundary_old_to_new_faces    Each face on the boundary of the patch 'get replaced by' new born faces.
-    //         parent_to_children_faces     To store the indices of 'all the face children' of each parent.
-    //         parent_to_children_cells     To store the indices of 'all the cells children' of each parent.
-    //                                      If a face/cell is not a parent, we say the entity is 'its single child'.
-    //                                      Therefore, parent_to_chidren_* has as many entries as entities on the
-    //                                      initial CpGridData (where the patch to refine is selected).
-    //         isParent_faces/cells         True for each face/cell that got refined. 
-    //         child_to_parent_ijk_faces    For each child-face, we store its parent face IJK index.
-    //         child_to_parent_ijk_cells    For each child-cell, we store its parent cell IJK index.    
+    // @param cells_per_dim                       Number of sub-cells in each direction (for each cell).
+    // @param start_ijk                           Minimum values of i,j,k to construct the patch (start).
+    // @param end_ijk                             Maximum values of i,j,k to construct the patch (end).
+    // @return refined_grid_ptr                   Shared pointer of CpGridData type, pointing at the refined_grid
+    //         boundary_old_to_new_corners/faces  Corners/faces on the boundary of the patch get replaced by new born refined one(s).
+    //         parent_to_children_faces/cells     To store the indices of 'all the face/cell children' of each parent.
+    //         child_to_parent_faces/cells        For each child-face, we store its parent face index. 
+    //         isParent_faces/cells               True for each face/cell that got refined. 
+     
     std::tuple<std::shared_ptr<CpGridData>,
-               const std::vector<std::array<int,2>>,                 // boundary_old_to_new_corners  
+               const std::vector<std::array<int,2>>,                // boundary_old_to_new_corners  
                const std::vector<std::tuple<int,std::vector<int>>>, // boundary_old_to_new_faces
                const std::vector<std::tuple<int,std::vector<int>>>, // parent_to_children_faces
                const std::vector<std::tuple<int,std::vector<int>>>, // parent_to_children_cell
-               const std::map<int,bool>,                             // isParent_faces
-               const std::map<int,bool>>                             // isParent_cells
+               const std::vector<std::array<int,2>>,                // child_to_parent_faces
+               const std::vector<std::array<int,2>>,                // child_to_parent_cells
+               const std::map<int,bool>,                            // isParent_faces
+               const std::map<int,bool>>                            // isParent_cells
     refineBlockPatch(const std::array<int,3>& cells_per_dim,
                      const std::array<int,3>& start_ijk, const std::array<int,3>& end_ijk)
     {
@@ -637,7 +651,7 @@ public:
         if ((patch_dim[0] == 1) && (patch_dim[1] == 1) && (patch_dim[2] == 1)){
             const int& parent_cell = (start_ijk[2]*grid_dim[0]*grid_dim[1]) + (start_ijk[1]*grid_dim[0]) +start_ijk[0];
             auto [refined_grid_ptr, parent_to_refined_corners,
-                   parent_to_children_faces, parent_to_children_cells,
+                  parent_to_children_faces, parent_to_children_cells, child_to_parent_faces, child_to_parent_cell,
                    isParent_faces, isParent_cells] = this->refineSingleCell(cells_per_dim, parent_cell);
             // When the patch is only one cell,
             // - boundary_old_to_new_corners == parent_to_refined_corners.
@@ -646,6 +660,7 @@ public:
             std::vector<std::tuple<int, std::vector<int>>> parent_to_children_cells_vec = {parent_to_children_cells};    
             return {refined_grid_ptr, parent_to_refined_corners,
                 parent_to_children_faces, parent_to_children_faces, parent_to_children_cells_vec,
+                child_to_parent_faces, child_to_parent_cell,
                 isParent_faces, isParent_cells};
         }
         else {
@@ -860,9 +875,8 @@ public:
                 isParent_cells[cell] = true;
             }
             return {refined_grid_ptr, boundary_old_to_new_corners, boundary_old_to_new_faces,
-            parent_to_children_faces, parent_to_children_cells,
+                parent_to_children_faces, parent_to_children_cells, child_to_parent_faces, child_to_parent_cells,
             isParent_faces, isParent_cells};
-        // child_to_parent_faces, child_to_parent_cells};  
         }
     }
     
