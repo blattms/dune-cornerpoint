@@ -267,12 +267,12 @@ public:
 
     // Given a start {i,j,k} and an end {i,j,k}, compute the dimension of the patch, i.e.
     // aomunt of cells in each direction. 
-    const std::array<int,3> getPatchDim(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk) const
+    const std::array<int,3> getPatchDim(const std::array<int,3>& start_ijk, const std::array<int,3>& end_ijk) const
     {
         return {end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]};
     } 
     
-    std::array<std::vector<int>,3> getPatchGeomIndices(const std::array<int,3> start_ijk, const std::array<int,3> end_ijk)
+    const std::array<std::vector<int>,3> getPatchGeomIndices(const std::array<int,3>& start_ijk, const std::array<int,3>& end_ijk) const
     {
         // Get the patch dimension (total cells in each direction). Used to 'reserve vectors'.
         const std::array<int,3> patch_dim = getPatchDim(start_ijk, end_ijk);
@@ -293,14 +293,7 @@ public:
         int i_faces = (patch_dim[0]+1)*patch_dim[1]*patch_dim[2];
         int j_faces = patch_dim[0]*patch_dim[1]*(patch_dim[2]+1);
         patch_faces.reserve((patch_dim[0]*patch_dim[1]*(patch_dim[2]+1)) // K_FACES
-                            + i_faces +j_faces);                
-        // K_FACES (with 3rd coordinate constant) will need a loop of the form 'kji' (k/j/i -> z/y/x-direction)
-        // start_ijk[2]=< k < end_ijk[2] +1, start_ijk[1] =< j < end_ijk[1], stat_ijk[0] =< i < end_ijk[0].
-        // I_FACES (with 1st coordinate constant) will need a loop of the form 'ikj'
-        // start_ijk[0]=< i < end_ijk[0] +1, start_ijk[2] =< k < end_ijk[2], stat_ijk[1] =< j < end_ijk[1].
-        // J_FACES (with 2nd coordinate constant) will need a loop of the form 'jik'
-        // start_ijk[1]=< j < end_ijk[1] +1, start_ijk[0] =< i < end_ijk[1], stat_ijk[2] =< k < end_ijk[2].
-        //
+                            + i_faces +j_faces);
         // constant_direction   Takes values 0,1, or 2, meaning constant in z,x,y respectively.
         // l,m,n                Play the role of kji, ikj, or jik.
         for (int constant_direction = 0; constant_direction < 3; ++constant_direction){
@@ -440,10 +433,9 @@ public:
     //                                                      2---3   |   | TOP FACE
     //                                                      |   |   4---5
     //                                                      0---1 BOTTOM FACE
-    //         parent_to_children_faces     For each parent face, we store its child face indices.
-    //                                      Each entry:
-    //                                      {parent face index in coarse level, {indices of its children in refined level}}
-    //         parent_to_children_cells     {parent cell index (in level '0'), {children cell indices (in level '1')}}
+    //         parent_to_children_faces/cellFor each parent face/cell, we store its child face indices.
+    //                                      {parent face/cell index in coarse level, {indices of its children in refined level}}
+    //         child_to_parent_faces/cells  {child index, parent index}
     //         isParent_faces               True when the face got refined.
     //         isParent_cells               True when the cell got refined (here only "parent cell").
     std::tuple< const std::shared_ptr<CpGridData>,
@@ -504,6 +496,8 @@ public:
         //
         std::vector<std::array<int,2>> child_to_parent_faces;
         child_to_parent_faces.reserve(refined_face_to_cell.size());
+        // Children faces are ordered following the criteria introduced in refine(), Geometry.hpp.
+        // First K_FACES, then I_FACES, then J_FACES.
         int k_faces = cells_per_dim[0]*cells_per_dim[1]*(cells_per_dim[2]+1);
         int i_faces = (cells_per_dim[0]+1)*cells_per_dim[1]*cells_per_dim[2];
         for (auto& face : parent_cell_to_face) {
@@ -661,10 +655,12 @@ public:
                 child_to_parent_faces, child_to_parent_cell,
                 isParent_faces, isParent_cells};
         }
+        // When the patch consists in more than one cell:
         else {
             const auto& [patch_corners, patch_faces, patch_cells] = getPatchGeomIndices(start_ijk, end_ijk);
             // Inner patch (excluding boundary cells, i.e., those that belong to the patch and are not in
             // contact with cells outside the patch).
+            // WE CAN AVOID THIS INNER PATCH!!!!!!!!!!1 TODO
             const auto& inner_patch_dim = getPatchDim(start_ijk, end_ijk);
             const auto& [inner_patch_corners, inner_patch_faces, inner_patch_cells] =
                 getPatchGeomIndices({start_ijk[0]+1, start_ijk[1]+1, start_ijk[2]+1}, {end_ijk[0]-1, end_ijk[1]-1, end_ijk[2]-1});
@@ -738,11 +734,14 @@ public:
             std::vector<std::array<int,2>> child_to_parent_faces; // {child index (in 'level 1'), parent index (in 'level 0')}
             child_to_parent_faces.reserve(refined_face_to_cell.size());
             // r,s,t will play the role of i,j,k.
+            // Total amount of i_faces, j_faces.
+            int i_faces =  (grid_dim[0]+1)*grid_dim[1]*grid_dim[2];
+            int j_faces =  grid_dim[0]*(grid_dim[1]+1)*grid_dim[2]; 
             for (int constant_direction = 0; constant_direction < 3; ++constant_direction){
                 // adding %3 and constant_direction, we go through the 3 type of faces.
-                // 0 -> 3rd coordinate constant: tsr = kji ('k' +1)
-                // 1 -> 1rt coordinate constant: tsr = ikj ('i' +1)
-                // 2 -> 2nd coordinate constant: tsr = jik ('j' +1)
+                // 0 -> K_FACES 3rd coordinate constant: tsr = kji ('k' +1)
+                // 1 -> I_FACES 1rt coordinate constant: tsr = ikj ('i' +1)
+                // 2 -> J_FACES 2nd coordinate constant: tsr = jik ('j' +1)
                 std::array<int,3> grid_dim_mixed = {grid_dim[(2+constant_direction)%3],grid_dim[(1+constant_direction)%3],
                     grid_dim[constant_direction % 3]};
                 std::array<int,3> start_mixed = {start_ijk[(2+constant_direction)%3],start_ijk[(1+constant_direction)%3],
@@ -756,17 +755,14 @@ public:
                         for (int r = 0; r < grid_dim_mixed[0]; ++r) {
                             int face_idx;
                             // Face index (in the coarse grid).
-                            // WE ARE ASSUMING THE FACES ARE ORDERED AS IN REFINE()
+                            // Faces (in the coarse grid) are ordered as I_FACES, J_FACES, K_FACES 
                             switch(constant_direction) {
-                            case 0: // tsr = kji
-                                face_idx = (t*grid_dim[0]*grid_dim[1]) + (s*grid_dim[0]) +r;
-                            case 1: // tsr = ikj  
-                                face_idx = (grid_dim[0]*grid_dim[1]*(grid_dim[2]+1))
-                                    + (t*grid_dim[1]*grid_dim[2]) + (s*grid_dim[1]) + r;
-                            case 2: // tsr = jik
-                                face_idx = (grid_dim[0]*grid_dim[1]*(grid_dim[2] +1))
-                                    + ((grid_dim[0]+1)*grid_dim[1]*grid_dim[2])
-                                    + (t*grid_dim[0]*grid_dim[2]) + (s*grid_dim[2]) + r;
+                            case 0: // K_FACES tsr = kji 
+                                face_idx = i_faces + j_faces + (t*grid_dim[0]*grid_dim[1]) + (s*grid_dim[0]) +r;
+                            case 1: // I_FACES tsr = ikj  
+                                face_idx = (t*grid_dim[1]*grid_dim[2]) + (s*grid_dim[1]) + r;
+                            case 2: // J_FACES tsr = jik
+                                face_idx = i_faces + (t*grid_dim[0]*grid_dim[2]) + (s*grid_dim[2]) + r;
                             default:
                                 // Should never be reached, but prevents compiler warning
                                 OPM_THROW(std::logic_error, "Unhandled dimension. This should never happen!");
@@ -777,6 +773,8 @@ public:
                             if ( (r > start_mixed[0]-1) && (r < end_mixed[0]) && (s > start_mixed[1]-1) && (s< end_mixed[1])
                                  && (t > start_mixed[2]-1) && (t < end_mixed[2]+1)) {
                                 // Populate "children_list" with new born corners.
+                                // CHILDREN FACES ARE ORDERED AS IN refine(), Geometry.hpp
+                                // meaning K_FACES, I_FACES, finally J_FACES
                                 for (int n = (t-start_mixed[2])*cells_per_dim_mixed[2];
                                      n < (t-start_mixed[2]+1)*cells_per_dim_mixed[2]; ++n) {
                                     for (int m = (s-start_mixed[1])*cells_per_dim_mixed[1];
