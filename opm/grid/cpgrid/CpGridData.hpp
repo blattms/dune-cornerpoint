@@ -288,10 +288,12 @@ public:
             } // end j-for-loop
         } // end k-for-loop
         // FACES
+        // FACES OREDER: I_FACES, J_FACES, K_FACES
         std::vector<int> patch_faces;
+        int i_faces = (patch_dim[0]+1)*patch_dim[1]*patch_dim[2];
+        int j_faces = patch_dim[0]*patch_dim[1]*(patch_dim[2]+1);
         patch_faces.reserve((patch_dim[0]*patch_dim[1]*(patch_dim[2]+1)) // K_FACES
-                            + ((patch_dim[0]+1)*patch_dim[1]*patch_dim[2]) // I_FACES
-                            +(patch_dim[0]*patch_dim[1]*(patch_dim[2]+1))); // J_FACES
+                            + i_faces +j_faces);                
         // K_FACES (with 3rd coordinate constant) will need a loop of the form 'kji' (k/j/i -> z/y/x-direction)
         // start_ijk[2]=< k < end_ijk[2] +1, start_ijk[1] =< j < end_ijk[1], stat_ijk[0] =< i < end_ijk[0].
         // I_FACES (with 1st coordinate constant) will need a loop of the form 'ikj'
@@ -315,18 +317,14 @@ public:
                     for (int n = start_mixed[2]; n < end_mixed[2]; ++n) {
                         switch(constant_direction) {
                         case 0:  // {l,m,n} = {k,j,i}, K_FACE constant in z-direction
-                            patch_faces.push_back((l*logical_cartesian_size_[0]*logical_cartesian_size_[1])
+                            patch_faces.push_back(i_faces + j_faces +
+                                                  (l*logical_cartesian_size_[0]*logical_cartesian_size_[1])
                                                   + (m*logical_cartesian_size_[0]) + n);
                         case 1:  // {l,m,n} = {i,k,j}, I_FACE constant in the x-direction
-                            patch_faces.push_back((logical_cartesian_size_[0]*
-                                                   logical_cartesian_size_[1]*(logical_cartesian_size_[2]+1))+
-                                                  (l*logical_cartesian_size_[1]*logical_cartesian_size_[2]) +
+                            patch_faces.push_back((l*logical_cartesian_size_[1]*logical_cartesian_size_[2]) +
                                                   (m*logical_cartesian_size_[1]) + n);
                         case 2: // {l,m,n} = {j,i,k}, J_FACE constant in the y-direction
-                            patch_faces.push_back((logical_cartesian_size_[0]*logical_cartesian_size_[1]*
-                                                   (logical_cartesian_size_[2] +1))
-                                                  + ((logical_cartesian_size_[0]+1)*logical_cartesian_size_[1]*logical_cartesian_size_[2])
-                                                  + (l*logical_cartesian_size_[0]*logical_cartesian_size_[2])
+                            patch_faces.push_back(i_faces + (l*logical_cartesian_size_[0]*logical_cartesian_size_[2])
                                                   + (m*logical_cartesian_size_[2]) + n);
                         }
                     } // end n-for-loop
@@ -651,7 +649,7 @@ public:
         if ((patch_dim[0] == 1) && (patch_dim[1] == 1) && (patch_dim[2] == 1)){
             const int& parent_cell = (start_ijk[2]*grid_dim[0]*grid_dim[1]) + (start_ijk[1]*grid_dim[0]) +start_ijk[0];
             auto [refined_grid_ptr, parent_to_refined_corners,
-                  parent_to_children_faces, parent_to_children_cells, child_to_parent_faces, child_to_parent_cell,
+                  parent_to_children_faces, parent_to_children_cells,child_to_parent_faces, child_to_parent_cell,
                    isParent_faces, isParent_cells] = this->refineSingleCell(cells_per_dim, parent_cell);
             // When the patch is only one cell,
             // - boundary_old_to_new_corners == parent_to_refined_corners.
