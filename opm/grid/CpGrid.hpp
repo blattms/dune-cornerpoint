@@ -558,13 +558,13 @@ namespace Dune
             // Build level 1 from the selected cell from level 0 (level 0 = data[0]).
             const auto& [level1_ptr, parent_to_refined_corners,
                          parent_to_children_faces, parent_to_children_cells, child_to_parent_faces, child_to_parent_cell,
-                         isParent_faces, isParent_cells] 
+                         isParent_faces, isParent_cells]
                 = (*data[0]).refineSingleCell(cells_per_dim, parent_idx);
             // Add level 1 to "data".
             data.push_back(level1_ptr);
             // Get some information about the parent cell.
             // Parent cell corners.
-            std::vector<int> parent_corners; 
+            std::vector<int> parent_corners;
             parent_corners.resize(parent_to_refined_corners.size());
             for (int c = 0; c < parent_to_refined_corners.size(); ++c){
                 parent_corners[c] = parent_to_refined_corners[c][0];
@@ -602,7 +602,7 @@ namespace Dune
             // Corners coming from the level 0, EXCLUDING parent_corners.
             // Check all the corners from level 0.
             for (int corner = 0; corner < data[0]->size(3); ++corner) {
-                 // Auxiliary bool to check if a corner from level 0 is a corner of the parent cell
+                // Auxiliary bool to check if a corner from level 0 is a corner of the parent cell
                 bool isThere_corn = false;
                 // Check if the corner does not belong to the patch. In that case, store it.
                 // If the face does not belong to the cell to be refined, store it.
@@ -758,7 +758,7 @@ namespace Dune
                 if (level_levelIdx[0] == 0) {
                     // CELL TO POINT
                     for (int corn = 0; corn < old_cell_to_point.size(); ++corn) {
-                          // Auxiliary bool to identify corners of the parent cell.
+                        // Auxiliary bool to identify corners of the parent cell.
                         bool isThere_corn = false;
                         for(auto& parent_cell_corn : parent_corners) {
                             isThere_corn = isThere_corn || (corn == parent_cell_corn); //true->corn coincides with one parent cell corns
@@ -811,6 +811,8 @@ namespace Dune
             }
             // LEAF FACE TO CELL
             leaf_cell_to_face.makeInverseRelation(leaf_face_to_cell);
+            //  Add level 2 (leafview) to "data".
+            data.push_back(leaf_view_ptr);
         }
 
 
@@ -864,19 +866,18 @@ namespace Dune
 
             // Get patch corners, faces, and cells indices
             const auto& [patch_corners, patch_faces, patch_cells] = (*data[0]).getPatchGeomIndices(start_ijk, end_ijk);
-             
+
             // LEAF CORNER MAP
             int corner_count = 0;
             std::map<std::array<int,2>, int> level_to_leaf_corners;
             // Corners coming from the level 0, EXCLUDING patch_corners.
             for (int corner = 0; corner < data[0]->size(3); ++corner) {
-                 // Auxiliary bool to discard patch corners.
+                // Auxiliary bool to discard patch corners.
                 bool isThere_corn = false;
-                 for(auto& patch_corn : patch_corners) {
+                for(auto& patch_corn : patch_corners) {
                     isThere_corn = isThere_corn || (corner == patch_corn); //true->corn coincides with one patch_corners
                 }
                 if(!isThere_corn) {
-                    //  if (std::find(patch_corners.begin(), patch_corners.end(), corner) == patch_corners.end()){
                     level_to_leaf_corners[{0, corner}] = corner_count;
                     corner_count +=1;
                 }
@@ -910,9 +911,9 @@ namespace Dune
             std::map<std::array<int,2>, int> level_to_leaf_faces;
             // Faces coming from the level 0, that do not belong to the patch (that got refined).
             for (int face = 0; face < data[0]->face_to_cell_.size(); ++face) {
-                 // Auxiliary bool to discard patch faces.
+                // Auxiliary bool to discard patch faces.
                 bool isThere_face = false;
-                 for(auto& patch_face : patch_faces) {
+                for(auto& patch_face : patch_faces) {
                     isThere_face = isThere_face || (face == patch_face); //true->face coincides with one patch faces
                 }
                 if(!isThere_face) {
@@ -968,9 +969,7 @@ namespace Dune
                             isThere_bound_corn = isThere_bound_corn || (corn == bound_corn); //true->coincides with one boundary corn
                         }
                         // If it does not belong to the boundary of the patch:
-                        if(!isThere_bound_corn) { 
-                            //if (std::find(boundary_patch_corners.begin(), boundary_patch_corners.end(), corn)
-                            //   == boundary_patch_corners.end()) {
+                        if(!isThere_bound_corn) {
                             aux_face_to_point[leaf_idx].push_back(level_to_leaf_corners[{0, old_face_to_point[corn]}]);
                         }
                         // If the corner was involved in the refinement (one of the corners of a cell on the boundary of the patch):
@@ -1016,7 +1015,6 @@ namespace Dune
                 }
                 // If it does not belong to the patch:
                 if(!isThere_cell) {
-                    //  if (std::find(patch_cells.begin(), patch_cells.end(), cell) ==  patch_cells.end()) {
                     level_to_leaf_cells[{0, cell}] = cell_count;
                     cell_count +=1;
                 }
@@ -1051,7 +1049,6 @@ namespace Dune
                         }
                         // If it DOES belong to the patch:
                         if(isThere_corn) {
-                            // if (std::find(patch_corners.begin(), patch_corners.end(), corn)!=  patch_corners.end()) {
                             leaf_cell_to_point[leaf_idx][corn] =
                                 level_to_leaf_corners[old_to_new_corners[{0, old_cell_to_point[corn]}]];
                         }
@@ -1071,8 +1068,6 @@ namespace Dune
                         }
                         // If it DOES belong to the boundary:
                         if(isThere_face) {
-                            //if (std::find(boundary_patch_faces.begin(), boundary_patch_faces.end(), face.index()) !=
-                            //   boundary_patch_faces.end()) {
                             for (auto& level_newFace : old_to_new_faces[{0, face.index()}]) {
                                 aux_cell_to_face[leaf_idx].push_back({level_to_leaf_faces[level_newFace], // (new) refined face
                                         face.orientation()}); // orientation
@@ -1105,6 +1100,8 @@ namespace Dune
             }
             // LEAF FACE TO CELL
             leaf_cell_to_face.makeInverseRelation(leaf_face_to_cell);
+            //  Add level 2 (leafview) to "data".
+            data.push_back(leaf_view_ptr);
         }
 
         
