@@ -143,7 +143,7 @@ BOOST_AUTO_TEST_CASE(global_refine)
     std::array<int, 3> grid_dim = {4,3,3};
     std::array<int, 3> cells_per_dim_patch = {2,2,2};
     std::array<int, 3> start_ijk = {0,0,0};
-    std::array<int, 3> end_ijk = {3,2,2};  // then patch_dim = {3-1, 2-0, 3-1} ={2,2,2}
+    std::array<int, 3> end_ijk = {4,3,3};  // then patch_dim = {3-1, 2-0, 3-1} ={2,2,2}
     coarse_grid.createCartesian(grid_dim, cell_sizes);
     coarse_grid.getLeafView2LevelsPatch(cells_per_dim_patch, start_ijk, end_ijk);
 
