@@ -115,6 +115,12 @@ BOOST_AUTO_TEST_CASE(refine_patch)
                           end_ijk);
 }
 
+#define CHECK_COORDINATES(c1, c2)                                       \
+    for (int c = 0; c < 3; c++) {                                        \
+        BOOST_TEST(c1[c] == c2[c], boost::test_tools::tolerance(1e-12)); \
+    }
+
+
 void check_global_refine(const Dune::CpGrid& refined_grid, const Dune::CpGrid& equiv_fine_grid)
 {
 
@@ -131,6 +137,33 @@ void check_global_refine(const Dune::CpGrid& refined_grid, const Dune::CpGrid& e
     BOOST_CHECK_EQUAL(refined_leaf.face_to_point_.size(), equiv_leaf.face_to_point_.size());
     BOOST_CHECK_EQUAL(refined_leaf.cell_to_point_.size(), equiv_leaf.cell_to_point_.size());
     BOOST_CHECK_EQUAL(refined_leaf.face_normals_.size(), equiv_leaf.face_normals_.size());
+
+    // Check that the points (ordering/coordinates) matches
+    auto i = 0u;
+    auto equiv_point_iter = equiv_leaf.geomVector<3>().begin();
+    for(const auto& point: refined_leaf.geomVector<3>())
+    {
+        //CHECK_COORDINATES(point.center(), equiv_point_iter->center());
+        std::cout <<"point "<<i++<<": ";
+        for(const auto& coord: point.center())
+            std::cout << coord<< " ";
+        std::cout <<std::endl;
+        for(const auto& coord: point.center())
+            BOOST_TEST(std::isfinite(coord));
+        ++equiv_point_iter;
+    }i = 0u;
+    auto equiv_cell_iter = equiv_leaf.geomVector<3>().begin();
+    for(const auto& cell: refined_leaf.geomVector<3>())
+    {
+        //CHECK_COORDINATES(cell.center(), equiv_cell_iter->center());
+        std::cout <<"cell "<<i++<<": ";
+        for(const auto& coord: cell.center())
+            std::cout << coord<< " ";
+        std::cout <<std::endl;
+        for(const auto& coord: cell.center())
+            BOOST_TEST(std::isfinite(coord));
+        ++equiv_cell_iter;
+    }
 }
 
 
@@ -151,6 +184,29 @@ BOOST_AUTO_TEST_CASE(global_refine)
     Dune::CpGrid fine_grid;
     std::array<double, 3> fine_cell_sizes = {0.5, 0.5, 0.5};
     std::array<int, 3> fine_grid_dim = {8,6,6};
+    fine_grid.createCartesian(fine_grid_dim, fine_cell_sizes);
+
+    check_global_refine(coarse_grid, fine_grid);
+}
+
+
+BOOST_AUTO_TEST_CASE(global_norefine)
+{
+    // Create a 4x3x3 grid with length 4x3x3
+    // and refine each cells into 4 children cells
+    Dune::CpGrid coarse_grid;
+    std::array<double, 3> cell_sizes = {1.0, 1.0, 1.0};
+    std::array<int, 3> grid_dim = {4,3,3};
+    std::array<int, 3> cells_per_dim_patch = {1,1,1};
+    std::array<int, 3> start_ijk = {0,0,0};
+    std::array<int, 3> end_ijk = {4,3,3};  
+    coarse_grid.createCartesian(grid_dim, cell_sizes);
+    coarse_grid.getLeafView2LevelsPatch(cells_per_dim_patch, start_ijk, end_ijk);
+
+    // Create a 8x6x6 grid with length 4x3x3
+    Dune::CpGrid fine_grid;
+    std::array<double, 3> fine_cell_sizes = {1.0, 1.0, 1.0};
+    std::array<int, 3> fine_grid_dim = {4,3,3};
     fine_grid.createCartesian(fine_grid_dim, fine_cell_sizes);
 
     check_global_refine(coarse_grid, fine_grid);
