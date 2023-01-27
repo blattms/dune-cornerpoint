@@ -115,3 +115,43 @@ BOOST_AUTO_TEST_CASE(refine_patch)
                           end_ijk);
 }
 
+void check_global_refine(const Dune::CpGrid& refined_grid, const Dune::CpGrid& equiv_fine_grid)
+{
+
+    const auto& refined_data = refined_grid.data_;
+    const auto& equiv_data = equiv_fine_grid.data_;
+
+    BOOST_CHECK(refined_data.size()==3);
+
+    const auto& refined_leaf = *refined_data[2];
+    const auto& equiv_leaf = *equiv_data[0];
+
+    // Check the container sizes
+    BOOST_CHECK_EQUAL(refined_leaf.face_to_cell_.size(), equiv_leaf.face_to_cell_.size());
+    BOOST_CHECK_EQUAL(refined_leaf.face_to_point_.size(), equiv_leaf.face_to_point_.size());
+    BOOST_CHECK_EQUAL(refined_leaf.cell_to_point_.size(), equiv_leaf.cell_to_point_.size());
+    BOOST_CHECK_EQUAL(refined_leaf.face_normals_.size(), equiv_leaf.face_normals_.size());
+}
+
+
+BOOST_AUTO_TEST_CASE(global_refine)
+{
+    // Create a 4x3x3 grid with length 4x3x3
+    // and refine each cells into 4 children cells
+    Dune::CpGrid coarse_grid;
+    std::array<double, 3> cell_sizes = {1.0, 1.0, 1.0};
+    std::array<int, 3> grid_dim = {4,3,3};
+    std::array<int, 3> cells_per_dim_patch = {2,2,2};
+    std::array<int, 3> start_ijk = {0,0,0};
+    std::array<int, 3> end_ijk = {4,3,3};  
+    coarse_grid.createCartesian(grid_dim, cell_sizes);
+    coarse_grid.getLeafView2LevelsPatch(cells_per_dim_patch, start_ijk, end_ijk);
+
+    // Create a 8x6x6 grid with length 4x3x3
+    Dune::CpGrid fine_grid;
+    std::array<double, 3> fine_cell_sizes = {0.5, 0.5, 0.5};
+    std::array<int, 3> fine_grid_dim = {8,6,6};
+    fine_grid.createCartesian(fine_grid_dim, fine_cell_sizes);
+
+    check_global_refine(coarse_grid, fine_grid);
+}

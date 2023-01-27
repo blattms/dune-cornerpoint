@@ -224,6 +224,9 @@ namespace Dune
         void ::refinePatch_and_check(const std::array<int,3>&,
                                      const std::array<int,3>&,
                                      const std::array<int,3>&);
+        friend
+        void ::check_global_refine(const Dune::CpGrid&,
+                                   const Dune::CpGrid&);
     public:
 
         // --- Typedefs ---
@@ -689,7 +692,7 @@ namespace Dune
                 // Add the amount of points to the count num_points.
                 num_points += old_face_to_point.size();
                 if (level_levelIdx[0] == 0) {
-                    for (int corn = 0; corn < 4; ++corn) { // we can put 4 here
+                    for (int corn = 0; corn < 4; ++corn) { 
                         // Check if the corner is one of the parent cell corners that got replaced by a refined one.
                         // In that case, we use the refined corner, via the map connecting old parent corners and
                         // new refined ones.

@@ -125,6 +125,9 @@ void refinePatch_and_check(Dune::CpGrid&,
                            const std::array<int,3>&,
                            const std::array<int,3>&);
 
+void check_global_refine(const Dune::CpGrid&,
+                         const Dune::CpGrid&);
+
 namespace Dune
 {
 namespace cpgrid
@@ -158,6 +161,10 @@ class CpGridData
                                  const std::array<int,3>&,
                                  const std::array<int,3>&,
                                  const std::array<int,3>&);
+    
+    friend
+    void ::check_global_refine(const Dune::CpGrid&,
+                               const Dune::CpGrid&);
 
 private:
     CpGridData(const CpGridData& g);
@@ -278,8 +285,7 @@ public:
         ijk[2] = gc / logical_cartesian_size_[1];
     }
 
-    // Given a start {i,j,k} and an end {i,j,k}, compute the dimension of the patch, i.e.
-    // aomunt of cells in each direction. 
+    // Given a start {i,j,k} and an end {i,j,k}, compute the dimension of the patch, i.e amount of cells in each direction. 
     const std::array<int,3> getPatchDim(const std::array<int,3>& start_ijk, const std::array<int,3>& end_ijk) const
     {
         return {end_ijk[0]-start_ijk[0], end_ijk[1]-start_ijk[1], end_ijk[2]-start_ijk[2]};
@@ -315,7 +321,7 @@ public:
         for (int j = start_ijk[1]; j < end_ijk[1]; ++j) {
             for (int i = start_ijk[0]; i < end_ijk[0]+1; ++i) {
                 for (int k = start_ijk[2]; k < end_ijk[2]; ++k) {
-                    int face_idx = (j*grid_dim[1]*grid_dim[2]) + (i*grid_dim[2])+ k;
+                    int face_idx = (j*(grid_dim[0]+1)*grid_dim[2]) + (i*grid_dim[2])+ k; //[1]?
                     patch_faces.push_back(face_idx);          
                 } // end k-for-loop
             } // end i-for-loop     
@@ -345,7 +351,7 @@ public:
         for (int k = start_ijk[2]; k < end_ijk[2]; ++k) {
             for (int j = start_ijk[1]; j < end_ijk[1]; ++j) {
                 for (int i = start_ijk[0]; i < end_ijk[0]; ++i) {
-                    patch_cells.push_back((k*grid_dim[0]*grid_dim[1]) + (j*grid_dim[1]) +i);
+                    patch_cells.push_back((k*grid_dim[0]*grid_dim[1]) + (j*grid_dim[0]) +i); //[1]?
                 } // end i-for-loop
             } // end j-for-loop
         } // end k-for-loop
