@@ -224,6 +224,10 @@ namespace Dune
         void ::refinePatch_and_check(const std::array<int,3>&,
                                      const std::array<int,3>&,
                                      const std::array<int,3>&);
+
+        friend
+        void ::check_global_refine(const Dune::CpGrid&,
+                                   const Dune::CpGrid&);
     public:
 
         // --- Typedefs ---
