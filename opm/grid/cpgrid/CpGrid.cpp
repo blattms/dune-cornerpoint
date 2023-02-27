@@ -571,9 +571,7 @@ int CpGrid::maxLevel() const
         }
 
 
-/*
-
-  template<int codim>
+template<int codim>
   typename CpGridFamily::Traits::template Codim<codim>::LevelIterator CpGrid::lbegin (int level) const
         {
             if (level<0 || level>maxLevel())
@@ -586,7 +584,7 @@ int CpGrid::maxLevel() const
              }
         }
 
- template<int codim>
+/*template<int codim>
  typename CpGridFamily::Traits::template Codim<codim>::LevelIterator CpGrid::lend (int level) const
         {
             if (level<0 || level>maxLevel())
@@ -638,9 +636,8 @@ typename CpGridFamily::Traits::template Codim<codim>::LeafIterator CpGrid::leafe
             return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, size(codim), true); 
         }
 
-// template<int codim, PartitionIteratorType PiType>
-//typename CpGridFamily::Traits::template Codim<codim>::template Partition<PiType>::LeafIterator CpGrid::leafbegin() const
-template CpGridTraits::Codim<0>::Partition<(PartitionIteratorType)4>::LeafIterator CpGrid::leafend<0, (PartitionIteratorType)4>() const
+template<int codim, PartitionIteratorType PiType>
+typename CpGridFamily::Traits::template Codim<codim>::template Partition<PiType>::LeafIterator CpGrid::leafbegin() const
 {
             return cpgrid::Iterator<codim, PiType>(*current_view_data_, 0, true); 
         }
@@ -649,8 +646,8 @@ template CpGridTraits::Codim<0>::Partition<(PartitionIteratorType)4>::LeafIterat
  typename CpGridFamily::Traits::template Codim<codim>::template Partition<PiType>::LeafIterator CpGrid::leafend() const
         {
             return cpgrid::Iterator<codim, PiType>(*current_view_data_, size(codim), true); 
-        }
-*/
+            }*/
+
 
 int CpGrid::size (int level, int codim) const
         {
@@ -1057,7 +1054,6 @@ void CpGrid::switchToDistributedView()
             current_view_data_=distributed_data_[0].get();
         }
 
-//#if HAVE_MPI
 const cpgrid::CpGridData::CommunicationType& CpGrid::cellCommunication() const
         {
             return current_view_data_->cellCommunication();
@@ -1082,7 +1078,11 @@ const cpgrid::CpGridData::RemoteIndices& CpGrid::getCellRemoteIndices() const
         {
             return current_view_data_->cellRemoteIndices();
         }
-//#endif
+
+/*const std::vector<int>& CpGrid::sortedNumAquiferCells() const
+       {
+           return current_view_data_->sortedNumAquiferCells();
+           }*/
 
 
 //
@@ -1479,3 +1479,57 @@ void CpGrid::createGridWithLgr(const std::array<int,3>& cells_per_dim, const std
 
 
 } // namespace Dune
+
+/*#define OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(method, Method, partition) \
+    template CpGridFamily::CpGridTraits::template Codim<0>::Partition< partition >:: Method CpGrid:: method<0, partition >() const; \
+    template CpGridFamily::CpGridTraits::template Codim<1>::Partition< partition >:: Method CpGrid:: method<1, partition >() const; \
+    template CpGridFamily::CpGridTraits::template Codim<3>::Partition< partition >:: Method CpGrid:: method<3, partition >() const;*/
+    #define OPM_INSTANTIATE_PARTITION_ITERATE(method, Method)                      \
+template CpGridFamily::CpGridTraits::template Codim<0>:: Method CpGrid:: method<0>() const; \
+template CpGridFamily::CpGridTraits::template Codim<1>:: Method CpGrid:: method<1>() const; \
+template CpGridFamily::CpGridTraits::template Codim<3>:: Method CpGrid:: method<3>() const; \
+OPM_INSTANTIATE_PARTITION_ITERATE(lbegin, LevelIterator);
+/* /
+   OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(method, Method, Dune::Interior_Partition); \
+    OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(method, Method, Dune::InteriorBorder_Partition); \
+    OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(method, Method, Dune::Overlap_Partition); \
+    OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(method, Method, Dune::OverlapFront_Partition); \
+    OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(method, Method, Dune::All_Partition); \
+    OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(method, Method, Dune::Ghost_Partition);
+
+
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(lbegin, LevelIterator, Dune::Interior_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(lend, LevelIterator, Dune::Interior_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(leafbegin, LeafIterator, Dune::Interior_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(leafend, LeafIterator, Dune::Interior_Partition);
+
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(lbegin, LevelIterator, Dune::InteriorBorder_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(lend, LevelIterator, Dune::InteriorBorder_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(leafbegin, LeafIterator, Dune::InteriorBorder_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(leafend, LeafIterator, Dune::InteriorBorder_Partition);
+
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(lbegin, LevelIterator, Dune::Overlap_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(lend, LevelIterator, Dune::Overlap_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(leafbegin, LeafIterator, Dune::Overlap_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(leafend, LeafIterator, Dune::Overlap_Partition);
+
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(lbegin, LevelIterator, Dune::OverlapFront_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(lend, LevelIterator, Dune::OverlapFront_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(leafbegin, LeafIterator, Dune::OverlapFront_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(leafend, LeafIterator, Dune::OverlapFront_Partition);
+
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(lbegin, LevelIterator, Dune::All_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(lend, LevelIterator, Dune::All_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(leafbegin, LeafIterator, Dune::All_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(leafend, LeafIterator, Dune::All_Partition);
+
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(lbegin, LevelIterator, Dune::Ghost_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(lend, LevelIterator, Dune::Ghost_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(leafbegin, LeafIterator, Dune::Ghost_Partition);
+OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(leafend, LeafIterator, Dune::Ghost_Partition);*/
+
+//OPM_INSTANTIATE_PARTITION_ITERATE(lbegin, LevelIterator);
+/*OPM_INSTANTIATE_PARTITION_ITERATE(lend, LevelIterator);
+OPM_INSTANTIATE_PARTITION_ITERATE(leafbegin, LeafIterator);
+OPM_INSTANTIATE_PARTITION_ITERATE(leafend, LeafIterator);*/
+

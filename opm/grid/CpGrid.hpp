@@ -387,8 +387,8 @@ namespace Dune
 
         /// Iterator to first entity of given codim on level
         template<int codim>
-        typename Traits::template Codim<codim>::LevelIterator lbegin (int level) const
-        {
+        typename Traits::template Codim<codim>::LevelIterator lbegin (int level) const;
+        /*{
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             if (!distributed_data_.empty()){
@@ -397,7 +397,7 @@ namespace Dune
              else{
                  return cpgrid::Iterator<codim, All_Partition>(*data_[level], 0, true);
              }
-        }
+             }*/
 
 
         /// one past the end on this level
@@ -412,13 +412,13 @@ namespace Dune
              else{
                  return cpgrid::Iterator<codim,All_Partition>(*data_[level], size(level, codim), true );
              }
-        }
+             }
 
 
         /// Iterator to first entity of given codim on level
         template<int codim, PartitionIteratorType PiType>
         typename Traits::template Codim<codim>::template Partition<PiType>::LevelIterator lbegin (int level) const
-        {
+         {
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             if (!distributed_data_.empty()){
@@ -427,12 +427,12 @@ namespace Dune
             else{
                 return cpgrid::Iterator<codim,PiType>(*data_[level], 0, true);
             }
-        }
+            }
 
 
         /// one past the end on this level
         template<int codim, PartitionIteratorType PiType>
-        typename Traits::template Codim<codim>::template Partition<PiType>::LevelIterator lend (int level) const
+            typename Traits::template Codim<codim>::template Partition<PiType>::LevelIterator lend (int level) const
         {
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
@@ -442,15 +442,15 @@ namespace Dune
             else{
                 return cpgrid::Iterator<codim,PiType>(*data_[level], size(level, codim), true);
             }
-        }
+            }
 
 
         /// Iterator to first leaf entity of given codim
         template<int codim>
-        typename Traits::template Codim<codim>::LeafIterator leafbegin() const
-        {
+            typename Traits::template Codim<codim>::LeafIterator leafbegin() const
+         {
             return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, 0, true);
-        }
+            }
 
 
         /// one past the end of the sequence of leaf entities
@@ -458,7 +458,7 @@ namespace Dune
         typename Traits::template Codim<codim>::LeafIterator leafend() const
         {
             return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, size(codim), true);
-        }
+            }
 
 
         /// Iterator to first leaf entity of given codim
@@ -466,15 +466,15 @@ namespace Dune
         typename Traits::template Codim<codim>::template Partition<PiType>::LeafIterator leafbegin() const
         {
             return cpgrid::Iterator<codim, PiType>(*current_view_data_, 0, true);
-        }
+            }
 
 
         /// one past the end of the sequence of leaf entities
         template<int codim, PartitionIteratorType PiType>
-        typename Traits::template Codim<codim>::template Partition<PiType>::LeafIterator leafend() const
+            typename Traits::template Codim<codim>::template Partition<PiType>::LeafIterator leafend() const
         {
             return cpgrid::Iterator<codim, PiType>(*current_view_data_, size(codim), true);
-        }
+            }
 
 
         /// \brief Number of grid entities per level and codim
@@ -1260,37 +1260,20 @@ void switchToDistributedView();
         ///
         /// Suitable e.g. for parallel linear algebra used by CCFV
 const CommunicationType& cellCommunication() const;
-        /* {
-            return current_view_data_->cellCommunication();
-        }*/
 
 ParallelIndexSet& getCellIndexSet();
-        /*{
-            return current_view_data_->cellIndexSet();
-            }*/
 
 RemoteIndices& getCellRemoteIndices();
-        /*{
-            return current_view_data_->cellRemoteIndices();
-        }*/
 
 const ParallelIndexSet& getCellIndexSet() const;
-        /*{
-            return current_view_data_->cellIndexSet();
-        }*/
 
 const RemoteIndices& getCellRemoteIndices() const;
-        /*  {
-            return current_view_data_->cellRemoteIndices();
-            }*/
-
 #endif
 
         /// \brief Get sorted active cell indices of numerical aquifer
-       const std::vector<int>& sortedNumAquiferCells() const
-       {
+const std::vector<int>& sortedNumAquiferCells() const{
            return current_view_data_->sortedNumAquiferCells();
-       }
+}
 
     private:
         /// \brief Scatter a global grid to all processors.
