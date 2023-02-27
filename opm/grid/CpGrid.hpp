@@ -340,9 +340,6 @@ namespace Dune
         /// This function is not part of the Dune grid interface,
         /// and should be used with caution.
         const std::array<int, 3>& logicalCartesianSize() const;
-        /*  {
-            return current_view_data_->logical_cartesian_size_;
-            }*/
 
         /// Retrieve mapping from internal ("compressed") active grid
         /// cells to external ("uncompressed") cells.  Specifically,
@@ -352,9 +349,6 @@ namespace Dune
         /// those dealing with permeability fields from the input deck
         /// from whence the current CpGrid was constructed.
         const std::vector<int>& globalCell() const;
-        /*  {
-            return current_view_data_->global_cell_;
-            }*/
 
         /// @brief
         ///    Extract Cartesian index triplet (i,j,k) of an active cell.
@@ -364,25 +358,17 @@ namespace Dune
         ///
         /// @param [out] ijk  Cartesian index triplet
         void getIJK(const int c, std::array<int,3>& ijk) const;
-        /*  {
-            current_view_data_->getIJK(c, ijk);
-            }*/
         //@}
 
         /// Is the grid currently using unique boundary ids?
         /// \return true if each boundary intersection has a unique id
         ///         false if we use the (default) 1-6 ids for i- i+ j- j+ k- k+ boundaries.
         bool uniqueBoundaryIds() const;
-        /*  {
-            return current_view_data_->uniqueBoundaryIds();
-            }*/
 
         /// Set whether we want to have unique boundary ids.
         /// \param uids if true, each boundary intersection will have a unique boundary id.
         void setUniqueBoundaryIds(bool uids);
-        /*{
-            current_view_data_->setUniqueBoundaryIds(uids);
-            }*/
+       
 
         // --- Dune interface below ---
 
@@ -393,22 +379,16 @@ namespace Dune
         /// It's the same as the class name.
         /// What did you expect, something funny?
         std::string name() const;
-        /* {
-            return "CpGrid";
-            }*/
 
 
         /// Return maximum level defined in this grid. Levels are 0 and 1,  maxlevel = 1 (not counting leafview), 0 = the coarsest level.
         int maxLevel() const;
-        /*{
-            return this -> data_.size() - 1; 
-            }*/
 
 
         /// Iterator to first entity of given codim on level
         template<int codim>
-        typename Traits::template Codim<codim>::LevelIterator lbegin (int level) const;
-        /*{
+        typename Traits::template Codim<codim>::LevelIterator lbegin (int level) const
+        {
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             if (!distributed_data_.empty()){
@@ -417,13 +397,13 @@ namespace Dune
              else{
                  return cpgrid::Iterator<codim, All_Partition>(*data_[level], 0, true);
              }
-             }*/
+        }
 
 
         /// one past the end on this level
         template<int codim>
-        typename Traits::template Codim<codim>::LevelIterator lend (int level) const;
-        /* {
+        typename Traits::template Codim<codim>::LevelIterator lend (int level) const
+        {
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             if (!distributed_data_.empty()){
@@ -432,13 +412,13 @@ namespace Dune
              else{
                  return cpgrid::Iterator<codim,All_Partition>(*data_[level], size(level, codim), true );
              }
-             }*/
+        }
 
 
         /// Iterator to first entity of given codim on level
         template<int codim, PartitionIteratorType PiType>
-        typename Traits::template Codim<codim>::template Partition<PiType>::LevelIterator lbegin (int level) const;
-        /*{
+        typename Traits::template Codim<codim>::template Partition<PiType>::LevelIterator lbegin (int level) const
+        {
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             if (!distributed_data_.empty()){
@@ -447,13 +427,13 @@ namespace Dune
             else{
                 return cpgrid::Iterator<codim,PiType>(*data_[level], 0, true);
             }
-            }*/
+        }
 
 
         /// one past the end on this level
         template<int codim, PartitionIteratorType PiType>
-        typename Traits::template Codim<codim>::template Partition<PiType>::LevelIterator lend (int level) const;
-        /*   {
+        typename Traits::template Codim<codim>::template Partition<PiType>::LevelIterator lend (int level) const
+        {
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             if (!distributed_data_.empty()){
@@ -462,114 +442,69 @@ namespace Dune
             else{
                 return cpgrid::Iterator<codim,PiType>(*data_[level], size(level, codim), true);
             }
-            
-            }*/
+        }
 
 
         /// Iterator to first leaf entity of given codim
         template<int codim>
-        typename Traits::template Codim<codim>::LeafIterator leafbegin() const;
-        /* {
-            return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, 0, true); 
-            }*/
+        typename Traits::template Codim<codim>::LeafIterator leafbegin() const
+        {
+            return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, 0, true);
+        }
 
 
         /// one past the end of the sequence of leaf entities
         template<int codim>
-        typename Traits::template Codim<codim>::LeafIterator leafend() const;
-        /*{
-            return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, size(codim), true); 
-            }*/
+        typename Traits::template Codim<codim>::LeafIterator leafend() const
+        {
+            return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, size(codim), true);
+        }
 
 
         /// Iterator to first leaf entity of given codim
         template<int codim, PartitionIteratorType PiType>
-        typename Traits::template Codim<codim>::template Partition<PiType>::LeafIterator leafbegin() const;
-        /*{
-            return cpgrid::Iterator<codim, PiType>(*current_view_data_, 0, true); 
-            }*/
+        typename Traits::template Codim<codim>::template Partition<PiType>::LeafIterator leafbegin() const
+        {
+            return cpgrid::Iterator<codim, PiType>(*current_view_data_, 0, true);
+        }
 
 
         /// one past the end of the sequence of leaf entities
         template<int codim, PartitionIteratorType PiType>
-        typename Traits::template Codim<codim>::template Partition<PiType>::LeafIterator leafend() const;
-        /*{
-            return cpgrid::Iterator<codim, PiType>(*current_view_data_, size(codim), true); 
-            }*/
+        typename Traits::template Codim<codim>::template Partition<PiType>::LeafIterator leafend() const
+        {
+            return cpgrid::Iterator<codim, PiType>(*current_view_data_, size(codim), true);
+        }
 
 
         /// \brief Number of grid entities per level and codim
         int size (int level, int codim) const;
-        /*{
-            if (level<0 || level>maxLevel())
-                DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
-            return data_[level]-> size(codim);
-            }*/
-
 
         /// number of leaf entities per codim in this process
         int size (int codim) const;
-        /* {
-            return current_view_data_->size(codim);
-            }*/
-
 
         /// number of entities per level and geometry type in this process
         int size (int level, GeometryType type) const;
-        /* {
-            if (level<0 || level>maxLevel())
-                DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
-            return data_[level] -> size(type);
-            }*/
-
 
         /// number of leaf entities per geometry type in this process
         int size (GeometryType type) const;
-        /* {
-            return current_view_data_->size(type);
-            }*/
-
 
         /// \brief Access to the GlobalIdSet
         const Traits::GlobalIdSet& globalIdSet() const;
-        /*{
-            return global_id_set_;
-            }*/
-
 
         /// \brief Access to the LocalIdSet
         const Traits::LocalIdSet& localIdSet() const;
-        /*   {
-            return global_id_set_;
-            }*/
-
-
+        
         /// \brief Access to the LevelIndexSets
         const Traits::LevelIndexSet& levelIndexSet(int level) const;
-        /*{
-            if (level<0 || level>maxLevel())
-                DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
-            return *current_view_data_->index_set_;
-            }*/
-
 
         /// \brief Access to the LeafIndexSet
         const Traits::LeafIndexSet& leafIndexSet() const;
-        /* {
-            return *current_view_data_->index_set_;
-            }*/
-
 
         /// global refinement
         void globalRefine (int);
-        /* {
-            std::cout << "Warning: Global refinement not implemented, yet." << std::endl;
-            }*/
 
-        const std::vector< Dune :: GeometryType >& geomTypes( const int codim ) const
-        {
-          return leafIndexSet().geomTypes( codim );
-        }
+        const std::vector< Dune :: GeometryType >& geomTypes( const int codim ) const;
 
         /// given an EntitySeed (or EntityPointer) return an entity object
         template <int codim>
@@ -638,53 +573,23 @@ namespace Dune
         end of refinement section */
 
         /// \brief Size of the overlap on the leaf level
-        unsigned int overlapSize(int) const {
-            return 1;
-        }
+        unsigned int overlapSize(int) const;
 
 
         /// \brief Size of the ghost cell layer on the leaf level
-        unsigned int ghostSize(int) const {
-            return 0;
-        }
-
-
+        unsigned int ghostSize(int) const;
+        
         /// \brief Size of the overlap on a given level
-        unsigned int overlapSize(int, int) const {
-            return 1;
-        }
-
+        unsigned int overlapSize(int, int) const;
 
         /// \brief Size of the ghost cell layer on a given level
-        unsigned int ghostSize(int, int) const {
-            return 0;
-        }
+        unsigned int ghostSize(int, int) const;
 
         /// \brief returns the number of boundary segments within the macro grid
-        unsigned int numBoundarySegments() const
-        {
-            if( uniqueBoundaryIds() )
-            {
-                return current_view_data_->unique_boundary_ids_.size();
-            }
-            else
-            {
-                unsigned int numBndSegs = 0;
-                const int num_faces = numFaces();
-                for (int i = 0; i < num_faces; ++i) {
-                    cpgrid::EntityRep<1> face(i, true);
-                    if (current_view_data_->face_to_cell_[face].size() == 1) {
-                        ++numBndSegs;
-                    }
-                }
-                return numBndSegs;
-            }
-        }
+        unsigned int numBoundarySegments() const;
 
-        void setZoltanParams(const std::map<std::string,std::string>& params)
-        {
-          zoltanParams = params;
-        }
+        void setZoltanParams(const std::map<std::string,std::string>& params); 
+      
 
         // loadbalance is not part of the grid interface therefore we skip it.
 
@@ -758,6 +663,7 @@ namespace Dune
                     const double* transmissibilities = nullptr, bool ownersFirst=false,
                     bool addCornerCells=false, int overlapLayers=1,
                     bool useZoltan = true)
+        
         {
             return scatterGrid(method, ownersFirst, wells, false, transmissibilities, addCornerCells, overlapLayers, useZoltan);
         }
@@ -991,10 +897,7 @@ namespace Dune
         }
 
         /// \brief Get the collective communication object.
-        const typename CpGridTraits::Communication& comm () const
-        {
-            return current_view_data_->ccobj_;
-        }
+const typename CpGridTraits::Communication& comm () const;
         //@}
 
         // ------------ End of Dune interface, start of simplified interface --------------
@@ -1010,52 +913,38 @@ namespace Dune
         typedef Dune::FieldVector<double, 3> Vector;
 
 
-        const std::vector<double>& zcornData() const {
-            return current_view_data_->zcornData();
-        }
+const std::vector<double>& zcornData() const;
 
 
         // Topology
         /// \brief Get the number of cells.
-        int numCells() const
-        {
-            return current_view_data_->cell_to_face_.size();
-        }
+int numCells() const;
+
         /// \brief Get the number of faces.
-        int numFaces() const
-        {
-            return current_view_data_->face_to_cell_.size();
-        }
+int numFaces() const;
+
         /// \brief Get The number of vertices.
-        int numVertices() const
-        {
-            return current_view_data_->geomVector<3>().size();
-        }
+int numVertices() const;
+
+
         /// \brief Get the number of faces of a cell.
         ///
         /// Due to faults, and collapsing vertices (along pillars) this
         /// number is quite arbitrary. Its lower bound is 4, but there is
         /// no upper bound.
         /// \parame cell the index identifying the cell.
-        int numCellFaces(int cell) const
-        {
-            return current_view_data_->cell_to_face_[cpgrid::EntityRep<0>(cell, true)].size();
-        }
+int numCellFaces(int cell) const;
+
         /// \brief Get a specific face of a cell.
         /// \param cell The index identifying the cell.
         /// \param local_index The local index (in [0,numFaces(cell))) of the face in this cell.
         /// \return The index identifying the face.
-        int cellFace(int cell, int local_index) const
-        {
-            return current_view_data_->cell_to_face_[cpgrid::EntityRep<0>(cell, true)][local_index].index();
-        }
+int cellFace(int cell, int local_index) const;
 
         /// \brief Get a list of indices identifying all faces of a cell.
         /// \param cell The index identifying the cell.
-        const cpgrid::OrientedEntityTable<0,1>::row_type cellFaceRow(int cell) const
-        {
-            return current_view_data_->cell_to_face_[cpgrid::EntityRep<0>(cell, true)];
-        }
+const cpgrid::OrientedEntityTable<0,1>::row_type cellFaceRow(int cell) const;
+
         /// \brief Get the index identifying a cell attached to a face.
         ///
         /// Note that a face here is always oriented. If there are two
@@ -1066,211 +955,60 @@ namespace Dune
         /// \return The index identifying a cell or -1 if there is no such
         /// cell due the face being part of the grid boundary or the
         /// cell being stored on another process.
-        int faceCell(int face, int local_index) const
-        {
-            // In the parallel case we store non-existent cells for faces along
-            // the front region. Theses marked with index std::numeric_limits<int>::max(),
-            // orientation might be arbitrary, though.
-            cpgrid::OrientedEntityTable<1,0>::row_type r
-                = current_view_data_->face_to_cell_[cpgrid::EntityRep<1>(face, true)];
-            bool a = (local_index == 0);
-            bool b = r[0].orientation();
-            bool use_first = a ? b : !b;
-            // The number of valid cells.
-            int r_size = r.size();
-            // In the case of only one valid cell, this is the index of it.
-            int index = 0;
-            if(r[0].index()==std::numeric_limits<int>::max()){
-                assert(r_size==2);
-                --r_size;
-                index=1;
-            }
-            if(r.size()>1 && r[1].index()==std::numeric_limits<int>::max())
-            {
-                assert(r_size==2);
-                --r_size;
-            }
-            if (r_size == 2) {
-                return use_first ? r[0].index() : r[1].index();
-            } else {
-                return use_first ? r[index].index() : -1;
-            }
-        }
+int faceCell(int face, int local_index) const;
+      
         /// \brief Get the sum of all faces attached to all cells.
         ///
         /// Each face identified by a unique index is counted as often
         /// as there are neigboring cells attached to it.
         /// \f$ numCellFaces()=\sum_{c} numCellFaces(c) \f$
         /// \see numCellFaces(int)const
-        int numCellFaces() const
-        {
-            return current_view_data_->cell_to_face_.dataSize();
-        }
-        int numFaceVertices(int face) const
-        {
-            return current_view_data_->face_to_point_[face].size();
-        }
+int numCellFaces() const;
+
+int numFaceVertices(int face) const;
+
         /// \brief Get the index identifying a vertex of a face.
         /// \param cell The index identifying the face.
         /// \param local_index The local_index (in [0,numFaceVertices(vertex) - 1]])
         ///  of the vertex.
-        int faceVertex(int face, int local_index) const
-        {
-            return current_view_data_->face_to_point_[face][local_index];
-        }
+int faceVertex(int face, int local_index) const;
+
         /// \brief Get vertical position of cell center ("zcorn" average).
         /// \brief cell_index The index of the specific cell.
-        double cellCenterDepth(int cell_index) const
-        {
-            // Here cell center depth is computed as a raw average of cell corner depths.
-            // This generally gives slightly different results than using the cell centroid.
-            double zz = 0.0;
-            const int nv = current_view_data_->cell_to_point_[cell_index].size();
-            const int nd = 3;
-            for (int i=0; i<nv; ++i) {
-                zz += vertexPosition(current_view_data_->cell_to_point_[cell_index][i])[nd-1];
-            }
-            return zz/nv;
-        }
-
-        const Vector faceCenterEcl(int cell_index, int face) const
-        {
-            // This method is an alternative to the method faceCentroid(...).
-            // The face center is computed as a raw average of cell corners.
-            // For faulted cells this gives different results then average of face nodes
-            // that seems to agree more with eclipse.
-            // This assumes the cell nodes are ordered
-            // 6---7
-            // | T |
-            // 4---5
-            //   2---3
-            //   | B |
-            //   0---1
-
-            // this follows the DUNE reference cube
-            static const int faceVxMap[ 6 ][ 4 ] = { {0, 2, 4, 6}, // face 0
-                                                     {1, 3, 5, 7}, // face 1
-                                                     {0, 1, 4, 5}, // face 2
-                                                     {2, 3, 6, 7}, // face 3
-                                                     {0, 1, 2, 3}, // face 4
-                                                     {4, 5, 6, 7}  // face 5
-                                                   };
+double cellCenterDepth(int cell_index) const;
 
 
-            assert (current_view_data_->cell_to_point_[cell_index].size() == 8);
-            Vector center(0.0);
-            for( int i=0; i<4; ++i )
-            {
-               center += vertexPosition(current_view_data_->cell_to_point_[cell_index][ faceVxMap[ face ][ i ] ]);
-            }
+const Vector faceCenterEcl(int cell_index, int face) const;
 
-            for (int i=0; i<3; ++i) {
-                center[i] /= 4;
-            }
-            return center;
+const Vector faceAreaNormalEcl(int face) const;
 
-        }
-
-        const Vector faceAreaNormalEcl(int face) const
-        {
-            // same implementation as ResInsight
-            const int nd = Vector::dimension;
-            const int nv =  numFaceVertices(face);
-            switch (nv)
-            {
-            case 0:
-            case 1:
-            case 2:
-                {
-                    return Vector(0.0);
-                }
-                break;
-            case 3:
-                {
-                Vector a = vertexPosition(current_view_data_->face_to_point_[face][0]) - vertexPosition(current_view_data_->face_to_point_[face][2]);
-                Vector b = vertexPosition(current_view_data_->face_to_point_[face][1]) - vertexPosition(current_view_data_->face_to_point_[face][2]);
-                Vector areaNormal = cross(a,b);
-                for (int i=0; i<nd; ++i) {
-                    areaNormal[i] /= 2;
-                }
-                return areaNormal;
-            }
-                                break;
-            case 4:
-                {
-                Vector a = vertexPosition(current_view_data_->face_to_point_[face][0]) - vertexPosition(current_view_data_->face_to_point_[face][2]);
-                Vector b = vertexPosition(current_view_data_->face_to_point_[face][1]) - vertexPosition(current_view_data_->face_to_point_[face][3]);
-                Vector areaNormal = cross(a,b);
-                areaNormal *= 0.5;
-                return areaNormal;
-                }
-                break;
-            default:
-                {
-                    int h = (nv - 1)/2;
-                    int k = (nv % 2) ? 0 : nv - 1;
-
-                    Vector areaNormal(0.0);
-                    // First quads
-                    for (int i = 1; i < h; ++i)
-                    {
-                        Vector a = vertexPosition(current_view_data_->face_to_point_[face][2*i]) - vertexPosition(current_view_data_->face_to_point_[face][0]);
-                        Vector b = vertexPosition(current_view_data_->face_to_point_[face][2*i+1]) - vertexPosition(current_view_data_->face_to_point_[face][2*i-1]);
-                        areaNormal += cross(a,b);
-                    }
-
-                    // Last triangle or quad
-                    Vector a = vertexPosition(current_view_data_->face_to_point_[face][2*h]) - vertexPosition(current_view_data_->face_to_point_[face][0]);
-                    Vector b = vertexPosition(current_view_data_->face_to_point_[face][k]) - vertexPosition(current_view_data_->face_to_point_[face][2*h-1]);
-                    areaNormal += cross(a,b);
-
-                    areaNormal *= 0.5;
-
-                    return areaNormal;
-                }
-
-            }
-        }
 
         // Geometry
         /// \brief Get the Position of a vertex.
         /// \param cell The index identifying the cell.
         /// \return The coordinates of the vertex.
-        const Vector& vertexPosition(int vertex) const
-        {
-            return current_view_data_->geomVector<3>()[cpgrid::EntityRep<3>(vertex, true)].center();
-        }
+const Vector& vertexPosition(int vertex) const;
+
         /// \brief Get the area of a face.
         /// \param cell The index identifying the face.
-        double faceArea(int face) const
-        {
-            return current_view_data_->geomVector<1>()[cpgrid::EntityRep<1>(face, true)].volume();
-        }
+double faceArea(int face) const;
+
         /// \brief Get the coordinates of the center of a face.
         /// \param cell The index identifying the face.
-        const Vector& faceCentroid(int face) const
-        {
-            return current_view_data_->geomVector<1>()[cpgrid::EntityRep<1>(face, true)].center();
-        }
+const Vector& faceCentroid(int face) const;
+
         /// \brief Get the unit normal of a face.
         /// \param cell The index identifying the face.
         /// \see faceCell
-        const Vector& faceNormal(int face) const
-        {
-            return current_view_data_->face_normals_.get(face);
-        }
+const Vector& faceNormal(int face) const;
+
         /// \brief Get the volume of the cell.
         /// \param cell The index identifying the cell.
-        double cellVolume(int cell) const
-        {
-            return current_view_data_->geomVector<0>()[cpgrid::EntityRep<0>(cell, true)].volume();
-        }
+double cellVolume(int cell) const;
+
         /// \brief Get the coordinates of the center of a cell.
         /// \param cell The index identifying the face.
-        const Vector& cellCentroid(int cell) const
-        {
-            return current_view_data_->geomVector<0>()[cpgrid::EntityRep<0>(cell, true)].center();
-        }
+const Vector& cellCentroid(int cell) const;
 
         /// \brief An iterator over the centroids of the geometry of the entities.
         /// \tparam codim The co-dimension of the entities.
@@ -1324,59 +1062,13 @@ namespace Dune
         };
 
         /// \brief Get an iterator over the cell centroids positioned at the first one.
-        CentroidIterator<0> beginCellCentroids() const
-        {
-            return CentroidIterator<0>(current_view_data_->geomVector<0>().begin());
-        }
+CentroidIterator<0> beginCellCentroids() const;
 
         /// \brief Get an iterator over the face centroids positioned at the first one.
-        CentroidIterator<1> beginFaceCentroids() const
-        {
-            return CentroidIterator<1>(current_view_data_->geomVector<1>().begin());
-        }
+            CentroidIterator<1> beginFaceCentroids() const;
 
         // Extra
-        int boundaryId(int face) const
-        {
-            // Note that this relies on the following implementation detail:
-            // The grid is always construct such that the faces where
-            // orientation() returns true are oriented along the positive IJK
-            // direction. Oriented means that the first cell attached to face
-            // has the lower index.
-            int ret = 0;
-            cpgrid::EntityRep<1> f(face, true);
-            if (current_view_data_->face_to_cell_[f].size() == 1) {
-                if (current_view_data_->uniqueBoundaryIds()) {
-                    // Use the unique boundary ids.
-                    ret = current_view_data_->unique_boundary_ids_[f];
-                } else {
-                    // Use the face tag based ids, i.e. 1-6 for i-, i+, j-, j+, k-, k+.
-                    const bool normal_is_in =
-                        !(current_view_data_->face_to_cell_[f][0].orientation());
-                    enum face_tag tag = current_view_data_->face_tag_[f];
-                    switch (tag) {
-                    case I_FACE:
-                        //                   LEFT : RIGHT
-                        ret = normal_is_in ? 1    : 2; // min(I) : max(I)
-                        break;
-                    case J_FACE:
-                        //                   BACK : FRONT
-                        ret = normal_is_in ? 3    : 4; // min(J) : max(J)
-                        break;
-                    case K_FACE:
-                        // Note: TOP at min(K) as 'z' measures *depth*.
-                        //                   TOP  : BOTTOM
-                        ret = normal_is_in ? 5    : 6; // min(K) : max(K)
-                        break;
-                    case NNC_FACE:
-                        // This should not be possible, as NNC "faces" always
-                        // have two cell neighbours.
-                        OPM_THROW(std::logic_error, "NNC face at boundary. This should never happen!");
-                    }
-                }
-            }
-            return ret;
-        }
+int boundaryId(int face) const;
 
         /// \brief Get the cartesian tag associated with a face tag.
         ///
@@ -1536,31 +1228,23 @@ namespace Dune
         ///                                       grid.cellScatterGatherInterface());
         /// comm.forward(handle);
         /// \endcode
-        const InterfaceMap& cellScatterGatherInterface() const
+const InterfaceMap& cellScatterGatherInterface() const
         {
             return *cell_scatter_gather_interfaces_;
         }
 
         /// \brief Get an interface for gathering/scattering data attached to points with communication.
         /// \see cellScatterGatherInterface
-        const InterfaceMap& pointScatterGatherInterface() const
+const InterfaceMap& pointScatterGatherInterface() const
         {
             return *point_scatter_gather_interfaces_;
         }
 
         /// \brief Switch to the global view.
-        void switchToGlobalView()
-        {
-            current_view_data_=data_[0].get();
-        }
+void switchToGlobalView();
 
         /// \brief Switch to the distributed view.
-        void switchToDistributedView()
-        {
-            if (distributed_data_.empty())
-                OPM_THROW(std::logic_error, "No distributed view available in grid");
-            current_view_data_=distributed_data_[0].get();
-        }
+void switchToDistributedView();
         //@}
 
 #if HAVE_MPI
@@ -1575,30 +1259,30 @@ namespace Dune
         /// \brief Get the owner-overlap-copy communication for cells
         ///
         /// Suitable e.g. for parallel linear algebra used by CCFV
-        const CommunicationType& cellCommunication() const
-        {
+const CommunicationType& cellCommunication() const;
+        /* {
             return current_view_data_->cellCommunication();
-        }
+        }*/
 
-        ParallelIndexSet& getCellIndexSet()
-        {
+ParallelIndexSet& getCellIndexSet();
+        /*{
             return current_view_data_->cellIndexSet();
-        }
+            }*/
 
-        RemoteIndices& getCellRemoteIndices()
-        {
+RemoteIndices& getCellRemoteIndices();
+        /*{
             return current_view_data_->cellRemoteIndices();
-        }
+        }*/
 
-        const ParallelIndexSet& getCellIndexSet() const
-        {
+const ParallelIndexSet& getCellIndexSet() const;
+        /*{
             return current_view_data_->cellIndexSet();
-        }
+        }*/
 
-        const RemoteIndices& getCellRemoteIndices() const
-        {
+const RemoteIndices& getCellRemoteIndices() const;
+        /*  {
             return current_view_data_->cellRemoteIndices();
-        }
+            }*/
 
 #endif
 
