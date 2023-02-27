@@ -45,7 +45,7 @@
 #include <opm/common/ErrorMacros.hpp>
 
 // Warning suppression for Dune includes.
-#include <opm/grid/utility/platform_dependent/disable_warnings.h>
+//#include <opm/grid/utility/platform_dependent/disable_warnings.h>
 
 #include <dune/common/version.hh>
 
@@ -339,10 +339,10 @@ namespace Dune
         /// The logical cartesian size of the global grid.
         /// This function is not part of the Dune grid interface,
         /// and should be used with caution.
-        const std::array<int, 3>& logicalCartesianSize() const
-        {
+        const std::array<int, 3>& logicalCartesianSize() const;
+        /*  {
             return current_view_data_->logical_cartesian_size_;
-        }
+            }*/
 
         /// Retrieve mapping from internal ("compressed") active grid
         /// cells to external ("uncompressed") cells.  Specifically,
@@ -351,10 +351,10 @@ namespace Dune
         /// only be used by classes which really need it, such as
         /// those dealing with permeability fields from the input deck
         /// from whence the current CpGrid was constructed.
-        const std::vector<int>& globalCell() const
-        {
+        const std::vector<int>& globalCell() const;
+        /*  {
             return current_view_data_->global_cell_;
-        }
+            }*/
 
         /// @brief
         ///    Extract Cartesian index triplet (i,j,k) of an active cell.
@@ -363,26 +363,26 @@ namespace Dune
         ///    Active cell index.
         ///
         /// @param [out] ijk  Cartesian index triplet
-        void getIJK(const int c, std::array<int,3>& ijk) const
-        {
+        void getIJK(const int c, std::array<int,3>& ijk) const;
+        /*  {
             current_view_data_->getIJK(c, ijk);
-        }
+            }*/
         //@}
 
         /// Is the grid currently using unique boundary ids?
         /// \return true if each boundary intersection has a unique id
         ///         false if we use the (default) 1-6 ids for i- i+ j- j+ k- k+ boundaries.
-        bool uniqueBoundaryIds() const
-        {
+        bool uniqueBoundaryIds() const;
+        /*  {
             return current_view_data_->uniqueBoundaryIds();
-        }
+            }*/
 
         /// Set whether we want to have unique boundary ids.
         /// \param uids if true, each boundary intersection will have a unique boundary id.
-        void setUniqueBoundaryIds(bool uids)
-        {
+        void setUniqueBoundaryIds(bool uids);
+        /*{
             current_view_data_->setUniqueBoundaryIds(uids);
-        }
+            }*/
 
         // --- Dune interface below ---
 
@@ -392,23 +392,23 @@ namespace Dune
         ///
         /// It's the same as the class name.
         /// What did you expect, something funny?
-        std::string name() const
-        {
+        std::string name() const;
+        /* {
             return "CpGrid";
-        }
+            }*/
 
 
-        /// Return maximum level defined in this grid. Levels are 0 and 1,  maxlevel = 2 = leafview, with 0 the coarsest level.
-        int maxLevel() const
-        {
+        /// Return maximum level defined in this grid. Levels are 0 and 1,  maxlevel = 1 (not counting leafview), 0 = the coarsest level.
+        int maxLevel() const;
+        /*{
             return this -> data_.size() - 1; 
-        }
+            }*/
 
 
         /// Iterator to first entity of given codim on level
         template<int codim>
-        typename Traits::template Codim<codim>::LevelIterator lbegin (int level) const
-        {
+        typename Traits::template Codim<codim>::LevelIterator lbegin (int level) const;
+        /*{
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             if (!distributed_data_.empty()){
@@ -417,13 +417,13 @@ namespace Dune
              else{
                  return cpgrid::Iterator<codim, All_Partition>(*data_[level], 0, true);
              }
-        }
+             }*/
 
 
         /// one past the end on this level
         template<int codim>
-        typename Traits::template Codim<codim>::LevelIterator lend (int level) const
-        {
+        typename Traits::template Codim<codim>::LevelIterator lend (int level) const;
+        /* {
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             if (!distributed_data_.empty()){
@@ -432,13 +432,13 @@ namespace Dune
              else{
                  return cpgrid::Iterator<codim,All_Partition>(*data_[level], size(level, codim), true );
              }
-        }
+             }*/
 
 
         /// Iterator to first entity of given codim on level
         template<int codim, PartitionIteratorType PiType>
-        typename Traits::template Codim<codim>::template Partition<PiType>::LevelIterator lbegin (int level) const
-        {
+        typename Traits::template Codim<codim>::template Partition<PiType>::LevelIterator lbegin (int level) const;
+        /*{
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             if (!distributed_data_.empty()){
@@ -447,13 +447,13 @@ namespace Dune
             else{
                 return cpgrid::Iterator<codim,PiType>(*data_[level], 0, true);
             }
-        }
+            }*/
 
 
         /// one past the end on this level
         template<int codim, PartitionIteratorType PiType>
-        typename Traits::template Codim<codim>::template Partition<PiType>::LevelIterator lend (int level) const
-        {
+        typename Traits::template Codim<codim>::template Partition<PiType>::LevelIterator lend (int level) const;
+        /*   {
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             if (!distributed_data_.empty()){
@@ -463,108 +463,108 @@ namespace Dune
                 return cpgrid::Iterator<codim,PiType>(*data_[level], size(level, codim), true);
             }
             
-        }
+            }*/
 
 
         /// Iterator to first leaf entity of given codim
         template<int codim>
-        typename Traits::template Codim<codim>::LeafIterator leafbegin() const
-        {
+        typename Traits::template Codim<codim>::LeafIterator leafbegin() const;
+        /* {
             return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, 0, true); 
-        }
+            }*/
 
 
         /// one past the end of the sequence of leaf entities
         template<int codim>
-        typename Traits::template Codim<codim>::LeafIterator leafend() const
-        {
+        typename Traits::template Codim<codim>::LeafIterator leafend() const;
+        /*{
             return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, size(codim), true); 
-        }
+            }*/
 
 
         /// Iterator to first leaf entity of given codim
         template<int codim, PartitionIteratorType PiType>
-        typename Traits::template Codim<codim>::template Partition<PiType>::LeafIterator leafbegin() const
-        {
+        typename Traits::template Codim<codim>::template Partition<PiType>::LeafIterator leafbegin() const;
+        /*{
             return cpgrid::Iterator<codim, PiType>(*current_view_data_, 0, true); 
-        }
+            }*/
 
 
         /// one past the end of the sequence of leaf entities
         template<int codim, PartitionIteratorType PiType>
-        typename Traits::template Codim<codim>::template Partition<PiType>::LeafIterator leafend() const
-        {
+        typename Traits::template Codim<codim>::template Partition<PiType>::LeafIterator leafend() const;
+        /*{
             return cpgrid::Iterator<codim, PiType>(*current_view_data_, size(codim), true); 
-        }
+            }*/
 
 
         /// \brief Number of grid entities per level and codim
-        int size (int level, int codim) const
-        {
+        int size (int level, int codim) const;
+        /*{
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             return data_[level]-> size(codim);
-        }
+            }*/
 
 
         /// number of leaf entities per codim in this process
-        int size (int codim) const
-        {
+        int size (int codim) const;
+        /* {
             return current_view_data_->size(codim);
-        }
+            }*/
 
 
         /// number of entities per level and geometry type in this process
-        int size (int level, GeometryType type) const
-        {
+        int size (int level, GeometryType type) const;
+        /* {
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             return data_[level] -> size(type);
-        }
+            }*/
 
 
         /// number of leaf entities per geometry type in this process
-        int size (GeometryType type) const
-        {
+        int size (GeometryType type) const;
+        /* {
             return current_view_data_->size(type);
-        }
+            }*/
 
 
         /// \brief Access to the GlobalIdSet
-        const Traits::GlobalIdSet& globalIdSet() const
-        {
+        const Traits::GlobalIdSet& globalIdSet() const;
+        /*{
             return global_id_set_;
-        }
+            }*/
 
 
         /// \brief Access to the LocalIdSet
-        const Traits::LocalIdSet& localIdSet() const
-        {
+        const Traits::LocalIdSet& localIdSet() const;
+        /*   {
             return global_id_set_;
-        }
+            }*/
 
 
         /// \brief Access to the LevelIndexSets
-        const Traits::LevelIndexSet& levelIndexSet(int level) const
-        {
+        const Traits::LevelIndexSet& levelIndexSet(int level) const;
+        /*{
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             return *current_view_data_->index_set_;
-        }
+            }*/
 
 
         /// \brief Access to the LeafIndexSet
-        const Traits::LeafIndexSet& leafIndexSet() const
-        {
+        const Traits::LeafIndexSet& leafIndexSet() const;
+        /* {
             return *current_view_data_->index_set_;
-        }
+            }*/
 
 
         /// global refinement
-        void globalRefine (int)
-        {
+        void globalRefine (int);
+        /* {
             std::cout << "Warning: Global refinement not implemented, yet." << std::endl;
-        }
+            }*/
 
         const std::vector< Dune :: GeometryType >& geomTypes( const int codim ) const
         {

@@ -533,6 +533,175 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
                                              0);
     }
 
+const std::array<int, 3>& CpGrid::logicalCartesianSize() const
+        {
+            return current_view_data_->logical_cartesian_size_;
+        }
+
+const std::vector<int>& CpGrid::globalCell() const
+        {
+            return current_view_data_->global_cell_;
+        }
+
+void CpGrid::getIJK(const int c, std::array<int,3>& ijk) const
+        {
+            current_view_data_->getIJK(c, ijk);
+        }
+
+bool CpGrid::uniqueBoundaryIds() const
+        {
+            return current_view_data_->uniqueBoundaryIds();
+        }
+
+void CpGrid::setUniqueBoundaryIds(bool uids)
+        {
+            current_view_data_->setUniqueBoundaryIds(uids);
+        }
+
+std::string CpGrid::name() const
+        {
+            return "CpGrid";
+        }
+int CpGrid::maxLevel() const
+        {
+            if (!distributed_data_.empty()){
+                OPM_THROW(std::logic_error, "Distributed data is not empty. Cannot compute maximum level.");
+            }
+            return this -> data_.size() - 1; // Assuming last entry of data_ is the LeafView
+        }
+
+  template<int codim>
+  typename CpGridFamily::Traits::template Codim<codim>::LevelIterator CpGrid::lbegin (int level) const
+        {
+            if (level<0 || level>maxLevel())
+                DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
+            if (!distributed_data_.empty()){
+               return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, 0, true);
+            }
+             else{
+                 return cpgrid::Iterator<codim, All_Partition>(*data_[level], 0, true);
+             }
+        }
+
+ template<int codim>
+ typename CpGridFamily::Traits::template Codim<codim>::LevelIterator CpGrid::lend (int level) const
+        {
+            if (level<0 || level>maxLevel())
+                DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
+            if (!distributed_data_.empty()){
+                return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, size(codim), true);
+            }
+             else{
+                 return cpgrid::Iterator<codim,All_Partition>(*data_[level], size(level, codim), true );
+             }
+        }
+
+  template<int codim, PartitionIteratorType PiType>
+  typename CpGridFamily::Traits::template Codim<codim>::template Partition<PiType>::LevelIterator CpGrid::lbegin (int level) const
+        {
+            if (level<0 || level>maxLevel())
+                DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
+            if (!distributed_data_.empty()){
+                return cpgrid::Iterator<codim,PiType>(*current_view_data_, 0, true);
+            }
+            else{
+                return cpgrid::Iterator<codim,PiType>(*data_[level], 0, true);
+            }
+        }
+
+ template<int codim, PartitionIteratorType PiType>
+ typename CpGridFamily::Traits::template Codim<codim>::template Partition<PiType>::LevelIterator CpGrid::lend (int level) const
+        {
+            if (level<0 || level>maxLevel())
+                DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
+            if (!distributed_data_.empty()){
+                return cpgrid::Iterator<codim,PiType>(*current_view_data_, size(codim), true);
+            }
+            else{
+                return cpgrid::Iterator<codim,PiType>(*data_[level], size(level, codim), true);
+            }
+            
+        }
+
+ template<int codim>
+ typename CpGridFamily::Traits::template Codim<codim>::LeafIterator CpGrid::leafbegin() const
+        {
+            return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, 0, true); 
+        }
+
+template<int codim>
+typename CpGridFamily::Traits::template Codim<codim>::LeafIterator CpGrid::leafend() const
+        {
+            return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, size(codim), true); 
+        }
+
+ template<int codim, PartitionIteratorType PiType>
+ typename CpGridFamily::Traits::template Codim<codim>::template Partition<PiType>::LeafIterator CpGrid::leafbegin() const
+        {
+            return cpgrid::Iterator<codim, PiType>(*current_view_data_, 0, true); 
+        }
+
+ template<int codim, PartitionIteratorType PiType>
+ typename CpGridFamily::Traits::template Codim<codim>::template Partition<PiType>::LeafIterator CpGrid::leafend() const
+        {
+            return cpgrid::Iterator<codim, PiType>(*current_view_data_, size(codim), true); 
+        }
+
+int CpGrid::size (int level, int codim) const
+        {
+            if (level<0 || level>maxLevel())
+                DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
+            return data_[level]-> size(codim);
+        }
+
+int CpGrid::size (int codim) const
+        {
+            return current_view_data_->size(codim);
+        }
+
+int CpGrid::size (int level, GeometryType type) const
+        {
+            if (level<0 || level>maxLevel())
+                DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
+            return data_[level] -> size(type);
+        }
+
+int CpGrid::size (GeometryType type) const
+        {
+            return current_view_data_->size(type);
+        }
+
+const CpGridFamily::Traits::GlobalIdSet& CpGrid::globalIdSet() const
+        {
+            return global_id_set_;
+        }
+
+const CpGridFamily::Traits::LocalIdSet& CpGrid::localIdSet() const
+        {
+            return global_id_set_;
+        }
+
+const CpGridFamily::Traits::LevelIndexSet& CpGrid::levelIndexSet(int level) const
+        {
+            if (level<0 || level>maxLevel())
+                DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
+            return *current_view_data_->index_set_;
+        }
+
+const CpGridFamily::Traits::LeafIndexSet& CpGrid::leafIndexSet() const
+        {
+            return *current_view_data_->index_set_;
+        }
+
+void CpGrid::globalRefine (int)
+        {
+            std::cout << "Warning: Global refinement not implemented, yet." << std::endl;
+        }
+
+
+
+
+
     void CpGrid::readSintefLegacyFormat(const std::string& grid_prefix)
     {
         if ( current_view_data_->ccobj_.rank() == 0 )
