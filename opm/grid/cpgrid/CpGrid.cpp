@@ -570,9 +570,11 @@ int CpGrid::maxLevel() const
             return this -> data_.size() - 1; // Assuming last entry of data_ is the LeafView
         }
 
+/*
+//template<int codim>
+template CpGridFamily::Traits::template Codim<0>::LevelIterator CpGrid::lbegin (int level) const
+//template Dune::CpGridTraits::Codim<0>::LevelIterator CpGrid::lbegin<0>(int level) const;
 
-template<int codim>
-  typename CpGridFamily::Traits::template Codim<codim>::LevelIterator CpGrid::lbegin (int level) const
         {
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
@@ -584,9 +586,10 @@ template<int codim>
              }
         }
 
-/*template<int codim>
- typename CpGridFamily::Traits::template Codim<codim>::LevelIterator CpGrid::lend (int level) const
-        {
+//template<int codim>
+template CpGridFamily::Traits::template Codim<0>::LevelIterator CpGrid::lend (int level) const
+//template Dune::CpGridTraits::Codim<0>::LevelIterator CpGrid::lend<0>(int level) const
+{
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             if (!distributed_data_.empty()){
@@ -595,9 +598,9 @@ template<int codim>
              else{
                  return cpgrid::Iterator<codim,All_Partition>(*data_[level], size(level, codim), true );
              }
-        }
+             }*/
 
-  template<int codim, PartitionIteratorType PiType>
+/*  template<int codim, PartitionIteratorType PiType>
   typename CpGridFamily::Traits::template Codim<codim>::template Partition<PiType>::LevelIterator CpGrid::lbegin (int level) const
         {
             if (level<0 || level>maxLevel())
@@ -608,7 +611,7 @@ template<int codim>
             else{
                 return cpgrid::Iterator<codim,PiType>(*data_[level], 0, true);
             }
-        }
+            } 
 
  template<int codim, PartitionIteratorType PiType>
  typename CpGridFamily::Traits::template Codim<codim>::template Partition<PiType>::LevelIterator CpGrid::lend (int level) const
@@ -622,21 +625,23 @@ template<int codim>
                 return cpgrid::Iterator<codim,PiType>(*data_[level], size(level, codim), true);
             }
             
-        }
-
- template<int codim>
- typename CpGridFamily::Traits::template Codim<codim>::LeafIterator CpGrid::leafbegin() const
+            }*/
+/*
+//template<int codim>
+template CpGridFamily::Traits::template Codim<0>::LeafIterator CpGrid::leafbegin() const
+//   template Dune::CpGridTraits::Codim<0>::LeafIterator CpGrid::leafbegin<0>() const
         {
             return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, 0, true); 
         }
 
-template<int codim>
-typename CpGridFamily::Traits::template Codim<codim>::LeafIterator CpGrid::leafend() const
-        {
+//template<int codim>
+template CpGridFamily::Traits::template Codim<0>::LeafIterator CpGrid::leafend() const
+// template Dune::CpGridTraits::Codim<0>::LeafIterator CpGrid::leafend<0>() const
+{
             return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, size(codim), true); 
-        }
+            }*/
 
-template<int codim, PartitionIteratorType PiType>
+/*template<int codim, PartitionIteratorType PiType>
 typename CpGridFamily::Traits::template Codim<codim>::template Partition<PiType>::LeafIterator CpGrid::leafbegin() const
 {
             return cpgrid::Iterator<codim, PiType>(*current_view_data_, 0, true); 
@@ -1483,12 +1488,15 @@ void CpGrid::createGridWithLgr(const std::array<int,3>& cells_per_dim, const std
 /*#define OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(method, Method, partition) \
     template CpGridFamily::CpGridTraits::template Codim<0>::Partition< partition >:: Method CpGrid:: method<0, partition >() const; \
     template CpGridFamily::CpGridTraits::template Codim<1>::Partition< partition >:: Method CpGrid:: method<1, partition >() const; \
-    template CpGridFamily::CpGridTraits::template Codim<3>::Partition< partition >:: Method CpGrid:: method<3, partition >() const;*/
-    #define OPM_INSTANTIATE_PARTITION_ITERATE(method, Method)                      \
-template CpGridFamily::CpGridTraits::template Codim<0>:: Method CpGrid:: method<0>() const; \
-template CpGridFamily::CpGridTraits::template Codim<1>:: Method CpGrid:: method<1>() const; \
-template CpGridFamily::CpGridTraits::template Codim<3>:: Method CpGrid:: method<3>() const; \
-OPM_INSTANTIATE_PARTITION_ITERATE(lbegin, LevelIterator);
+    template CpGridFamily::CpGridTraits::template Codim<3>::Partition< partition >:: Method CpGrid:: method<3, partition >() const;
+#define OPM_INSTANTIATE_PARTITION_ITERATE(method, Method)              \
+typename CpGridFamily::CpGridTraits::template Codim<0>:: Method CpGrid:: method<0>() const; \
+typename CpGridFamily::CpGridTraits::template Codim<1>:: Method CpGrid:: method<1>() const; \
+typename CpGridFamily::CpGridTraits::template Codim<3>:: Method CpGrid:: method<3>() const; \
+OPM_INSTANTIATE_PARTITION_ITERATE(lbegin, LevelIterator); \
+OPM_INSTANTIATE_PARTITION_ITERATE(lend, LevelIterator); \
+OPM_INSTANTIATE_PARTITION_ITERATE(leafbegin, LeafIterator); \
+OPM_INSTANTIATE_PARTITION_ITERATE(leafend, LeafIterator);*/
 /* /
    OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(method, Method, Dune::Interior_Partition); \
     OPM_INSTANTIATE_PARTITION_CODIM_ITERATE(method, Method, Dune::InteriorBorder_Partition); \

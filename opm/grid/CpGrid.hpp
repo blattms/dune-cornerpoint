@@ -387,8 +387,7 @@ namespace Dune
 
         /// Iterator to first entity of given codim on level
         template<int codim>
-        typename Traits::template Codim<codim>::LevelIterator lbegin (int level) const;
-        /*{
+        typename Traits::template Codim<codim>::LevelIterator lbegin (int level) const{
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             if (!distributed_data_.empty()){
@@ -397,13 +396,12 @@ namespace Dune
              else{
                  return cpgrid::Iterator<codim, All_Partition>(*data_[level], 0, true);
              }
-             }*/
+             }
 
 
         /// one past the end on this level
         template<int codim>
-        typename Traits::template Codim<codim>::LevelIterator lend (int level) const
-        {
+        typename Traits::template Codim<codim>::LevelIterator lend (int level) const {
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             if (!distributed_data_.empty()){
@@ -446,19 +444,18 @@ namespace Dune
 
 
         /// Iterator to first leaf entity of given codim
-        template<int codim>
-            typename Traits::template Codim<codim>::LeafIterator leafbegin() const
-         {
+         template<int codim>
+         typename Traits::template Codim<codim>::LeafIterator leafbegin() const
+        {
             return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, 0, true);
-            }
-
+        }
 
         /// one past the end of the sequence of leaf entities
         template<int codim>
         typename Traits::template Codim<codim>::LeafIterator leafend() const
         {
             return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, size(codim), true);
-            }
+        }
 
 
         /// Iterator to first leaf entity of given codim
