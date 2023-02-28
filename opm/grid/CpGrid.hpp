@@ -387,7 +387,8 @@ namespace Dune
 
         /// Iterator to first entity of given codim on level
         template<int codim>
-        typename Traits::template Codim<codim>::LevelIterator lbegin (int level) const{
+        typename Traits::template Codim<codim>::LevelIterator lbegin (int level) const;
+        /*{
             if (level<0 || level>maxLevel())
                 DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
             if (!distributed_data_.empty()){
@@ -397,7 +398,7 @@ namespace Dune
                  return cpgrid::Iterator<codim, All_Partition>(*data_[level], 0, true);
              }
              }
-
+        */
 
         /// one past the end on this level
         template<int codim>
