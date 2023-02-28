@@ -688,17 +688,53 @@ template typename CpGridTraits::template Codim<3>::template Partition<Dune::Ghos
 
 
 
-/*template<int codim, PartitionIteratorType PiType>
+template<int codim, PartitionIteratorType PiType>
 typename CpGridFamily::Traits::template Codim<codim>::template Partition<PiType>::LeafIterator CpGrid::leafbegin() const
 {
-            return cpgrid::Iterator<codim, PiType>(*current_view_data_, 0, true); 
-        }
+    return cpgrid::Iterator<codim, PiType>(*current_view_data_, 0, true); 
+}
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Interior_Partition>::LeafIterator CpGrid::leafbegin<0,Dune::Interior_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator CpGrid::leafbegin<0,Dune::InteriorBorder_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Overlap_Partition>::LeafIterator CpGrid::leafbegin<0,Dune::Overlap_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::OverlapFront_Partition>::LeafIterator CpGrid::leafbegin<0,Dune::OverlapFront_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::All_Partition>::LeafIterator CpGrid::leafbegin<0,Dune::All_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Ghost_Partition>::LeafIterator CpGrid::leafbegin<0,Dune::Ghost_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Interior_Partition>::LeafIterator CpGrid::leafbegin<1,Dune::Interior_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator CpGrid::leafbegin<1,Dune::InteriorBorder_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Overlap_Partition>::LeafIterator CpGrid::leafbegin<1,Dune::Overlap_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::OverlapFront_Partition>::LeafIterator CpGrid::leafbegin<1,Dune::OverlapFront_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::All_Partition>::LeafIterator CpGrid::leafbegin<1,Dune::All_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Ghost_Partition>::LeafIterator CpGrid::leafbegin<1,Dune::Ghost_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Interior_Partition>::LeafIterator CpGrid::leafbegin<3,Dune::Interior_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator CpGrid::leafbegin<3,Dune::InteriorBorder_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Overlap_Partition>::LeafIterator CpGrid::leafbegin<3,Dune::Overlap_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::OverlapFront_Partition>::LeafIterator CpGrid::leafbegin<3,Dune::OverlapFront_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::All_Partition>::LeafIterator CpGrid::leafbegin<3,Dune::All_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Ghost_Partition>::LeafIterator CpGrid::leafbegin<3,Dune::Ghost_Partition>() const;
 
- template<int codim, PartitionIteratorType PiType>
- typename CpGridFamily::Traits::template Codim<codim>::template Partition<PiType>::LeafIterator CpGrid::leafend() const
-        {
-            return cpgrid::Iterator<codim, PiType>(*current_view_data_, size(codim), true); 
-            }*/
+template<int codim, PartitionIteratorType PiType>
+typename CpGridFamily::Traits::template Codim<codim>::template Partition<PiType>::LeafIterator CpGrid::leafend() const
+{
+    return cpgrid::Iterator<codim, PiType>(*current_view_data_, size(codim), true); 
+}
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Interior_Partition>::LeafIterator CpGrid::leafend<0,Dune::Interior_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator CpGrid::leafend<0,Dune::InteriorBorder_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Overlap_Partition>::LeafIterator CpGrid::leafend<0,Dune::Overlap_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::OverlapFront_Partition>::LeafIterator CpGrid::leafend<0,Dune::OverlapFront_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::All_Partition>::LeafIterator CpGrid::leafend<0,Dune::All_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Ghost_Partition>::LeafIterator CpGrid::leafend<0,Dune::Ghost_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Interior_Partition>::LeafIterator CpGrid::leafend<1,Dune::Interior_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator CpGrid::leafend<1,Dune::InteriorBorder_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Overlap_Partition>::LeafIterator CpGrid::leafend<1,Dune::Overlap_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::OverlapFront_Partition>::LeafIterator CpGrid::leafend<1,Dune::OverlapFront_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::All_Partition>::LeafIterator CpGrid::leafend<1,Dune::All_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Ghost_Partition>::LeafIterator CpGrid::leafend<1,Dune::Ghost_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Interior_Partition>::LeafIterator CpGrid::leafend<3,Dune::Interior_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator CpGrid::leafend<3,Dune::InteriorBorder_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Overlap_Partition>::LeafIterator CpGrid::leafend<3,Dune::Overlap_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::OverlapFront_Partition>::LeafIterator CpGrid::leafend<3,Dune::OverlapFront_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::All_Partition>::LeafIterator CpGrid::leafend<3,Dune::All_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Ghost_Partition>::LeafIterator CpGrid::leafend<3,Dune::Ghost_Partition>() const;
 
 
 int CpGrid::size (int level, int codim) const

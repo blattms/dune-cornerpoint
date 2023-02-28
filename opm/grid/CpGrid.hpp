@@ -379,11 +379,9 @@ namespace Dune
         /// It's the same as the class name.
         /// What did you expect, something funny?
         std::string name() const;
-
-
+        
         /// Return maximum level defined in this grid. Levels are 0 and 1,  maxlevel = 1 (not counting leafview), 0 = the coarsest level.
         int maxLevel() const;
-
 
         /// Iterator to first entity of given codim on level
         template<int codim>
@@ -392,36 +390,12 @@ namespace Dune
         template<int codim>
         typename Traits::template Codim<codim>::LevelIterator lend (int level) const;
         
-        /// Iterator to first entity of given codim on level
+        /// Iterator to first entity of given codim on level and PartitionIteratorType
         template<int codim, PartitionIteratorType PiType>
         typename Traits::template Codim<codim>::template Partition<PiType>::LevelIterator lbegin (int level) const;
-        /* {
-            if (level<0 || level>maxLevel())
-                DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
-            if (!distributed_data_.empty()){
-                return cpgrid::Iterator<codim,PiType>(*current_view_data_, 0, true);
-            }
-            else{
-                return cpgrid::Iterator<codim,PiType>(*data_[level], 0, true);
-            }
-            }*/
-
-
         /// one past the end on this level
         template<int codim, PartitionIteratorType PiType>
         typename Traits::template Codim<codim>::template Partition<PiType>::LevelIterator lend (int level) const;
-        /* {
-            if (level<0 || level>maxLevel())
-                DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
-            if (!distributed_data_.empty()){
-                return cpgrid::Iterator<codim,PiType>(*current_view_data_, size(codim), true);
-            }
-            else{
-                return cpgrid::Iterator<codim,PiType>(*data_[level], size(level, codim), true);
-            }
-            }
-        */
-
 
         /// Iterator to first leaf entity of given codim
         template<int codim>
@@ -430,22 +404,12 @@ namespace Dune
         template<int codim>
         typename Traits::template Codim<codim>::LeafIterator leafend() const;
         
-
-        /// Iterator to first leaf entity of given codim
+        /// Iterator to first leaf entity of given codim and PartitionIteratorType
         template<int codim, PartitionIteratorType PiType>
-        typename Traits::template Codim<codim>::template Partition<PiType>::LeafIterator leafbegin() const
-        {
-            return cpgrid::Iterator<codim, PiType>(*current_view_data_, 0, true);
-            }
-
-
+        typename Traits::template Codim<codim>::template Partition<PiType>::LeafIterator leafbegin() const;
         /// one past the end of the sequence of leaf entities
         template<int codim, PartitionIteratorType PiType>
-            typename Traits::template Codim<codim>::template Partition<PiType>::LeafIterator leafend() const
-        {
-            return cpgrid::Iterator<codim, PiType>(*current_view_data_, size(codim), true);
-            }
-
+        typename Traits::template Codim<codim>::template Partition<PiType>::LeafIterator leafend() const;
 
         /// \brief Number of grid entities per level and codim
         int size (int level, int codim) const;
