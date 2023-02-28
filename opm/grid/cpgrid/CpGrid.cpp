@@ -789,9 +789,18 @@ void CpGrid::globalRefine (int)
         }
 
 const std::vector< Dune :: GeometryType >& CpGrid::geomTypes( const int codim ) const
-        {
-          return leafIndexSet().geomTypes( codim );
-        }
+{
+    return leafIndexSet().geomTypes( codim );
+}
+
+template <int codim>
+cpgrid::Entity<codim> CpGrid::entity( const cpgrid::Entity< codim >& seed ) const
+{
+    return seed;
+}
+template cpgrid::Entity<0> CpGrid::entity<0>( const cpgrid::Entity<0>&) const;
+template cpgrid::Entity<3> CpGrid::entity<3>( const cpgrid::Entity<3>&) const;
+
 
 /// \brief Size of the overlap on the leaf level
 unsigned int CpGrid::overlapSize(int) const {

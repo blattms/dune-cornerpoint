@@ -438,15 +438,12 @@ namespace Dune
         /// global refinement
         void globalRefine (int);
 
-        const std::vector< Dune :: GeometryType >& geomTypes( const int codim ) const;
+        const std::vector<Dune::GeometryType>& geomTypes( const int codim ) const;
 
         /// given an EntitySeed (or EntityPointer) return an entity object
         template <int codim>
-        cpgrid::Entity<codim> entity( const cpgrid::Entity< codim >& seed ) const
-        {
-            return seed;
-        }
-
+        cpgrid::Entity<codim> entity( const cpgrid::Entity< codim >& seed ) const;
+           
         /// @brief Create a grid out of a coarse one and a refinement(LGR) of a selected block-shaped patch of cells from that coarse grid.
         ///
         /// Level0 refers to the coarse grid, assumed to be this-> data_[0]. Level1 refers to the LGR (stored in this->data_[1]).
@@ -559,7 +556,7 @@ namespace Dune
         /// \return A pair consisting of a boolean indicating whether loadbalancing actually happened and
         ///         a vector containing a pair of name and a boolean, indicating whether this well has
         ///         perforated cells local to the process, for all wells (sorted by name)
-        std::pair<bool, std::vector<std::pair<std::string,bool> > >
+        std::pair<bool,std::vector<std::pair<std::string,bool>>>
         loadBalance(const std::vector<cpgrid::OpmWellType> * wells,
                     const double* transmissibilities = nullptr,
                     int overlapLayers=1, bool useZoltan=true)
@@ -592,12 +589,11 @@ namespace Dune
         /// \return A pair consisting of a boolean indicating whether loadbalancing actually happened and
         ///         a vector containing a pair of name and a boolean, indicating whether this well has
         ///         perforated cells local to the process, for all wells (sorted by name)
-        std::pair<bool, std::vector<std::pair<std::string,bool> > >
+        std::pair<bool,std::vector<std::pair<std::string,bool>>>
         loadBalance(EdgeWeightMethod method, const std::vector<cpgrid::OpmWellType> * wells,
                     const double* transmissibilities = nullptr, bool ownersFirst=false,
                     bool addCornerCells=false, int overlapLayers=1,
                     bool useZoltan = true)
-        
         {
             return scatterGrid(method, ownersFirst, wells, false, transmissibilities, addCornerCells, overlapLayers, useZoltan);
         }
