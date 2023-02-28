@@ -1087,6 +1087,47 @@ const Dune::FieldVector<double,3>& CpGrid::cellCentroid(int cell) const
             return current_view_data_->geomVector<0>()[cpgrid::EntityRep<0>(cell, true)].center();
         }
 
+//
+
+template<int codim>
+const FieldVector<double, 3>& CpGrid::CentroidIterator<codim>::dereference() const
+            {
+                return iter_->center();
+            }
+template const FieldVector<double, 3>& CpGrid::CentroidIterator<0>::dereference() const;
+
+/*void CpGrid::CentroidIterator<0>::increment()
+            {
+                ++iter_;
+            }
+
+const FieldVector<double, 3>& CpGrid::CentroidIterator<0>::elementAt(int n)
+            {
+                return iter_[n]->center();
+            }
+
+void CpGrid::CentroidIterator<0>::advance(int n)
+            {
+                iter_+=n;
+            }
+
+void CpGrid::CentroidIterator<0>::decrement()
+            {
+                --iter_;
+            }
+
+int CpGrid::CentroidIterator<0>::distanceTo(const CentroidIterator& o)
+            {
+                return o-iter_;
+            }
+
+bool CpGrid::CentroidIterator<0>::equals(const CentroidIterator& o) const
+            {
+                return o==iter_;
+                }*/
+
+//
+
 CpGrid::CentroidIterator<0> CpGrid::beginCellCentroids() const
         {
             return CentroidIterator<0>(current_view_data_->geomVector<0>().begin());

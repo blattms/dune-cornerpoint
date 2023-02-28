@@ -958,10 +958,10 @@ const Vector& cellCentroid(int cell) const;
             : iter_(iter)
             {}
 
-            const FieldVector<double, 3>& dereference() const
-            {
+            const FieldVector<double, 3>& dereference() const;
+            /* {
                 return iter_->center();
-            }
+                }*/
             void increment()
             {
                 ++iter_;
