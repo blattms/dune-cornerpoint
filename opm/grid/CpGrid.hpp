@@ -958,32 +958,23 @@ const Vector& cellCentroid(int cell) const;
             : iter_(iter)
             {}
 
-            const FieldVector<double, 3>& dereference() const;
-            /* {
-                return iter_->center();
-                }*/
-            void increment()
-            {
-                ++iter_;
-            }
-            const FieldVector<double, 3>& elementAt(int n)
+            const FieldVector<double,3>& dereference() const;
+           
+            void increment();
+           
+            const FieldVector<double,3>& elementAt(int n)
             {
                 return iter_[n]->center();
             }
-            void advance(int n)
-            {
-                iter_+=n;
-            }
-            void decrement()
-            {
-                --iter_;
-            }
+            void advance(int);
+           
+            void decrement();
+           
             int distanceTo(const CentroidIterator& o)
             {
                 return o-iter_;
             }
-            bool equals(const CentroidIterator& o) const
-            {
+            bool equals(const CentroidIterator& o) const{
                 return o==iter_;
             }
         private:

@@ -119,34 +119,25 @@ void setupRecvInterface(const std::vector<std::tuple<int, int, char, int> >& lis
 
 namespace Dune
 {
-/* namespace cpgrid
-    {
-    // explicit class instantiation
-    //  template class Entity<int>;
-    // template class Geometry<int,int>;
-    template class Iterator<int, PartitionIteratorType>;
-    template struct CpGridTraits::Codim<int>;
-    template struct CpGridTraits::Codim<int>::template Partition<PartitionIteratorType>;
- } */
 
-    CpGrid::CpGrid()
-        : data_({std::make_shared<cpgrid::CpGridData>()}),
-          current_view_data_(data_[0].get()),
-          distributed_data_(),
-          cell_scatter_gather_interfaces_(new InterfaceMap),
-          point_scatter_gather_interfaces_(new InterfaceMap),
-          global_id_set_(*current_view_data_)
-    {}
+CpGrid::CpGrid()
+    : data_({std::make_shared<cpgrid::CpGridData>()}),
+      current_view_data_(data_[0].get()),
+      distributed_data_(),
+      cell_scatter_gather_interfaces_(new InterfaceMap),
+      point_scatter_gather_interfaces_(new InterfaceMap),
+      global_id_set_(*current_view_data_)
+{}
 
 
-    CpGrid::CpGrid(MPIHelper::MPICommunicator comm)
-        : data_({std::make_shared<cpgrid::CpGridData>(comm)}),
-          current_view_data_(data_[0].get()),
-          distributed_data_(),
-          cell_scatter_gather_interfaces_(new InterfaceMap),
-          point_scatter_gather_interfaces_(new InterfaceMap),
-          global_id_set_(*current_view_data_)
-    {}
+CpGrid::CpGrid(MPIHelper::MPICommunicator comm)
+    : data_({std::make_shared<cpgrid::CpGridData>(comm)}),
+      current_view_data_(data_[0].get()),
+      distributed_data_(),
+      cell_scatter_gather_interfaces_(new InterfaceMap),
+      point_scatter_gather_interfaces_(new InterfaceMap),
+      global_id_set_(*current_view_data_)
+{}
 
 std::vector<int>
 CpGrid::zoltanPartitionWithoutScatter([[maybe_unused]] const std::vector<cpgrid::OpmWellType> * wells,
@@ -305,9 +296,9 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
         // importList contains all the indices that will be here.
         auto compareImport = [](const std::tuple<int,int,char,int>& t1,
                                 const std::tuple<int,int,char,int>&t2)
-                             {
-                                 return std::get<0>(t1) < std::get<0>(t2);
-                             };
+        {
+            return std::get<0>(t1) < std::get<0>(t2);
+        };
 
         if ( ! ownersFirst )
         {
@@ -424,9 +415,9 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
 
         if (procsWithZeroCells) {
             std::string msg = "At least one process has zero cells. Aborting. \n"
-                     " Try decreasing the imbalance tolerance for zoltan with \n"
-                     " --zoltan-imbalance-tolerance. The current value is "
-                     + std::to_string(zoltanImbalanceTol);
+                " Try decreasing the imbalance tolerance for zoltan with \n"
+                " --zoltan-imbalance-tolerance. The current value is "
+                + std::to_string(zoltanImbalanceTol);
             if (cc.rank()==0)
             {
                 OPM_THROW(std::runtime_error, msg );
@@ -479,105 +470,105 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
 }
 
 
-    void CpGrid::createCartesian(const std::array<int, 3>& dims,
-                                 const std::array<double, 3>& cellsize,
-                                 const std::array<int, 3>& shift)
+void CpGrid::createCartesian(const std::array<int, 3>& dims,
+                             const std::array<double, 3>& cellsize,
+                             const std::array<int, 3>& shift)
+{
+    if ( current_view_data_->ccobj_.rank() != 0 )
     {
-        if ( current_view_data_->ccobj_.rank() != 0 )
-        {
-            // global grid only on rank 0
-            current_view_data_->ccobj_.broadcast(current_view_data_->logical_cartesian_size_.data(),
-                                                 current_view_data_->logical_cartesian_size_.size(),
-                                                 0);
-            return;
-        }
-
-        // Make the grdecl format arrays.
-        // Pillar coords.
-        std::vector<double> coord;
-        coord.reserve(6*(dims[0] + 1)*(dims[1] + 1));
-        double bot = 0.0+shift[2]*cellsize[2];
-        double top = (dims[2]+shift[2])*cellsize[2];
-        // i runs fastest for the pillars.
-        for (int j = 0; j < dims[1] + 1; ++j) {
-            double y = (j+shift[1])*cellsize[1];
-            for (int i = 0; i < dims[0] + 1; ++i) {
-                double x = (i+shift[0])*cellsize[0];
-                double pillar[6] = { x, y, bot, x, y, top };
-                coord.insert(coord.end(), pillar, pillar + 6);
-            }
-        }
-        std::vector<double> zcorn(8*dims[0]*dims[1]*dims[2]);
-        const int num_per_layer = 4*dims[0]*dims[1];
-        double* offset = &zcorn[0];
-        for (int k = 0; k < dims[2]; ++k) {
-            double zlow = (k+shift[2])*cellsize[2];
-            std::fill(offset, offset + num_per_layer, zlow);
-            offset += num_per_layer;
-            double zhigh = (k+1+shift[2])*cellsize[2];
-            std::fill(offset, offset + num_per_layer, zhigh);
-            offset += num_per_layer;
-        }
-        std::vector<int> actnum(dims[0]*dims[1]*dims[2], 1);
-
-        // Process them.
-        grdecl g;
-        g.dims[0] = dims[0];
-        g.dims[1] = dims[1];
-        g.dims[2] = dims[2];
-        g.coord = &coord[0];
-        g.zcorn = &zcorn[0];
-        g.actnum = &actnum[0];
-        using NNCMap = std::set<std::pair<int, int>>;
-        using NNCMaps = std::array<NNCMap, 2>;
-        NNCMaps nnc;
-        current_view_data_->processEclipseFormat(g,
-#if HAVE_ECL_INPUT
-                                                 nullptr,
-#endif
-                                                 nnc, false, false, false);
         // global grid only on rank 0
         current_view_data_->ccobj_.broadcast(current_view_data_->logical_cartesian_size_.data(),
                                              current_view_data_->logical_cartesian_size_.size(),
                                              0);
+        return;
     }
 
-const std::array<int, 3>& CpGrid::logicalCartesianSize() const
-        {
-            return current_view_data_->logical_cartesian_size_;
+    // Make the grdecl format arrays.
+    // Pillar coords.
+    std::vector<double> coord;
+    coord.reserve(6*(dims[0] + 1)*(dims[1] + 1));
+    double bot = 0.0+shift[2]*cellsize[2];
+    double top = (dims[2]+shift[2])*cellsize[2];
+    // i runs fastest for the pillars.
+    for (int j = 0; j < dims[1] + 1; ++j) {
+        double y = (j+shift[1])*cellsize[1];
+        for (int i = 0; i < dims[0] + 1; ++i) {
+            double x = (i+shift[0])*cellsize[0];
+            double pillar[6] = { x, y, bot, x, y, top };
+            coord.insert(coord.end(), pillar, pillar + 6);
         }
+    }
+    std::vector<double> zcorn(8*dims[0]*dims[1]*dims[2]);
+    const int num_per_layer = 4*dims[0]*dims[1];
+    double* offset = &zcorn[0];
+    for (int k = 0; k < dims[2]; ++k) {
+        double zlow = (k+shift[2])*cellsize[2];
+        std::fill(offset, offset + num_per_layer, zlow);
+        offset += num_per_layer;
+        double zhigh = (k+1+shift[2])*cellsize[2];
+        std::fill(offset, offset + num_per_layer, zhigh);
+        offset += num_per_layer;
+    }
+    std::vector<int> actnum(dims[0]*dims[1]*dims[2], 1);
+
+    // Process them.
+    grdecl g;
+    g.dims[0] = dims[0];
+    g.dims[1] = dims[1];
+    g.dims[2] = dims[2];
+    g.coord = &coord[0];
+    g.zcorn = &zcorn[0];
+    g.actnum = &actnum[0];
+    using NNCMap = std::set<std::pair<int, int>>;
+    using NNCMaps = std::array<NNCMap, 2>;
+    NNCMaps nnc;
+    current_view_data_->processEclipseFormat(g,
+#if HAVE_ECL_INPUT
+                                             nullptr,
+#endif
+                                             nnc, false, false, false);
+    // global grid only on rank 0
+    current_view_data_->ccobj_.broadcast(current_view_data_->logical_cartesian_size_.data(),
+                                         current_view_data_->logical_cartesian_size_.size(),
+                                         0);
+}
+
+const std::array<int, 3>& CpGrid::logicalCartesianSize() const
+{
+    return current_view_data_->logical_cartesian_size_;
+}
 
 const std::vector<int>& CpGrid::globalCell() const
-        {
-            return current_view_data_->global_cell_;
-        }
+{
+    return current_view_data_->global_cell_;
+}
 
 void CpGrid::getIJK(const int c, std::array<int,3>& ijk) const
-        {
-            current_view_data_->getIJK(c, ijk);
-        }
+{
+    current_view_data_->getIJK(c, ijk);
+}
 
 bool CpGrid::uniqueBoundaryIds() const
-        {
-            return current_view_data_->uniqueBoundaryIds();
-        }
+{
+    return current_view_data_->uniqueBoundaryIds();
+}
 
 void CpGrid::setUniqueBoundaryIds(bool uids)
-        {
-            current_view_data_->setUniqueBoundaryIds(uids);
-        }
+{
+    current_view_data_->setUniqueBoundaryIds(uids);
+}
 
 std::string CpGrid::name() const
-        {
-            return "CpGrid";
-        }
+{
+    return "CpGrid";
+}
 int CpGrid::maxLevel() const
-        {
-            if (!distributed_data_.empty()){
-                OPM_THROW(std::logic_error, "Distributed data is not empty. Cannot compute maximum level.");
-            }
-            return this -> data_.size() - 1; // Assuming last entry of data_ is the LeafView
-        }
+{
+    if (!distributed_data_.empty()){
+        OPM_THROW(std::logic_error, "Distributed data is not empty. Cannot compute maximum level.");
+    }
+    return this -> data_.size() - 1; // Assuming last entry of data_ is the LeafView
+}
 
 template<int codim>
 typename CpGridTraits::template Codim<codim>::LevelIterator CpGrid::lbegin (int level) const{
@@ -607,7 +598,7 @@ typename CpGridTraits::template Codim<codim>::LevelIterator CpGrid::lend (int le
 template<int codim>
 typename CpGridTraits::template Codim<codim>::LeafIterator CpGrid::leafbegin() const
 {
-    return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, 0, true); 
+    return cpgrid::Iterator<codim, All_Partition>(*current_view_data_, 0, true);
 }
 template typename CpGridTraits::template Codim<0>::LeafIterator CpGrid::leafbegin<0>() const;
 template typename CpGridTraits::template Codim<1>::LeafIterator CpGrid::leafbegin<1>() const;
@@ -635,24 +626,42 @@ typename CpGridTraits::template Codim<codim>::template Partition<PiType>::LevelI
         return cpgrid::Iterator<codim,PiType>(*data_[level], 0, true);
     }
 }
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::Interior_Partition>::LevelIterator CpGrid::lbegin<0,Dune::Interior_Partition>(int) const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::InteriorBorder_Partition>::LevelIterator CpGrid::lbegin<0,Dune::InteriorBorder_Partition>(int) const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::Overlap_Partition>::LevelIterator CpGrid::lbegin<0,Dune::Overlap_Partition>(int) const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::OverlapFront_Partition>::LevelIterator CpGrid::lbegin<0,Dune::OverlapFront_Partition>(int) const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::All_Partition>::LevelIterator CpGrid::lbegin<0,Dune::All_Partition>(int) const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::Ghost_Partition>::LevelIterator CpGrid::lbegin<0,Dune::Ghost_Partition>(int) const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::Interior_Partition>::LevelIterator CpGrid::lbegin<1,Dune::Interior_Partition>(int) const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::InteriorBorder_Partition>::LevelIterator CpGrid::lbegin<1,Dune::InteriorBorder_Partition>(int) const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::Overlap_Partition>::LevelIterator CpGrid::lbegin<1,Dune::Overlap_Partition>(int) const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::OverlapFront_Partition>::LevelIterator CpGrid::lbegin<1,Dune::OverlapFront_Partition>(int) const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::All_Partition>::LevelIterator CpGrid::lbegin<1,Dune::All_Partition>(int) const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::Ghost_Partition>::LevelIterator CpGrid::lbegin<1,Dune::Ghost_Partition>(int) const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::Interior_Partition>::LevelIterator CpGrid::lbegin<3,Dune::Interior_Partition>(int) const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::InteriorBorder_Partition>::LevelIterator CpGrid::lbegin<3,Dune::InteriorBorder_Partition>(int) const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::Overlap_Partition>::LevelIterator CpGrid::lbegin<3,Dune::Overlap_Partition>(int) const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::OverlapFront_Partition>::LevelIterator CpGrid::lbegin<3,Dune::OverlapFront_Partition>(int) const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::All_Partition>::LevelIterator CpGrid::lbegin<3,Dune::All_Partition>(int) const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::Ghost_Partition>::LevelIterator CpGrid::lbegin<3,Dune::Ghost_Partition>(int) const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Interior_Partition>::LevelIterator
+CpGrid::lbegin<0,Dune::Interior_Partition>(int) const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::InteriorBorder_Partition>::LevelIterator
+CpGrid::lbegin<0,Dune::InteriorBorder_Partition>(int) const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Overlap_Partition>::LevelIterator
+CpGrid::lbegin<0,Dune::Overlap_Partition>(int) const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::OverlapFront_Partition>::LevelIterator
+CpGrid::lbegin<0,Dune::OverlapFront_Partition>(int) const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::All_Partition>::LevelIterator
+CpGrid::lbegin<0,Dune::All_Partition>(int) const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Ghost_Partition>::LevelIterator
+CpGrid::lbegin<0,Dune::Ghost_Partition>(int) const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Interior_Partition>::LevelIterator
+CpGrid::lbegin<1,Dune::Interior_Partition>(int) const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::InteriorBorder_Partition>::LevelIterator
+CpGrid::lbegin<1,Dune::InteriorBorder_Partition>(int) const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Overlap_Partition>::LevelIterator
+CpGrid::lbegin<1,Dune::Overlap_Partition>(int) const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::OverlapFront_Partition>::LevelIterator
+CpGrid::lbegin<1,Dune::OverlapFront_Partition>(int) const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::All_Partition>::LevelIterator
+CpGrid::lbegin<1,Dune::All_Partition>(int) const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Ghost_Partition>::LevelIterator
+CpGrid::lbegin<1,Dune::Ghost_Partition>(int) const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Interior_Partition>::LevelIterator
+CpGrid::lbegin<3,Dune::Interior_Partition>(int) const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::InteriorBorder_Partition>::LevelIterator
+CpGrid::lbegin<3,Dune::InteriorBorder_Partition>(int) const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Overlap_Partition>::LevelIterator
+CpGrid::lbegin<3,Dune::Overlap_Partition>(int) const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::OverlapFront_Partition>::LevelIterator
+CpGrid::lbegin<3,Dune::OverlapFront_Partition>(int) const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::All_Partition>::LevelIterator
+CpGrid::lbegin<3,Dune::All_Partition>(int) const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Ghost_Partition>::LevelIterator
+CpGrid::lbegin<3,Dune::Ghost_Partition>(int) const;
 
 template<int codim, PartitionIteratorType PiType>
 typename CpGridTraits::template Codim<codim>::template Partition<PiType>::LevelIterator CpGrid::lend (int level) const
@@ -665,128 +674,179 @@ typename CpGridTraits::template Codim<codim>::template Partition<PiType>::LevelI
     else{
         return cpgrid::Iterator<codim,PiType>(*data_[level], size(level, codim), true);
     }
-            
+
 }
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::Interior_Partition>::LevelIterator CpGrid::lend<0,Dune::Interior_Partition>(int) const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::InteriorBorder_Partition>::LevelIterator CpGrid::lend<0,Dune::InteriorBorder_Partition>(int) const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::Overlap_Partition>::LevelIterator CpGrid::lend<0,Dune::Overlap_Partition>(int) const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::OverlapFront_Partition>::LevelIterator CpGrid::lend<0,Dune::OverlapFront_Partition>(int) const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::All_Partition>::LevelIterator CpGrid::lend<0,Dune::All_Partition>(int) const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::Ghost_Partition>::LevelIterator CpGrid::lend<0,Dune::Ghost_Partition>(int) const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::Interior_Partition>::LevelIterator CpGrid::lend<1,Dune::Interior_Partition>(int) const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::InteriorBorder_Partition>::LevelIterator CpGrid::lend<1,Dune::InteriorBorder_Partition>(int) const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::Overlap_Partition>::LevelIterator CpGrid::lend<1,Dune::Overlap_Partition>(int) const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::OverlapFront_Partition>::LevelIterator CpGrid::lend<1,Dune::OverlapFront_Partition>(int) const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::All_Partition>::LevelIterator CpGrid::lend<1,Dune::All_Partition>(int) const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::Ghost_Partition>::LevelIterator CpGrid::lend<1,Dune::Ghost_Partition>(int) const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::Interior_Partition>::LevelIterator CpGrid::lend<3,Dune::Interior_Partition>(int) const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::InteriorBorder_Partition>::LevelIterator CpGrid::lend<3,Dune::InteriorBorder_Partition>(int) const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::Overlap_Partition>::LevelIterator CpGrid::lend<3,Dune::Overlap_Partition>(int) const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::OverlapFront_Partition>::LevelIterator CpGrid::lend<3,Dune::OverlapFront_Partition>(int) const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::All_Partition>::LevelIterator CpGrid::lend<3,Dune::All_Partition>(int) const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::Ghost_Partition>::LevelIterator CpGrid::lend<3,Dune::Ghost_Partition>(int) const;
-
-
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Interior_Partition>::LevelIterator
+CpGrid::lend<0,Dune::Interior_Partition>(int) const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::InteriorBorder_Partition>::LevelIterator
+CpGrid::lend<0,Dune::InteriorBorder_Partition>(int) const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Overlap_Partition>::LevelIterator
+CpGrid::lend<0,Dune::Overlap_Partition>(int) const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::OverlapFront_Partition>::LevelIterator
+CpGrid::lend<0,Dune::OverlapFront_Partition>(int) const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::All_Partition>::LevelIterator
+CpGrid::lend<0,Dune::All_Partition>(int) const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Ghost_Partition>::LevelIterator
+CpGrid::lend<0,Dune::Ghost_Partition>(int) const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Interior_Partition>::LevelIterator
+CpGrid::lend<1,Dune::Interior_Partition>(int) const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::InteriorBorder_Partition>::LevelIterator
+CpGrid::lend<1,Dune::InteriorBorder_Partition>(int) const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Overlap_Partition>::LevelIterator
+CpGrid::lend<1,Dune::Overlap_Partition>(int) const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::OverlapFront_Partition>::LevelIterator
+CpGrid::lend<1,Dune::OverlapFront_Partition>(int) const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::All_Partition>::LevelIterator
+CpGrid::lend<1,Dune::All_Partition>(int) const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Ghost_Partition>::LevelIterator
+CpGrid::lend<1,Dune::Ghost_Partition>(int) const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Interior_Partition>::LevelIterator
+CpGrid::lend<3,Dune::Interior_Partition>(int) const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::InteriorBorder_Partition>::LevelIterator
+CpGrid::lend<3,Dune::InteriorBorder_Partition>(int) const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Overlap_Partition>::LevelIterator
+CpGrid::lend<3,Dune::Overlap_Partition>(int) const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::OverlapFront_Partition>::LevelIterator
+CpGrid::lend<3,Dune::OverlapFront_Partition>(int) const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::All_Partition>::LevelIterator
+CpGrid::lend<3,Dune::All_Partition>(int) const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Ghost_Partition>::LevelIterator
+CpGrid::lend<3,Dune::Ghost_Partition>(int) const;
 
 template<int codim, PartitionIteratorType PiType>
 typename CpGridFamily::Traits::template Codim<codim>::template Partition<PiType>::LeafIterator CpGrid::leafbegin() const
 {
-    return cpgrid::Iterator<codim, PiType>(*current_view_data_, 0, true); 
+    return cpgrid::Iterator<codim, PiType>(*current_view_data_, 0, true);
 }
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::Interior_Partition>::LeafIterator CpGrid::leafbegin<0,Dune::Interior_Partition>() const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator CpGrid::leafbegin<0,Dune::InteriorBorder_Partition>() const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::Overlap_Partition>::LeafIterator CpGrid::leafbegin<0,Dune::Overlap_Partition>() const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::OverlapFront_Partition>::LeafIterator CpGrid::leafbegin<0,Dune::OverlapFront_Partition>() const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::All_Partition>::LeafIterator CpGrid::leafbegin<0,Dune::All_Partition>() const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::Ghost_Partition>::LeafIterator CpGrid::leafbegin<0,Dune::Ghost_Partition>() const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::Interior_Partition>::LeafIterator CpGrid::leafbegin<1,Dune::Interior_Partition>() const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator CpGrid::leafbegin<1,Dune::InteriorBorder_Partition>() const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::Overlap_Partition>::LeafIterator CpGrid::leafbegin<1,Dune::Overlap_Partition>() const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::OverlapFront_Partition>::LeafIterator CpGrid::leafbegin<1,Dune::OverlapFront_Partition>() const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::All_Partition>::LeafIterator CpGrid::leafbegin<1,Dune::All_Partition>() const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::Ghost_Partition>::LeafIterator CpGrid::leafbegin<1,Dune::Ghost_Partition>() const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::Interior_Partition>::LeafIterator CpGrid::leafbegin<3,Dune::Interior_Partition>() const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator CpGrid::leafbegin<3,Dune::InteriorBorder_Partition>() const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::Overlap_Partition>::LeafIterator CpGrid::leafbegin<3,Dune::Overlap_Partition>() const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::OverlapFront_Partition>::LeafIterator CpGrid::leafbegin<3,Dune::OverlapFront_Partition>() const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::All_Partition>::LeafIterator CpGrid::leafbegin<3,Dune::All_Partition>() const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::Ghost_Partition>::LeafIterator CpGrid::leafbegin<3,Dune::Ghost_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Interior_Partition>::LeafIterator
+CpGrid::leafbegin<0,Dune::Interior_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator
+CpGrid::leafbegin<0,Dune::InteriorBorder_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Overlap_Partition>::LeafIterator
+CpGrid::leafbegin<0,Dune::Overlap_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::OverlapFront_Partition>::LeafIterator
+CpGrid::leafbegin<0,Dune::OverlapFront_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::All_Partition>::LeafIterator
+CpGrid::leafbegin<0,Dune::All_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Ghost_Partition>::LeafIterator
+CpGrid::leafbegin<0,Dune::Ghost_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Interior_Partition>::LeafIterator
+CpGrid::leafbegin<1,Dune::Interior_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator
+CpGrid::leafbegin<1,Dune::InteriorBorder_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Overlap_Partition>::LeafIterator
+CpGrid::leafbegin<1,Dune::Overlap_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::OverlapFront_Partition>::LeafIterator
+CpGrid::leafbegin<1,Dune::OverlapFront_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::All_Partition>::LeafIterator
+CpGrid::leafbegin<1,Dune::All_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Ghost_Partition>::LeafIterator
+CpGrid::leafbegin<1,Dune::Ghost_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Interior_Partition>::LeafIterator
+CpGrid::leafbegin<3,Dune::Interior_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator
+CpGrid::leafbegin<3,Dune::InteriorBorder_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Overlap_Partition>::LeafIterator
+CpGrid::leafbegin<3,Dune::Overlap_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::OverlapFront_Partition>::LeafIterator
+CpGrid::leafbegin<3,Dune::OverlapFront_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::All_Partition>::LeafIterator
+CpGrid::leafbegin<3,Dune::All_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Ghost_Partition>::LeafIterator
+CpGrid::leafbegin<3,Dune::Ghost_Partition>() const;
 
 template<int codim, PartitionIteratorType PiType>
 typename CpGridFamily::Traits::template Codim<codim>::template Partition<PiType>::LeafIterator CpGrid::leafend() const
 {
-    return cpgrid::Iterator<codim, PiType>(*current_view_data_, size(codim), true); 
+    return cpgrid::Iterator<codim, PiType>(*current_view_data_, size(codim), true);
 }
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::Interior_Partition>::LeafIterator CpGrid::leafend<0,Dune::Interior_Partition>() const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator CpGrid::leafend<0,Dune::InteriorBorder_Partition>() const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::Overlap_Partition>::LeafIterator CpGrid::leafend<0,Dune::Overlap_Partition>() const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::OverlapFront_Partition>::LeafIterator CpGrid::leafend<0,Dune::OverlapFront_Partition>() const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::All_Partition>::LeafIterator CpGrid::leafend<0,Dune::All_Partition>() const;
-template typename CpGridTraits::template Codim<0>::template Partition<Dune::Ghost_Partition>::LeafIterator CpGrid::leafend<0,Dune::Ghost_Partition>() const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::Interior_Partition>::LeafIterator CpGrid::leafend<1,Dune::Interior_Partition>() const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator CpGrid::leafend<1,Dune::InteriorBorder_Partition>() const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::Overlap_Partition>::LeafIterator CpGrid::leafend<1,Dune::Overlap_Partition>() const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::OverlapFront_Partition>::LeafIterator CpGrid::leafend<1,Dune::OverlapFront_Partition>() const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::All_Partition>::LeafIterator CpGrid::leafend<1,Dune::All_Partition>() const;
-template typename CpGridTraits::template Codim<1>::template Partition<Dune::Ghost_Partition>::LeafIterator CpGrid::leafend<1,Dune::Ghost_Partition>() const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::Interior_Partition>::LeafIterator CpGrid::leafend<3,Dune::Interior_Partition>() const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator CpGrid::leafend<3,Dune::InteriorBorder_Partition>() const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::Overlap_Partition>::LeafIterator CpGrid::leafend<3,Dune::Overlap_Partition>() const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::OverlapFront_Partition>::LeafIterator CpGrid::leafend<3,Dune::OverlapFront_Partition>() const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::All_Partition>::LeafIterator CpGrid::leafend<3,Dune::All_Partition>() const;
-template typename CpGridTraits::template Codim<3>::template Partition<Dune::Ghost_Partition>::LeafIterator CpGrid::leafend<3,Dune::Ghost_Partition>() const;
-
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Interior_Partition>::LeafIterator
+CpGrid::leafend<0,Dune::Interior_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator
+CpGrid::leafend<0,Dune::InteriorBorder_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Overlap_Partition>::LeafIterator
+CpGrid::leafend<0,Dune::Overlap_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::OverlapFront_Partition>::LeafIterator
+CpGrid::leafend<0,Dune::OverlapFront_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::All_Partition>::LeafIterator
+CpGrid::leafend<0,Dune::All_Partition>() const;
+template typename CpGridTraits::template Codim<0>::template Partition<Dune::Ghost_Partition>::LeafIterator
+CpGrid::leafend<0,Dune::Ghost_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Interior_Partition>::LeafIterator
+CpGrid::leafend<1,Dune::Interior_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator
+CpGrid::leafend<1,Dune::InteriorBorder_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Overlap_Partition>::LeafIterator
+CpGrid::leafend<1,Dune::Overlap_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::OverlapFront_Partition>::LeafIterator
+CpGrid::leafend<1,Dune::OverlapFront_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::All_Partition>::LeafIterator
+CpGrid::leafend<1,Dune::All_Partition>() const;
+template typename CpGridTraits::template Codim<1>::template Partition<Dune::Ghost_Partition>::LeafIterator
+CpGrid::leafend<1,Dune::Ghost_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Interior_Partition>::LeafIterator
+CpGrid::leafend<3,Dune::Interior_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::InteriorBorder_Partition>::LeafIterator
+CpGrid::leafend<3,Dune::InteriorBorder_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Overlap_Partition>::LeafIterator
+CpGrid::leafend<3,Dune::Overlap_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::OverlapFront_Partition>::LeafIterator
+CpGrid::leafend<3,Dune::OverlapFront_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::All_Partition>::LeafIterator
+CpGrid::leafend<3,Dune::All_Partition>() const;
+template typename CpGridTraits::template Codim<3>::template Partition<Dune::Ghost_Partition>::LeafIterator
+CpGrid::leafend<3,Dune::Ghost_Partition>() const;
 
 int CpGrid::size (int level, int codim) const
-        {
-            if (level<0 || level>maxLevel())
-                DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
-            return data_[level]-> size(codim);
-        }
+{
+    if (level<0 || level>maxLevel())
+        DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
+    return data_[level]-> size(codim);
+}
 
 int CpGrid::size (int codim) const
-        {
-            return current_view_data_->size(codim);
-        }
+{
+    return current_view_data_->size(codim);
+}
 
 int CpGrid::size (int level, GeometryType type) const
-        {
-            if (level<0 || level>maxLevel())
-                DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
-            return data_[level] -> size(type);
-        }
+{
+    if (level<0 || level>maxLevel())
+        DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
+    return data_[level] -> size(type);
+}
 
 int CpGrid::size (GeometryType type) const
-        {
-            return current_view_data_->size(type);
-        }
+{
+    return current_view_data_->size(type);
+}
 
 const CpGridFamily::Traits::GlobalIdSet& CpGrid::globalIdSet() const
-        {
-            return global_id_set_;
-        }
+{
+    return global_id_set_;
+}
 
 const CpGridFamily::Traits::LocalIdSet& CpGrid::localIdSet() const
-        {
-            return global_id_set_;
-        }
+{
+    return global_id_set_;
+}
 
 const CpGridFamily::Traits::LevelIndexSet& CpGrid::levelIndexSet(int level) const
-        {
-            if (level<0 || level>maxLevel())
-                DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
-            return *current_view_data_->index_set_;
-        }
+{
+    if (level<0 || level>maxLevel())
+        DUNE_THROW(GridError, "levelIndexSet of nonexisting level " << level << " requested!");
+    return *current_view_data_->index_set_;
+}
 
 const CpGridFamily::Traits::LeafIndexSet& CpGrid::leafIndexSet() const
-        {
-            return *current_view_data_->index_set_;
-        }
+{
+    return *current_view_data_->index_set_;
+}
 
 void CpGrid::globalRefine (int)
-        {
-            std::cout << "Warning: Global refinement not implemented, yet." << std::endl;
-        }
+{
+    std::cout << "Warning: Global refinement not implemented, yet." << std::endl;
+}
 
 const std::vector< Dune :: GeometryType >& CpGrid::geomTypes( const int codim ) const
 {
@@ -804,487 +864,498 @@ template cpgrid::Entity<3> CpGrid::entity<3>( const cpgrid::Entity<3>&) const;
 
 /// \brief Size of the overlap on the leaf level
 unsigned int CpGrid::overlapSize(int) const {
-            return 1;
-        }
+    return 1;
+}
 
 
-        /// \brief Size of the ghost cell layer on the leaf level
+/// \brief Size of the ghost cell layer on the leaf level
 unsigned int CpGrid::ghostSize(int) const {
-            return 0;
-        }
+    return 0;
+}
 
 
-        /// \brief Size of the overlap on a given level
+/// \brief Size of the overlap on a given level
 unsigned int CpGrid::overlapSize(int, int) const {
-            return 1;
-        }
+    return 1;
+}
 
 
-        /// \brief Size of the ghost cell layer on a given level
+/// \brief Size of the ghost cell layer on a given level
 unsigned int CpGrid::ghostSize(int, int) const {
-            return 0;
-        }
+    return 0;
+}
 
 unsigned int CpGrid::numBoundarySegments() const
-        {
-            if( uniqueBoundaryIds() )
-            {
-                return current_view_data_->unique_boundary_ids_.size();
-            }
-            else
-            {
-                unsigned int numBndSegs = 0;
-                const int num_faces = numFaces();
-                for (int i = 0; i < num_faces; ++i) {
-                    cpgrid::EntityRep<1> face(i, true);
-                    if (current_view_data_->face_to_cell_[face].size() == 1) {
-                        ++numBndSegs;
-                    }
-                }
-                return numBndSegs;
+{
+    if( uniqueBoundaryIds() )
+    {
+        return current_view_data_->unique_boundary_ids_.size();
+    }
+    else
+    {
+        unsigned int numBndSegs = 0;
+        const int num_faces = numFaces();
+        for (int i = 0; i < num_faces; ++i) {
+            cpgrid::EntityRep<1> face(i, true);
+            if (current_view_data_->face_to_cell_[face].size() == 1) {
+                ++numBndSegs;
             }
         }
+        return numBndSegs;
+    }
+}
 
 void CpGrid::setZoltanParams(const std::map<std::string,std::string>& params)
-        {
-          zoltanParams = params;
-        }
+{
+    zoltanParams = params;
+}
 
 const typename CpGridTraits::Communication& Dune::CpGrid::comm () const
-        {
-            return current_view_data_->ccobj_;
-        }
+{
+    return current_view_data_->ccobj_;
+}
 
 //
 
 const std::vector<double>& CpGrid::zcornData() const {
-            return current_view_data_->zcornData();
-        }
+    return current_view_data_->zcornData();
+}
 
 int CpGrid::numCells() const
-        {
-            return current_view_data_->cell_to_face_.size();
-        }
-        /// \brief Get the number of faces.
+{
+    return current_view_data_->cell_to_face_.size();
+}
+/// \brief Get the number of faces.
 int CpGrid::numFaces() const
-        {
-            return current_view_data_->face_to_cell_.size();
-        }
-        /// \brief Get The number of vertices.
+{
+    return current_view_data_->face_to_cell_.size();
+}
+/// \brief Get The number of vertices.
 int CpGrid::numVertices() const
-        {
-            return current_view_data_->geomVector<3>().size();
-        }
+{
+    return current_view_data_->geomVector<3>().size();
+}
 
 int CpGrid::numCellFaces(int cell) const
-        {
-            return current_view_data_->cell_to_face_[cpgrid::EntityRep<0>(cell, true)].size();
-        }
+{
+    return current_view_data_->cell_to_face_[cpgrid::EntityRep<0>(cell, true)].size();
+}
 
 int CpGrid::cellFace(int cell, int local_index) const
-        {
-            return current_view_data_->cell_to_face_[cpgrid::EntityRep<0>(cell, true)][local_index].index();
-        }
+{
+    return current_view_data_->cell_to_face_[cpgrid::EntityRep<0>(cell, true)][local_index].index();
+}
 
 const cpgrid::OrientedEntityTable<0,1>::row_type CpGrid::cellFaceRow(int cell) const
-        {
-            return current_view_data_->cell_to_face_[cpgrid::EntityRep<0>(cell, true)];
-        }
+{
+    return current_view_data_->cell_to_face_[cpgrid::EntityRep<0>(cell, true)];
+}
 
 int CpGrid::faceCell(int face, int local_index) const
-        {
-            // In the parallel case we store non-existent cells for faces along
-            // the front region. Theses marked with index std::numeric_limits<int>::max(),
-            // orientation might be arbitrary, though.
-            cpgrid::OrientedEntityTable<1,0>::row_type r
-                = current_view_data_->face_to_cell_[cpgrid::EntityRep<1>(face, true)];
-            bool a = (local_index == 0);
-            bool b = r[0].orientation();
-            bool use_first = a ? b : !b;
-            // The number of valid cells.
-            int r_size = r.size();
-            // In the case of only one valid cell, this is the index of it.
-            int index = 0;
-            if(r[0].index()==std::numeric_limits<int>::max()){
-                assert(r_size==2);
-                --r_size;
-                index=1;
-            }
-            if(r.size()>1 && r[1].index()==std::numeric_limits<int>::max())
-            {
-                assert(r_size==2);
-                --r_size;
-            }
-            if (r_size == 2) {
-                return use_first ? r[0].index() : r[1].index();
-            } else {
-                return use_first ? r[index].index() : -1;
-            }
-        }
+{
+    // In the parallel case we store non-existent cells for faces along
+    // the front region. Theses marked with index std::numeric_limits<int>::max(),
+    // orientation might be arbitrary, though.
+    cpgrid::OrientedEntityTable<1,0>::row_type r
+        = current_view_data_->face_to_cell_[cpgrid::EntityRep<1>(face, true)];
+    bool a = (local_index == 0);
+    bool b = r[0].orientation();
+    bool use_first = a ? b : !b;
+    // The number of valid cells.
+    int r_size = r.size();
+    // In the case of only one valid cell, this is the index of it.
+    int index = 0;
+    if(r[0].index()==std::numeric_limits<int>::max()){
+        assert(r_size==2);
+        --r_size;
+        index=1;
+    }
+    if(r.size()>1 && r[1].index()==std::numeric_limits<int>::max())
+    {
+        assert(r_size==2);
+        --r_size;
+    }
+    if (r_size == 2) {
+        return use_first ? r[0].index() : r[1].index();
+    } else {
+        return use_first ? r[index].index() : -1;
+    }
+}
 
 int CpGrid::numCellFaces() const
-        {
-            return current_view_data_->cell_to_face_.dataSize();
-        }
+{
+    return current_view_data_->cell_to_face_.dataSize();
+}
 
 int CpGrid::numFaceVertices(int face) const
-        {
-            return current_view_data_->face_to_point_[face].size();
-        }
+{
+    return current_view_data_->face_to_point_[face].size();
+}
 
 int CpGrid::faceVertex(int face, int local_index) const
-        {
-            return current_view_data_->face_to_point_[face][local_index];
-        }
+{
+    return current_view_data_->face_to_point_[face][local_index];
+}
 
 double CpGrid::cellCenterDepth(int cell_index) const
-        {
-            // Here cell center depth is computed as a raw average of cell corner depths.
-            // This generally gives slightly different results than using the cell centroid.
-            double zz = 0.0;
-            const int nv = current_view_data_->cell_to_point_[cell_index].size();
-            const int nd = 3;
-            for (int i=0; i<nv; ++i) {
-                zz += vertexPosition(current_view_data_->cell_to_point_[cell_index][i])[nd-1];
-            }
-            return zz/nv;
-        }
+{
+    // Here cell center depth is computed as a raw average of cell corner depths.
+    // This generally gives slightly different results than using the cell centroid.
+    double zz = 0.0;
+    const int nv = current_view_data_->cell_to_point_[cell_index].size();
+    const int nd = 3;
+    for (int i=0; i<nv; ++i) {
+        zz += vertexPosition(current_view_data_->cell_to_point_[cell_index][i])[nd-1];
+    }
+    return zz/nv;
+}
 
 const Dune::FieldVector<double,3> CpGrid::faceCenterEcl(int cell_index, int face) const
-        {
-            // This method is an alternative to the method faceCentroid(...).
-            // The face center is computed as a raw average of cell corners.
-            // For faulted cells this gives different results then average of face nodes
-            // that seems to agree more with eclipse.
-            // This assumes the cell nodes are ordered
-            // 6---7
-            // | T |
-            // 4---5
-            //   2---3
-            //   | B |
-            //   0---1
+{
+    // This method is an alternative to the method faceCentroid(...).
+    // The face center is computed as a raw average of cell corners.
+    // For faulted cells this gives different results then average of face nodes
+    // that seems to agree more with eclipse.
+    // This assumes the cell nodes are ordered
+    // 6---7
+    // | T |
+    // 4---5
+    //   2---3
+    //   | B |
+    //   0---1
 
-            // this follows the DUNE reference cube
-            static const int faceVxMap[ 6 ][ 4 ] = { {0, 2, 4, 6}, // face 0
-                                                     {1, 3, 5, 7}, // face 1
-                                                     {0, 1, 4, 5}, // face 2
-                                                     {2, 3, 6, 7}, // face 3
-                                                     {0, 1, 2, 3}, // face 4
-                                                     {4, 5, 6, 7}  // face 5
-                                                   };
+    // this follows the DUNE reference cube
+    static const int faceVxMap[ 6 ][ 4 ] = { {0, 2, 4, 6}, // face 0
+                                             {1, 3, 5, 7}, // face 1
+                                             {0, 1, 4, 5}, // face 2
+                                             {2, 3, 6, 7}, // face 3
+                                             {0, 1, 2, 3}, // face 4
+                                             {4, 5, 6, 7}  // face 5
+    };
 
 
-            assert (current_view_data_->cell_to_point_[cell_index].size() == 8);
-            Dune::FieldVector<double,3> center(0.0);
-            for( int i=0; i<4; ++i )
-            {
-               center += vertexPosition(current_view_data_->cell_to_point_[cell_index][ faceVxMap[ face ][ i ] ]);
-            }
+    assert (current_view_data_->cell_to_point_[cell_index].size() == 8);
+    Dune::FieldVector<double,3> center(0.0);
+    for( int i=0; i<4; ++i )
+    {
+        center += vertexPosition(current_view_data_->cell_to_point_[cell_index][ faceVxMap[ face ][ i ] ]);
+    }
 
-            for (int i=0; i<3; ++i) {
-                center[i] /= 4;
-            }
-            return center;
+    for (int i=0; i<3; ++i) {
+        center[i] /= 4;
+    }
+    return center;
 
-        }
+}
 
 const Dune::FieldVector<double,3> CpGrid::faceAreaNormalEcl(int face) const
+{
+    // same implementation as ResInsight
+    const int nd = Dune::FieldVector<double,3>::dimension;
+    const int nv =  numFaceVertices(face);
+    switch (nv)
+    {
+    case 0:
+    case 1:
+    case 2:
         {
-            // same implementation as ResInsight
-            const int nd = Dune::FieldVector<double,3>::dimension;
-            const int nv =  numFaceVertices(face);
-            switch (nv)
-            {
-            case 0:
-            case 1:
-            case 2:
-                {
-                    return Dune::FieldVector<double,3>(0.0);
-                }
-                break;
-            case 3:
-                {
-                Dune::FieldVector<double,3> a = vertexPosition(current_view_data_->face_to_point_[face][0])
-                    - vertexPosition(current_view_data_->face_to_point_[face][2]);
-                Dune::FieldVector<double,3> b = vertexPosition(current_view_data_->face_to_point_[face][1])
-                    - vertexPosition(current_view_data_->face_to_point_[face][2]);
-                Dune::FieldVector<double,3> areaNormal = cross(a,b);
-                for (int i=0; i<nd; ++i) {
-                    areaNormal[i] /= 2;
-                }
-                return areaNormal;
-            }
-                                break;
-            case 4:
-                {
-                Dune::FieldVector<double,3> a = vertexPosition(current_view_data_->face_to_point_[face][0])
-                    - vertexPosition(current_view_data_->face_to_point_[face][2]);
-                Dune::FieldVector<double,3> b = vertexPosition(current_view_data_->face_to_point_[face][1])
-                    - vertexPosition(current_view_data_->face_to_point_[face][3]);
-                Dune::FieldVector<double,3> areaNormal = cross(a,b);
-                areaNormal *= 0.5;
-                return areaNormal;
-                }
-                break;
-            default:
-                {
-                    int h = (nv - 1)/2;
-                    int k = (nv % 2) ? 0 : nv - 1;
-
-                    Dune::FieldVector<double,3> areaNormal(0.0);
-                    // First quads
-                    for (int i = 1; i < h; ++i)
-                    {
-                        Dune::FieldVector<double,3> a = vertexPosition(current_view_data_->face_to_point_[face][2*i])
-                            - vertexPosition(current_view_data_->face_to_point_[face][0]);
-                        Dune::FieldVector<double,3> b = vertexPosition(current_view_data_->face_to_point_[face][2*i+1])
-                            - vertexPosition(current_view_data_->face_to_point_[face][2*i-1]);
-                        areaNormal += cross(a,b);
-                    }
-
-                    // Last triangle or quad
-                    Dune::FieldVector<double,3> a = vertexPosition(current_view_data_->face_to_point_[face][2*h])
-                        - vertexPosition(current_view_data_->face_to_point_[face][0]);
-                    Dune::FieldVector<double,3> b = vertexPosition(current_view_data_->face_to_point_[face][k])
-                        - vertexPosition(current_view_data_->face_to_point_[face][2*h-1]);
-                    areaNormal += cross(a,b);
-
-                    areaNormal *= 0.5;
-
-                    return areaNormal;
-                }
-
-            }
+            return Dune::FieldVector<double,3>(0.0);
         }
+        break;
+    case 3:
+        {
+            Dune::FieldVector<double,3> a = vertexPosition(current_view_data_->face_to_point_[face][0])
+                - vertexPosition(current_view_data_->face_to_point_[face][2]);
+            Dune::FieldVector<double,3> b = vertexPosition(current_view_data_->face_to_point_[face][1])
+                - vertexPosition(current_view_data_->face_to_point_[face][2]);
+            Dune::FieldVector<double,3> areaNormal = cross(a,b);
+            for (int i=0; i<nd; ++i) {
+                areaNormal[i] /= 2;
+            }
+            return areaNormal;
+        }
+        break;
+    case 4:
+        {
+            Dune::FieldVector<double,3> a = vertexPosition(current_view_data_->face_to_point_[face][0])
+                - vertexPosition(current_view_data_->face_to_point_[face][2]);
+            Dune::FieldVector<double,3> b = vertexPosition(current_view_data_->face_to_point_[face][1])
+                - vertexPosition(current_view_data_->face_to_point_[face][3]);
+            Dune::FieldVector<double,3> areaNormal = cross(a,b);
+            areaNormal *= 0.5;
+            return areaNormal;
+        }
+        break;
+    default:
+        {
+            int h = (nv - 1)/2;
+            int k = (nv % 2) ? 0 : nv - 1;
+
+            Dune::FieldVector<double,3> areaNormal(0.0);
+            // First quads
+            for (int i = 1; i < h; ++i)
+            {
+                Dune::FieldVector<double,3> a = vertexPosition(current_view_data_->face_to_point_[face][2*i])
+                    - vertexPosition(current_view_data_->face_to_point_[face][0]);
+                Dune::FieldVector<double,3> b = vertexPosition(current_view_data_->face_to_point_[face][2*i+1])
+                    - vertexPosition(current_view_data_->face_to_point_[face][2*i-1]);
+                areaNormal += cross(a,b);
+            }
+
+            // Last triangle or quad
+            Dune::FieldVector<double,3> a = vertexPosition(current_view_data_->face_to_point_[face][2*h])
+                - vertexPosition(current_view_data_->face_to_point_[face][0]);
+            Dune::FieldVector<double,3> b = vertexPosition(current_view_data_->face_to_point_[face][k])
+                - vertexPosition(current_view_data_->face_to_point_[face][2*h-1]);
+            areaNormal += cross(a,b);
+
+            areaNormal *= 0.5;
+
+            return areaNormal;
+        }
+
+    }
+}
 
 const Dune::FieldVector<double,3>& CpGrid::vertexPosition(int vertex) const
-        {
-            return current_view_data_->geomVector<3>()[cpgrid::EntityRep<3>(vertex, true)].center();
-        }
+{
+    return current_view_data_->geomVector<3>()[cpgrid::EntityRep<3>(vertex, true)].center();
+}
 
 double CpGrid::faceArea(int face) const
-        {
-            return current_view_data_->geomVector<1>()[cpgrid::EntityRep<1>(face, true)].volume();
-        }
+{
+    return current_view_data_->geomVector<1>()[cpgrid::EntityRep<1>(face, true)].volume();
+}
 
 const Dune::FieldVector<double,3>& CpGrid::faceCentroid(int face) const
-        {
-            return current_view_data_->geomVector<1>()[cpgrid::EntityRep<1>(face, true)].center();
-        }
+{
+    return current_view_data_->geomVector<1>()[cpgrid::EntityRep<1>(face, true)].center();
+}
 
 const Dune::FieldVector<double,3>& CpGrid::faceNormal(int face) const
-        {
-            return current_view_data_->face_normals_.get(face);
-        }
+{
+    return current_view_data_->face_normals_.get(face);
+}
 
 double CpGrid::cellVolume(int cell) const
-        {
-            return current_view_data_->geomVector<0>()[cpgrid::EntityRep<0>(cell, true)].volume();
-        }
+{
+    return current_view_data_->geomVector<0>()[cpgrid::EntityRep<0>(cell, true)].volume();
+}
 
 const Dune::FieldVector<double,3>& CpGrid::cellCentroid(int cell) const
-        {
-            return current_view_data_->geomVector<0>()[cpgrid::EntityRep<0>(cell, true)].center();
-        }
+{
+    return current_view_data_->geomVector<0>()[cpgrid::EntityRep<0>(cell, true)].center();
+}
 
 //
 
 template<int codim>
-const FieldVector<double, 3>& CpGrid::CentroidIterator<codim>::dereference() const
-            {
-                return iter_->center();
-            }
-template const FieldVector<double, 3>& CpGrid::CentroidIterator<0>::dereference() const;
+const FieldVector<double,3>& CpGrid::CentroidIterator<codim>::dereference() const
+{
+    return iter_->center();
+}
+template const FieldVector<double,3>& CpGrid::CentroidIterator<0>::dereference() const;
 
-/*void CpGrid::CentroidIterator<0>::increment()
-            {
-                ++iter_;
-            }
+template<int codim>
+void CpGrid::CentroidIterator<codim>::increment()
+{
+    ++iter_;
+}
+template void CpGrid::CentroidIterator<0>::increment();
 
-const FieldVector<double, 3>& CpGrid::CentroidIterator<0>::elementAt(int n)
-            {
-                return iter_[n]->center();
-            }
+/*template<int codim>
+  const FieldVector<double,3>& CpGrid::CentroidIterator<codim>::elementAt(int n)
+  {
+  return iter_[n]->center();
+  }
+  template const FieldVector<double,3>& CpGrid::CentroidIterator<0>::elementAt(int n);*/
 
-void CpGrid::CentroidIterator<0>::advance(int n)
-            {
-                iter_+=n;
-            }
+template<int codim>
+void CpGrid::CentroidIterator<codim>::advance(int n)
+{
+    iter_+=n;
+}
+template void CpGrid::CentroidIterator<0>::advance(int n);
 
-void CpGrid::CentroidIterator<0>::decrement()
-            {
-                --iter_;
-            }
+template<int codim>
+void CpGrid::CentroidIterator<codim>::decrement()
+{
+    --iter_;
+}
+template void CpGrid::CentroidIterator<0>::decrement();
 
-int CpGrid::CentroidIterator<0>::distanceTo(const CentroidIterator& o)
-            {
-                return o-iter_;
-            }
+/*template<int codim>
+  int CpGrid::CentroidIterator<codim>::distanceTo(const CentroidIterator& o)
+  {
+  return o-iter_;
+  }
+  template int CpGrid::CentroidIterator<0>::distanceTo(const CentroidIterator& o);*/
 
-bool CpGrid::CentroidIterator<0>::equals(const CentroidIterator& o) const
-            {
-                return o==iter_;
-                }*/
-
+/*template<int codim>
+  bool CpGrid::CentroidIterator<codim>::equals(const CentroidIterator& o) const
+  {
+  return o==iter_;
+  }
+  template bool CpGrid::CentroidIterator<0>::equals(const CentroidIterator& o) const;*/
 //
 
 CpGrid::CentroidIterator<0> CpGrid::beginCellCentroids() const
-        {
-            return CentroidIterator<0>(current_view_data_->geomVector<0>().begin());
-        }
+{
+    return CentroidIterator<0>(current_view_data_->geomVector<0>().begin());
+}
 
 CpGrid::CentroidIterator<1> CpGrid::beginFaceCentroids() const
-        {
-            return CentroidIterator<1>(current_view_data_->geomVector<1>().begin());
-        }
+{
+    return CentroidIterator<1>(current_view_data_->geomVector<1>().begin());
+}
 
 int CpGrid::boundaryId(int face) const
-        {
-            // Note that this relies on the following implementation detail:
-            // The grid is always construct such that the faces where
-            // orientation() returns true are oriented along the positive IJK
-            // direction. Oriented means that the first cell attached to face
-            // has the lower index.
-            int ret = 0;
-            cpgrid::EntityRep<1> f(face, true);
-            if (current_view_data_->face_to_cell_[f].size() == 1) {
-                if (current_view_data_->uniqueBoundaryIds()) {
-                    // Use the unique boundary ids.
-                    ret = current_view_data_->unique_boundary_ids_[f];
-                } else {
-                    // Use the face tag based ids, i.e. 1-6 for i-, i+, j-, j+, k-, k+.
-                    const bool normal_is_in =
-                        !(current_view_data_->face_to_cell_[f][0].orientation());
-                    enum face_tag tag = current_view_data_->face_tag_[f];
-                    switch (tag) {
-                    case I_FACE:
-                        //                   LEFT : RIGHT
-                        ret = normal_is_in ? 1    : 2; // min(I) : max(I)
-                        break;
-                    case J_FACE:
-                        //                   BACK : FRONT
-                        ret = normal_is_in ? 3    : 4; // min(J) : max(J)
-                        break;
-                    case K_FACE:
-                        // Note: TOP at min(K) as 'z' measures *depth*.
-                        //                   TOP  : BOTTOM
-                        ret = normal_is_in ? 5    : 6; // min(K) : max(K)
-                        break;
-                    case NNC_FACE:
-                        // This should not be possible, as NNC "faces" always
-                        // have two cell neighbours.
-                        OPM_THROW(std::logic_error, "NNC face at boundary. This should never happen!");
-                    }
-                }
+{
+    // Note that this relies on the following implementation detail:
+    // The grid is always construct such that the faces where
+    // orientation() returns true are oriented along the positive IJK
+    // direction. Oriented means that the first cell attached to face
+    // has the lower index.
+    int ret = 0;
+    cpgrid::EntityRep<1> f(face, true);
+    if (current_view_data_->face_to_cell_[f].size() == 1) {
+        if (current_view_data_->uniqueBoundaryIds()) {
+            // Use the unique boundary ids.
+            ret = current_view_data_->unique_boundary_ids_[f];
+        } else {
+            // Use the face tag based ids, i.e. 1-6 for i-, i+, j-, j+, k-, k+.
+            const bool normal_is_in =
+                !(current_view_data_->face_to_cell_[f][0].orientation());
+            enum face_tag tag = current_view_data_->face_tag_[f];
+            switch (tag) {
+            case I_FACE:
+                //                   LEFT : RIGHT
+                ret = normal_is_in ? 1    : 2; // min(I) : max(I)
+                break;
+            case J_FACE:
+                //                   BACK : FRONT
+                ret = normal_is_in ? 3    : 4; // min(J) : max(J)
+                break;
+            case K_FACE:
+                // Note: TOP at min(K) as 'z' measures *depth*.
+                //                   TOP  : BOTTOM
+                ret = normal_is_in ? 5    : 6; // min(K) : max(K)
+                break;
+            case NNC_FACE:
+                // This should not be possible, as NNC "faces" always
+                // have two cell neighbours.
+                OPM_THROW(std::logic_error, "NNC face at boundary. This should never happen!");
             }
-            return ret;
         }
+    }
+    return ret;
+}
 
 void CpGrid::switchToGlobalView()
-        {
-            current_view_data_=data_[0].get();
-        }
+{
+    current_view_data_=data_[0].get();
+}
 
 void CpGrid::switchToDistributedView()
-        {
-            if (distributed_data_.empty())
-                OPM_THROW(std::logic_error, "No distributed view available in grid");
-            current_view_data_=distributed_data_[0].get();
-        }
+{
+    if (distributed_data_.empty())
+        OPM_THROW(std::logic_error, "No distributed view available in grid");
+    current_view_data_=distributed_data_[0].get();
+}
 
 const cpgrid::CpGridData::CommunicationType& CpGrid::cellCommunication() const
-        {
-            return current_view_data_->cellCommunication();
-        }
+{
+    return current_view_data_->cellCommunication();
+}
 
 cpgrid::CpGridData::ParallelIndexSet& CpGrid::getCellIndexSet()
-        {
-            return current_view_data_->cellIndexSet();
-        }
+{
+    return current_view_data_->cellIndexSet();
+}
 
 cpgrid::CpGridData::RemoteIndices& CpGrid::getCellRemoteIndices()
-        {
-            return current_view_data_->cellRemoteIndices();
-        }
+{
+    return current_view_data_->cellRemoteIndices();
+}
 
 const cpgrid::CpGridData::ParallelIndexSet& CpGrid::getCellIndexSet() const
-        {
-            return current_view_data_->cellIndexSet();
-        }
+{
+    return current_view_data_->cellIndexSet();
+}
 
 const cpgrid::CpGridData::RemoteIndices& CpGrid::getCellRemoteIndices() const
-        {
-            return current_view_data_->cellRemoteIndices();
-        }
+{
+    return current_view_data_->cellRemoteIndices();
+}
 
 /*const std::vector<int>& CpGrid::sortedNumAquiferCells() const
-       {
-           return current_view_data_->sortedNumAquiferCells();
-           }*/
+  {
+  return current_view_data_->sortedNumAquiferCells();
+  }*/
 
 
 //
-    void CpGrid::readSintefLegacyFormat(const std::string& grid_prefix)
+void CpGrid::readSintefLegacyFormat(const std::string& grid_prefix)
+{
+    if ( current_view_data_->ccobj_.rank() == 0 )
     {
-        if ( current_view_data_->ccobj_.rank() == 0 )
-        {
-            current_view_data_->readSintefLegacyFormat(grid_prefix);
-        }
-        current_view_data_->ccobj_.broadcast(current_view_data_->logical_cartesian_size_.data(),
-                                             current_view_data_->logical_cartesian_size_.size(),
-                                             0);
+        current_view_data_->readSintefLegacyFormat(grid_prefix);
     }
-    void CpGrid::writeSintefLegacyFormat(const std::string& grid_prefix) const
+    current_view_data_->ccobj_.broadcast(current_view_data_->logical_cartesian_size_.data(),
+                                         current_view_data_->logical_cartesian_size_.size(),
+                                         0);
+}
+void CpGrid::writeSintefLegacyFormat(const std::string& grid_prefix) const
+{
+    // Only rank 0 has the full data. Use that for writing.
+    if ( current_view_data_->ccobj_.rank() == 0 )
     {
-        // Only rank 0 has the full data. Use that for writing.
-        if ( current_view_data_->ccobj_.rank() == 0 )
-        {
-            data_[0]->writeSintefLegacyFormat(grid_prefix);
-        }
+        data_[0]->writeSintefLegacyFormat(grid_prefix);
     }
+}
 
 
 #if HAVE_ECL_INPUT
-    std::vector<std::size_t> CpGrid::processEclipseFormat(const Opm::EclipseGrid* ecl_grid,
-                                                          Opm::EclipseState* ecl_state,
-                                                          bool periodic_extension,
-                                                          bool turn_normals, bool clip_z,
-                                                          bool pinchActive)
-    {
-        auto removed_cells = current_view_data_->processEclipseFormat(ecl_grid, ecl_state, periodic_extension,
-                                                                      turn_normals, clip_z, pinchActive);
-        current_view_data_->ccobj_.broadcast(current_view_data_->logical_cartesian_size_.data(),
-                                             current_view_data_->logical_cartesian_size_.size(),
-                                             0);
-        return removed_cells;
-    }
+std::vector<std::size_t> CpGrid::processEclipseFormat(const Opm::EclipseGrid* ecl_grid,
+                                                      Opm::EclipseState* ecl_state,
+                                                      bool periodic_extension,
+                                                      bool turn_normals, bool clip_z,
+                                                      bool pinchActive)
+{
+    auto removed_cells = current_view_data_->processEclipseFormat(ecl_grid, ecl_state, periodic_extension,
+                                                                  turn_normals, clip_z, pinchActive);
+    current_view_data_->ccobj_.broadcast(current_view_data_->logical_cartesian_size_.data(),
+                                         current_view_data_->logical_cartesian_size_.size(),
+                                         0);
+    return removed_cells;
+}
 
-    std::vector<std::size_t> CpGrid::processEclipseFormat(const Opm::EclipseGrid* ecl_grid_ptr,
-                                                              Opm::EclipseState* ecl_state,
-                                                              bool periodic_extension, bool turn_normals, bool clip_z)
-    {
-        return processEclipseFormat(ecl_grid_ptr, ecl_state, periodic_extension, turn_normals, clip_z,
-                             !ecl_grid_ptr || ecl_grid_ptr->isPinchActive());
-    }
+std::vector<std::size_t> CpGrid::processEclipseFormat(const Opm::EclipseGrid* ecl_grid_ptr,
+                                                      Opm::EclipseState* ecl_state,
+                                                      bool periodic_extension, bool turn_normals, bool clip_z)
+{
+    return processEclipseFormat(ecl_grid_ptr, ecl_state, periodic_extension, turn_normals, clip_z,
+                                !ecl_grid_ptr || ecl_grid_ptr->isPinchActive());
+}
 
 #endif
 
-    void CpGrid::processEclipseFormat(const grdecl& input_data,
-                                      bool remove_ij_boundary, bool turn_normals)
-    {
-        using NNCMap = std::set<std::pair<int, int>>;
-        using NNCMaps = std::array<NNCMap, 2>;
-        NNCMaps nnc;
-        current_view_data_->processEclipseFormat(input_data,
+void CpGrid::processEclipseFormat(const grdecl& input_data,
+                                  bool remove_ij_boundary, bool turn_normals)
+{
+    using NNCMap = std::set<std::pair<int, int>>;
+    using NNCMaps = std::array<NNCMap, 2>;
+    NNCMaps nnc;
+    current_view_data_->processEclipseFormat(input_data,
 #if HAVE_ECL_INPUT
-                                                 nullptr,
+                                             nullptr,
 #endif
-                                                 nnc,
-                                                 remove_ij_boundary, turn_normals, false);
-        current_view_data_->ccobj_.broadcast(current_view_data_->logical_cartesian_size_.data(),
-                                             current_view_data_->logical_cartesian_size_.size(),
-                                             0);
-    }
+                                             nnc,
+                                             remove_ij_boundary, turn_normals, false);
+    current_view_data_->ccobj_.broadcast(current_view_data_->logical_cartesian_size_.data(),
+                                         current_view_data_->logical_cartesian_size_.size(),
+                                         0);
+}
 
 
 /// @brief Create a grid out of a coarse one and a refinement(LGR) of a selected block-shaped patch of cells from that coarse grid.
@@ -1622,5 +1693,5 @@ void CpGrid::createGridWithLgr(const std::array<int,3>& cells_per_dim, const std
     template CpGridTraits::template Codim<0>:: Method CpGrid:: method<0>() const; \
     template CpGridTraits::template Codim<1>:: Method CpGrid:: method<1>() const; \
     template CpGridTraits::template Codim<3>:: Method CpGrid:: method<3>() const; \
-    OPM_INSTANTIATE_PARTITION_ITERATE(lbegin, LevelIterator); \
+    OPM_INSTANTIATE_PARTITION_ITERATE(lbegin, LevelIterator);           \
     OPM_INSTANTIATE_PARTITION_ITERATE(lend, LevelIterator);
