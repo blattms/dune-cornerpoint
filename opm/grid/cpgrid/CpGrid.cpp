@@ -1203,6 +1203,19 @@ int CpGrid::boundaryId(int face) const
     return ret;
 }
 
+
+const InterfaceMap& CpGrid::cellScatterGatherInterface() const
+        {
+            return *cell_scatter_gather_interfaces_;
+        }
+
+        /// \brief Get an interface for gathering/scattering data attached to points with communication.
+        /// \see cellScatterGatherInterface
+const InterfaceMap& CpGrid::pointScatterGatherInterface() const
+        {
+            return *point_scatter_gather_interfaces_;
+        }
+
 void CpGrid::switchToGlobalView()
 {
     current_view_data_=data_[0].get();

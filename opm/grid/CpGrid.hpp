@@ -165,9 +165,9 @@ namespace Dune
         };
 
         /// \brief The type of the level grid view associated with this partition type.
-        typedef Dune::GridView<DefaultLevelGridViewTraits<CpGrid> > LevelGridView;
+        typedef Dune::GridView<DefaultLevelGridViewTraits<CpGrid>> LevelGridView;
         /// \brief The type of the leaf grid view associated with this partition type.
-        typedef Dune::GridView<DefaultLeafGridViewTraits<CpGrid> > LeafGridView;
+        typedef Dune::GridView<DefaultLeafGridViewTraits<CpGrid>> LeafGridView;
 
         /// \brief The type of the level index set.
         typedef cpgrid::IndexSet LevelIndexSet;
@@ -209,15 +209,15 @@ namespace Dune
 
     /// \brief [<em> provides \ref Dune::Grid </em>]
     class CpGrid
-        : public GridDefaultImplementation<3, 3, double, CpGridFamily >
+        : public GridDefaultImplementation<3, 3, double, CpGridFamily>
     {
         friend class cpgrid::CpGridData;
         friend class cpgrid::Entity<0>;
         template<int dim>
         friend cpgrid::Entity<dim> createEntity(const CpGrid&,int,bool);
         friend
-        void ::refine_and_check(const Dune::cpgrid::Geometry<3, 3>&,
-                                const std::array<int, 3>&,
+        void ::refine_and_check(const Dune::cpgrid::Geometry<3,3>&,
+                                const std::array<int,3>&,
                                 bool);
         friend
         void ::refinePatch_and_check(Dune::CpGrid&,
@@ -438,11 +438,11 @@ namespace Dune
         /// global refinement
         void globalRefine (int);
 
-        const std::vector<Dune::GeometryType>& geomTypes( const int codim ) const;
+        const std::vector<Dune::GeometryType>& geomTypes(const int) const;
 
         /// given an EntitySeed (or EntityPointer) return an entity object
         template <int codim>
-        cpgrid::Entity<codim> entity( const cpgrid::Entity< codim >& seed ) const;
+        cpgrid::Entity<codim> entity(const cpgrid::Entity< codim >&) const;
            
         /// @brief Create a grid out of a coarse one and a refinement(LGR) of a selected block-shaped patch of cells from that coarse grid.
         ///
@@ -1156,17 +1156,19 @@ int boundaryId(int face) const;
         ///                                       grid.cellScatterGatherInterface());
         /// comm.forward(handle);
         /// \endcode
-const InterfaceMap& cellScatterGatherInterface() const
+const InterfaceMap& cellScatterGatherInterface() const;
+/*
         {
             return *cell_scatter_gather_interfaces_;
-        }
+            }*/
 
         /// \brief Get an interface for gathering/scattering data attached to points with communication.
         /// \see cellScatterGatherInterface
-const InterfaceMap& pointScatterGatherInterface() const
-        {
+const InterfaceMap& pointScatterGatherInterface() const;
+
+/*  {
             return *point_scatter_gather_interfaces_;
-        }
+            }*/
 
         /// \brief Switch to the global view.
 void switchToGlobalView();
@@ -1199,9 +1201,7 @@ const RemoteIndices& getCellRemoteIndices() const;
 #endif
 
         /// \brief Get sorted active cell indices of numerical aquifer
-const std::vector<int>& sortedNumAquiferCells() const;/*{
-           return current_view_data_->sortedNumAquiferCells();
-           }*/
+const std::vector<int>& sortedNumAquiferCells() const;
 
     private:
         /// \brief Scatter a global grid to all processors.
