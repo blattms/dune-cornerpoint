@@ -958,18 +958,25 @@ const Vector& cellCentroid(int cell) const;
             : iter_(iter)
             {}
 
-            const FieldVector<double,3>& dereference() const;
-           
-            void increment();
-           
+            const FieldVector<double,3>& dereference() const
+            {
+                return iter_->center();
+            }
+            void increment()
+            {
+                ++iter_;
+            }
             const FieldVector<double,3>& elementAt(int n)
             {
                 return iter_[n]->center();
             }
-            void advance(int);
-           
-            void decrement();
-           
+            void advance(int n){
+                iter_+=n;
+            }
+            void decrement()
+            {
+                --iter_;
+            }
             int distanceTo(const CentroidIterator& o)
             {
                 return o-iter_;
@@ -982,13 +989,13 @@ const Vector& cellCentroid(int cell) const;
             GeometryIterator iter_;
         };
 
-        /// \brief Get an iterator over the cell centroids positioned at the first one.
+/// \brief Get an iterator over the cell centroids positioned at the first one.
 CentroidIterator<0> beginCellCentroids() const;
 
-        /// \brief Get an iterator over the face centroids positioned at the first one.
-            CentroidIterator<1> beginFaceCentroids() const;
+/// \brief Get an iterator over the face centroids positioned at the first one.
+CentroidIterator<1> beginFaceCentroids() const;
 
-        // Extra
+// Extra
 int boundaryId(int face) const;
 
         /// \brief Get the cartesian tag associated with a face tag.
@@ -1192,9 +1199,9 @@ const RemoteIndices& getCellRemoteIndices() const;
 #endif
 
         /// \brief Get sorted active cell indices of numerical aquifer
-const std::vector<int>& sortedNumAquiferCells() const{
+const std::vector<int>& sortedNumAquiferCells() const;/*{
            return current_view_data_->sortedNumAquiferCells();
-}
+           }*/
 
     private:
         /// \brief Scatter a global grid to all processors.
@@ -1318,12 +1325,8 @@ const std::vector<int>& sortedNumAquiferCells() const{
 
     }
 
-
     template<int dim>
-    cpgrid::Entity<dim> createEntity(const CpGrid& grid,int index,bool orientation)
-    {
-        return cpgrid::Entity<dim>(*grid.current_view_data_, index, orientation);
-    }
+    cpgrid::Entity<dim> createEntity(const CpGrid&, int, bool);
 
 } // namespace Dune
 

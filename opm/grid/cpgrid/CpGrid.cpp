@@ -1147,58 +1147,6 @@ const Dune::FieldVector<double,3>& CpGrid::cellCentroid(int cell) const
     return current_view_data_->geomVector<0>()[cpgrid::EntityRep<0>(cell, true)].center();
 }
 
-//
-
-template<int codim>
-const FieldVector<double,3>& CpGrid::CentroidIterator<codim>::dereference() const
-{
-    return iter_->center();
-}
-template const FieldVector<double,3>& CpGrid::CentroidIterator<0>::dereference() const;
-
-template<int codim>
-void CpGrid::CentroidIterator<codim>::increment()
-{
-    ++iter_;
-}
-template void CpGrid::CentroidIterator<0>::increment();
-
-/*template<int codim>
-  const FieldVector<double,3>& CpGrid::CentroidIterator<codim>::elementAt(int n)
-  {
-  return iter_[n]->center();
-  }
-  template const FieldVector<double,3>& CpGrid::CentroidIterator<0>::elementAt(int n);*/
-
-template<int codim>
-void CpGrid::CentroidIterator<codim>::advance(int n)
-{
-    iter_+=n;
-}
-template void CpGrid::CentroidIterator<0>::advance(int n);
-
-template<int codim>
-void CpGrid::CentroidIterator<codim>::decrement()
-{
-    --iter_;
-}
-template void CpGrid::CentroidIterator<0>::decrement();
-
-/*template<int codim>
-  int CpGrid::CentroidIterator<codim>::distanceTo(const CentroidIterator& o)
-  {
-  return o-iter_;
-  }
-  template int CpGrid::CentroidIterator<0>::distanceTo(const CentroidIterator& o);*/
-
-/*template<int codim>
-  bool CpGrid::CentroidIterator<codim>::equals(const CentroidIterator& o) const
-  {
-  return o==iter_;
-  }
-  template bool CpGrid::CentroidIterator<0>::equals(const CentroidIterator& o) const;*/
-//
-
 CpGrid::CentroidIterator<0> CpGrid::beginCellCentroids() const
 {
     return CentroidIterator<0>(current_view_data_->geomVector<0>().begin());
@@ -1207,6 +1155,10 @@ CpGrid::CentroidIterator<0> CpGrid::beginCellCentroids() const
 CpGrid::CentroidIterator<1> CpGrid::beginFaceCentroids() const
 {
     return CentroidIterator<1>(current_view_data_->geomVector<1>().begin());
+}
+
+const std::vector<int>& CpGrid::sortedNumAquiferCells() const{
+           return current_view_data_->sortedNumAquiferCells();
 }
 
 int CpGrid::boundaryId(int face) const
@@ -1357,6 +1309,14 @@ void CpGrid::processEclipseFormat(const grdecl& input_data,
                                          0);
 }
 
+template<int dim>
+cpgrid::Entity<dim> Dune::createEntity(const CpGrid& grid,int index,bool orientation)
+{
+    return cpgrid::Entity<dim>(*grid.current_view_data_, index, orientation);
+}
+template cpgrid::Entity<0> Dune::createEntity(const CpGrid&, int, bool);
+template cpgrid::Entity<3> Dune::createEntity(const CpGrid&, int, bool);
+template cpgrid::Entity<1> Dune::createEntity(const CpGrid&, int, bool); // needed in distribution_test.cpp 
 
 /// @brief Create a grid out of a coarse one and a refinement(LGR) of a selected block-shaped patch of cells from that coarse grid.
 ///
