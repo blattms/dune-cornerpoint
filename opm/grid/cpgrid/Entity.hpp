@@ -406,8 +406,7 @@ int Entity<codim>::level() const
 template<int codim>
 bool Entity<codim>::isLeaf() const
 {
-    //return ( std::size_t(pgrid_->level_) == ((pgrid_->grid_-> data_.size()) - 1 ));
-    return ( std::size_t(pgrid_->level_) == pgrid_ -> max_level_grid_);
+    return ( std::size_t(pgrid_->level_) == ((pgrid_-> dataTmp_.size()) - 1 ));
 }
 
 
@@ -432,7 +431,7 @@ Entity<0> Entity<codim>::father() const
     }
     const int& coarse_level = pgrid_ -> child_to_parent_cells_[this->index()][0];
     const int& parent_index = pgrid_ -> child_to_parent_cells_[this->index()][1];
-    const auto& coarse_grid = pgrid_ -> dataTmp_[coarse_level]; //  pgrid_ -> grid_-> data_[coarse_level]; currently data_[0]
+    const auto& coarse_grid = pgrid_ -> dataTmp_[coarse_level]; 
     return Entity<0>( *coarse_grid, parent_index, true); 
 }
 

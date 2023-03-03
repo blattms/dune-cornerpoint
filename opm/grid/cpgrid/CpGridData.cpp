@@ -31,7 +31,6 @@ CpGridData::CpGridData(const CpGridData& g)
     : index_set_(new IndexSet(g.cell_to_face_.size(), g.geomVector<3>().size())),
       local_id_set_(new IdSet(*this)),
       global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
-      max_level_grid_(g.grid_ -> data_.size() -1),
       dataTmp_(g.grid_ -> data_),
       ccobj_(g.ccobj_), use_unique_boundary_ids_(g.use_unique_boundary_ids_)
 #if HAVE_MPI
@@ -45,7 +44,6 @@ CpGridData::CpGridData(const CpGridData& g)
 
 CpGridData::CpGridData()
     : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
-      //size_codim_map_( {{0, this->cell_to_face_.size()}, {3, this -> geomVector<3>().size()}} ),
       global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
       ccobj_(Dune::MPIHelper::getCommunicator()), use_unique_boundary_ids_(false)
 #if HAVE_MPI
