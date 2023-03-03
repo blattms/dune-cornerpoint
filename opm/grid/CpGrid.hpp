@@ -213,6 +213,9 @@ namespace Dune
     {
         friend class cpgrid::CpGridData;
         friend class cpgrid::Entity<0>;
+        friend class cpgrid::Entity<1>;
+        friend class cpgrid::Entity<2>;
+        friend class cpgrid::Entity<3>;
         template<int dim>
         friend cpgrid::Entity<dim> createEntity(const CpGrid&,int,bool);
         friend

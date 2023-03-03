@@ -65,6 +65,7 @@ namespace Dune
             friend class LevelGlobalIdSet;
             friend class GlobalIdSet;
             friend class HierarchicIterator;
+            friend class CpGridData;
 
         public:
         /// @brief
@@ -256,6 +257,7 @@ the reference element of its father.
 
         protected:
             const CpGridData* pgrid_;
+            // std::shared_ptr<cpgrid::CpGridData> e_data_;
         };
 
     } // namespace cpgrid
@@ -404,7 +406,8 @@ int Entity<codim>::level() const
 template<int codim>
 bool Entity<codim>::isLeaf() const
 {
-    return ( std::size_t(pgrid_->level_) == ((pgrid_->grid_-> data_.size()) - 1 ));
+    //return ( std::size_t(pgrid_->level_) == ((pgrid_->grid_-> data_.size()) - 1 ));
+    return ( std::size_t(pgrid_->level_) == pgrid_ -> max_level_grid_);
 }
 
 
@@ -429,7 +432,7 @@ Entity<0> Entity<codim>::father() const
     }
     const int& coarse_level = pgrid_ -> child_to_parent_cells_[this->index()][0];
     const int& parent_index = pgrid_ -> child_to_parent_cells_[this->index()][1];
-    const auto& coarse_grid =  pgrid_ -> grid_-> data_[coarse_level];
+    const auto& coarse_grid = pgrid_ -> dataTmp_[coarse_level]; //  pgrid_ -> grid_-> data_[coarse_level]; currently data_[0]
     return Entity<0>( *coarse_grid, parent_index, true); 
 }
 
