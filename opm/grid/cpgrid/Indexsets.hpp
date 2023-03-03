@@ -53,6 +53,7 @@ namespace Dune
         /// @tparam
         class IndexSet
         {
+            //friend class Dune::cpgrid::CpGridData;
         public:
             /// @brief
             /// @todo Doc me!
@@ -77,6 +78,8 @@ namespace Dune
             {
                 geom_types_[0].emplace_back(Dune::GeometryTypes::cube(3));
                 geom_types_[3].emplace_back(Dune::GeometryTypes::cube(0));
+                size_codim_map_[0] =  grid.cell_to_face_.size();
+                size_codim_map_[3] = grid.geomVector<3>().size();
             }
 
             /// \brief Destructor.
@@ -106,8 +109,15 @@ namespace Dune
             /// @param
             /// @return
             int size(GeometryType type) const
+            /*{
+              return grid_.size(type);
+              }*/
             {
-                return grid_.size(type);
+                if (type.isCube()) {
+                    return size(3 - type.dim());
+                } else {
+                    return 0;
+                }
             }
 
 
@@ -117,7 +127,13 @@ namespace Dune
             /// @return
             int size(int codim) const
             {
-                return grid_.size(codim);
+                //if ((codim ==0) || (codim == 3)){
+                    return size_codim_map_[codim]; //grid_.size(codim);
+                    // }
+                    //    else {
+                    //         return 0; // OPM_THROW(std::logical_error, "Invalid codimension value.");
+                    //  }
+                
             }
 
 
@@ -193,6 +209,7 @@ namespace Dune
         private:
             const CpGridData& grid_;
             Types geom_types_[4];
+            std::vector<int> size_codim_map_{0,0,0,0};
         };
 
 

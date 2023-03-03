@@ -55,8 +55,6 @@
 //#include <opm/grid/common/WellConnections.hpp>
 #include <opm/grid/common/CommunicationUtils.hpp>
 
-
-
 //#include <fstream>
 //#include <iostream>
 #include <iomanip>

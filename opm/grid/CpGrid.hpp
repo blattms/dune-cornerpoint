@@ -64,12 +64,12 @@
 //#include <opm/grid/utility/platform_dependent/reenable_warnings.h> // OK
 //#include "cpgrid/Intersection.hpp"   // OK
 //#include "cpgrid/Geometry.hpp"   // OK
-//#include "cpgrid/Indexsets.hpp"
+//#include "cpgrid/Indexsets.hpp"  // OK global_id_set_ turned into shared-pointer. 
 //#include "cpgrid/DefaultGeometryPolicy.hpp"  // OK
-#include "common/GridEnums.hpp"
+#include "common/GridEnums.hpp"   // OK
 //#include "common/Volumes.hpp"   // OK
 //#include <opm/grid/cpgpreprocess/preprocess.h>  // OK
-#include <opm/grid/utility/OpmWellType.hpp>
+#include <opm/grid/utility/OpmWellType.hpp>  // OK
 
 #include <iostream>
 #if ! HAVE_MPI

@@ -147,6 +147,7 @@ class CpGridData
 
     friend class GlobalIdSet;
     friend class HierarchicIterator;
+    friend class Dune::cpgrid::IndexSet;
     
     friend
     void ::refine_and_check(const Dune::cpgrid::Geometry<3, 3>&,
@@ -636,6 +637,7 @@ private:
     cpgrid::EntityVariable<int, 1> unique_boundary_ids_;
     /** @brief The index set of the grid (level). */
     cpgrid::IndexSet* index_set_;
+    // std::map<int,int> size_codim_map_;
     /** @brief The internal local id set (not exported). */
     const cpgrid::IdSet* local_id_set_;
     /** @brief The global id set (used also as local id set). */
