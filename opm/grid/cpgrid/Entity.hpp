@@ -440,13 +440,6 @@ Dune::cpgrid::Geometry<3,3> Dune::cpgrid::Entity<codim>::geometryInFather()
         OPM_THROW(std::logic_error, "Entity has no father.");
     }
     else{
-        /* const auto& entity_corners = pgrid_ -> cell_to_point_[this->index()];
-        std::vector<LocalCoordinate> local_corners;
-        local_corners.reserve(8);
-        for (const auto& corner : entity_corners){
-            local_corners.push_back(Dune::cpgrid::Geometry<3,3>::local(corner));
-            }
-*/
          //
         DefaultGeometryPolicy local_geometry;
         std::array<int,8> localEntity_to_point;
