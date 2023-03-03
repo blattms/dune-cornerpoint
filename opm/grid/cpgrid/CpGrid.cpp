@@ -128,7 +128,8 @@ CpGrid::CpGrid()
       distributed_data_(),
       cell_scatter_gather_interfaces_(new InterfaceMap),
       point_scatter_gather_interfaces_(new InterfaceMap),
-      global_id_set_(*current_view_data_)
+      //global_id_set_(*current_view_data_)
+      global_id_set_ptr_(std::make_shared<cpgrid::GlobalIdSet>(*current_view_data_))
 {}
 
 
@@ -138,7 +139,8 @@ CpGrid::CpGrid(MPIHelper::MPICommunicator comm)
       distributed_data_(),
       cell_scatter_gather_interfaces_(new InterfaceMap),
       point_scatter_gather_interfaces_(new InterfaceMap),
-      global_id_set_(*current_view_data_)
+      //global_id_set_(*current_view_data_)
+      global_id_set_ptr_(std::make_shared<cpgrid::GlobalIdSet>(*current_view_data_))
 {}
 
 std::vector<int>
@@ -451,7 +453,8 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
         setupRecvInterface(importList, *cell_scatter_gather_interfaces_);
 
         distributed_data_[0]->distributeGlobalGrid(*this,*this->current_view_data_, computedCellPart);
-        global_id_set_.insertIdSet(*distributed_data_[0]);
+        // global_id_set_.insertIdSet(*distributed_data_[0]);
+        (*global_id_set_ptr_).insertIdSet(*distributed_data_[0]);
 
 
         current_view_data_ = distributed_data_[0].get();
@@ -825,12 +828,12 @@ int CpGrid::size (GeometryType type) const
 
 const CpGridFamily::Traits::GlobalIdSet& CpGrid::globalIdSet() const
 {
-    return global_id_set_;
+    return  *global_id_set_ptr_; //global_id_set_;
 }
 
 const CpGridFamily::Traits::LocalIdSet& CpGrid::localIdSet() const
 {
-    return global_id_set_;
+    return *global_id_set_ptr_;//global_id_set_;
 }
 
 const CpGridFamily::Traits::LevelIndexSet& CpGrid::levelIndexSet(int level) const

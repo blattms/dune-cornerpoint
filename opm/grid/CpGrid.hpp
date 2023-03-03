@@ -64,7 +64,7 @@
 //#include <opm/grid/utility/platform_dependent/reenable_warnings.h> // OK
 //#include "cpgrid/Intersection.hpp"   // OK
 //#include "cpgrid/Geometry.hpp"   // OK
-#include "cpgrid/Indexsets.hpp"
+//#include "cpgrid/Indexsets.hpp"
 //#include "cpgrid/DefaultGeometryPolicy.hpp"  // OK
 #include "common/GridEnums.hpp"
 //#include "common/Volumes.hpp"   // OK
@@ -1266,7 +1266,9 @@ const std::vector<int>& sortedNumAquiferCells() const;
         /**
          * @brief The global id set (also used as local one).
          */
-        cpgrid::GlobalIdSet global_id_set_;
+// cpgrid::GlobalIdSet global_id_set_;
+std::shared_ptr<cpgrid::GlobalIdSet> global_id_set_ptr_;
+
 
         /**
          * @brief Zoltan partitioning parameters
