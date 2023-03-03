@@ -48,12 +48,14 @@
 #endif
 
 #include "../CpGrid.hpp"
-//#include "CpGridData.hpp"
+#include "CpGridData.hpp"
 #include <opm/grid/common/ZoltanPartition.hpp>
 //#include <opm/grid/common/ZoltanGraphFunctions.hpp>
 #include <opm/grid/common/GridPartitioning.hpp>
 //#include <opm/grid/common/WellConnections.hpp>
 #include <opm/grid/common/CommunicationUtils.hpp>
+
+
 
 //#include <fstream>
 //#include <iostream>

@@ -38,14 +38,14 @@
 #ifndef OPM_CPGRID_HEADER
 #define OPM_CPGRID_HEADER
 
-#include <string>
-#include <map>
-#include <array>
-#include <unordered_set>
-#include <opm/common/ErrorMacros.hpp>
+//#include <string>  //OK
+//#include <map>  // OK
+//#include <array> // OK
+//#include <unordered_set>  // OK
+//#include <opm/common/ErrorMacros.hpp> // OK
 
 // Warning suppression for Dune includes.
-//#include <opm/grid/utility/platform_dependent/disable_warnings.h>
+//#include <opm/grid/utility/platform_dependent/disable_warnings.h>  // OK
 
 #include <dune/common/version.hh>
 
@@ -57,18 +57,18 @@
 #endif
 #endif
 
-#include <dune/grid/common/capabilities.hh>
-#include <dune/grid/common/grid.hh>
-#include <dune/grid/common/gridenums.hh>
+//#include <dune/grid/common/capabilities.hh> // OK
+#include <dune/grid/common/grid.hh>  // 
+//#include <dune/grid/common/gridenums.hh> // OK
 #include "cpgrid/CpGridData.hpp"
-#include <opm/grid/utility/platform_dependent/reenable_warnings.h>
-#include "cpgrid/Intersection.hpp"
-#include "cpgrid/Geometry.hpp"
+//#include <opm/grid/utility/platform_dependent/reenable_warnings.h> // OK
+//#include "cpgrid/Intersection.hpp"   // OK
+//#include "cpgrid/Geometry.hpp"   // OK
 #include "cpgrid/Indexsets.hpp"
-#include "cpgrid/DefaultGeometryPolicy.hpp"
+//#include "cpgrid/DefaultGeometryPolicy.hpp"  // OK
 #include "common/GridEnums.hpp"
-#include "common/Volumes.hpp"
-#include <opm/grid/cpgpreprocess/preprocess.h>
+//#include "common/Volumes.hpp"   // OK
+//#include <opm/grid/cpgpreprocess/preprocess.h>  // OK
 #include <opm/grid/utility/OpmWellType.hpp>
 
 #include <iostream>

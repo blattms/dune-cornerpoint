@@ -46,7 +46,8 @@ namespace Dune
 {
     namespace cpgrid
     {
-
+    // forward declaration
+    //class CpGridData;
         /// @brief
         /// @todo Doc me!
         /// @tparam
