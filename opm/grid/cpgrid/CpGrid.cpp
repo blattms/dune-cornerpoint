@@ -121,13 +121,16 @@ namespace Dune
 {
 
 CpGrid::CpGrid()
-    : data_({std::make_shared<cpgrid::CpGridData>()}),
+    : data_({std::make_shared<cpgrid::CpGridData>()}), // data_
       current_view_data_(data_[0].get()),
       distributed_data_(),
       cell_scatter_gather_interfaces_(new InterfaceMap),
       point_scatter_gather_interfaces_(new InterfaceMap),
       global_id_set_ptr_(std::make_shared<cpgrid::GlobalIdSet>(*current_view_data_))
-{}
+{
+    /*  std::vector<std::shared_ptr<cpgrid::CpGridData>> data;
+        data_.push_back(std::make_shared<cpgrid::CpGridData>(data));*/
+}
 
 
 CpGrid::CpGrid(MPIHelper::MPICommunicator comm)
@@ -137,7 +140,10 @@ CpGrid::CpGrid(MPIHelper::MPICommunicator comm)
       cell_scatter_gather_interfaces_(new InterfaceMap),
       point_scatter_gather_interfaces_(new InterfaceMap),
       global_id_set_ptr_(std::make_shared<cpgrid::GlobalIdSet>(*current_view_data_))
-{}
+{
+    /*  std::vector<std::shared_ptr<cpgrid::CpGridData>> data;
+        data_.push_back(std::make_shared<cpgrid::CpGridData>(comm, data));*/
+}
 
 std::vector<int>
 CpGrid::zoltanPartitionWithoutScatter([[maybe_unused]] const std::vector<cpgrid::OpmWellType> * wells,

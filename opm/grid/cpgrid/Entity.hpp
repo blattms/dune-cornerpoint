@@ -399,14 +399,25 @@ bool Entity<codim>::isValid() const
 template <int codim>
 int Entity<codim>::level() const
 {
-    return pgrid_-> level_;
+    if (this->isLeaf()){
+        OPM_THROW(std::logic_error, "Entity has no level, it's leaf.");
+    }
+    else {
+        return pgrid_-> level_;
+    }
 }
 
 
 template<int codim>
 bool Entity<codim>::isLeaf() const
 {
-    return ( std::size_t(pgrid_->level_) == ((*(pgrid_-> data_copy_)).size() - 1 ));
+    /* const auto& numCells = 0;
+    for (long unsigned int level = 0; level < *(pgrid_->data_copy_).size(); ++level)
+    {
+        numCells 
+        }*/
+    
+    return ( pgrid_ == (*(pgrid_->data_copy_)).back().get()); 
 }
 
 
@@ -417,8 +428,8 @@ bool Entity<codim>::hasFather() const
         return false;
     }
     else{
-        const std::array<int,2>& no_father = {-1,-1};
-        return (pgrid_-> child_to_parent_cells_[this->index()] != no_father);
+        const auto& [level, parent] = pgrid_-> child_to_parent_cells_[this->index()]; // {-1,-1};
+        return  (parent != -1);
     }
 }
 
