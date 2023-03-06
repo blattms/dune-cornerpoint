@@ -648,7 +648,7 @@ private:
     CpGrid* grid_;
     /** Level of the current CpGridData (in which entry of grid_.data_ is stored). */
     int level_;
-    std::vector<std::shared_ptr<CpGridData>> dataTmp_;
+    std::vector<std::shared_ptr<CpGridData>>* dataTmp_;
     // SUITABLE FOR ALL LEVELS EXCEPT FOR LEAFVIEW
     /** Map between level and leafview (maxLevel) cell indices. Only cells (from that level) that appear in leafview count. */  
     std::map<int,int> level_to_leaf_cells_; // {level cell index, leafview cell index}
