@@ -31,13 +31,6 @@ CpGridData::CpGridData(const CpGridData& g)
     : index_set_(new IndexSet(g.cell_to_face_.size(), g.geomVector<3>().size())),
       local_id_set_(new IdSet(*this)),
       global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
-      grid_(std::make_shared<CpGrid>()),
-      level_(),
-      dataTmp_(&(g.grid_ -> data_)),
-      level_to_leaf_cells_(),
-      parent_to_children_cells_(),
-      leaf_to_level_cells_(),
-      child_to_parent_cells_(),
       ccobj_(g.ccobj_), use_unique_boundary_ids_(g.use_unique_boundary_ids_)
 #if HAVE_MPI
     , cell_comm_(g.ccobj_)
@@ -48,34 +41,23 @@ CpGridData::CpGridData(const CpGridData& g)
 #endif
 }
 
-/*CpGridData::CpGridData(const CpGridData& g, const CpGrid grid)
-    : index_set_(new IndexSet(g.cell_to_face_.size(), g.geomVector<3>().size())),
-      local_id_set_(new IdSet(*this)),
+CpGridData::CpGridData()
+    : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
       global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
-      level_(),
-      grid_(std::make_shared<CpGrid>(grid)), 
-      dataTmp_(&(g.grid_ -> data_)),
-      ccobj_(g.ccobj_), use_unique_boundary_ids_(g.use_unique_boundary_ids_)
+      ccobj_(Dune::MPIHelper::getCommunicator()), use_unique_boundary_ids_(false)
 #if HAVE_MPI
-    , cell_comm_(g.ccobj_)
-#endif    
+    , cell_comm_(Dune::MPIHelper::getCommunicator())
+#endif 
 {
 #if HAVE_MPI
     cell_interfaces_=std::make_tuple(Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_));
 #endif
-}*/
+}
 
-
-CpGridData::CpGridData()
+CpGridData::CpGridData(std::vector<std::shared_ptr<CpGridData>>& data)
     : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
       global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
-      /* grid_(std::make_shared<CpGrid>()),
-      level_(),
-      dataTmp_(&(grid_ -> data_)),
-      level_to_leaf_cells_(),
-      parent_to_children_cells_(),
-      leaf_to_level_cells_(),
-      child_to_parent_cells_(),*/
+      data_copy_(&data),
       ccobj_(Dune::MPIHelper::getCommunicator()), use_unique_boundary_ids_(false)
 #if HAVE_MPI
     , cell_comm_(Dune::MPIHelper::getCommunicator())
@@ -89,13 +71,21 @@ CpGridData::CpGridData()
 CpGridData::CpGridData(MPIHelper::MPICommunicator comm)
     : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
       global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
-      /* grid_(std::make_shared<CpGrid>()),
-      level_(),
-      dataTmp_(&(grid_ -> data_)),
-      level_to_leaf_cells_(),
-      parent_to_children_cells_(),
-      leaf_to_level_cells_(),
-      child_to_parent_cells_(),*/
+      ccobj_(comm), use_unique_boundary_ids_(false)
+#if HAVE_MPI
+    , cell_comm_(comm)
+#endif       
+{
+#if HAVE_MPI
+    cell_interfaces_=std::make_tuple(Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_));
+#endif
+}
+
+
+CpGridData::CpGridData(MPIHelper::MPICommunicator comm,  std::vector<std::shared_ptr<CpGridData>>& data)
+    : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
+      global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
+      data_copy_(&data),
       ccobj_(comm), use_unique_boundary_ids_(false)
 #if HAVE_MPI
     , cell_comm_(comm)
@@ -1935,7 +1925,8 @@ const std::tuple< const std::shared_ptr<CpGridData>,
 CpGridData::refineSingleCell(const std::array<int,3>& cells_per_dim, const int& parent_idx) const
 {
     // To store the LGR/refined-grid.
-    std::shared_ptr<CpGridData> refined_grid_ptr = std::make_shared<CpGridData>(); // ccobj_
+    std::vector<std::shared_ptr<CpGridData>> refined_data;
+    std::shared_ptr<CpGridData> refined_grid_ptr = std::make_shared<CpGridData>(refined_data); // ccobj_
     auto& refined_grid = *refined_grid_ptr;
     DefaultGeometryPolicy& refined_geometries = refined_grid.geometry_;
     std::vector<std::array<int,8>>& refined_cell_to_point = refined_grid.cell_to_point_;
