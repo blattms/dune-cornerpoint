@@ -98,11 +98,6 @@ void refinePatch_and_check(Dune::CpGrid& coarse_grid,
                             (*coarse_grid.data_[1]).geometry_.template geomVector<1>(),
                             (*coarse_grid.data_[1]).geometry_.template geomVector<3>());
     
-    /*cpgrid::OrientedEntityTable<1,0> face_to_cell_computed;
-    cpgrid::OrientedEntityTable<0,1> cell_to_face_computed;
-    cell_to_face_computed.makeInverseRelation(face_to_cell_computed);
-    BOOST_CHECK(face_to_cell_computed == ((*coarse_grid.data_[1]).face_to_cell_)); */
-    
     const auto& [patch_corners, patch_faces, patch_cells] = (*coarse_grid.data_[0]).getPatchGeomIndices(start_ijk, end_ijk);
     for (int cell = 0; cell<  data[0]-> size(0); ++cell)
     {

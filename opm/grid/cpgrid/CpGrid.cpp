@@ -121,14 +121,15 @@ namespace Dune
 {
 
 CpGrid::CpGrid()
-    : data_({std::make_shared<cpgrid::CpGridData>()}),
+    : data_(), //({std::make_shared<cpgrid::CpGridData>()}),
       current_view_data_(data_[0].get()),
       distributed_data_(),
       cell_scatter_gather_interfaces_(new InterfaceMap),
       point_scatter_gather_interfaces_(new InterfaceMap),
-      //global_id_set_(*current_view_data_)
       global_id_set_ptr_(std::make_shared<cpgrid::GlobalIdSet>(*current_view_data_))
-{}
+{
+    data_.push_back(std::make_shared<cpgrid::CpGridData>());
+}
 
 
 CpGrid::CpGrid(MPIHelper::MPICommunicator comm)
@@ -137,9 +138,10 @@ CpGrid::CpGrid(MPIHelper::MPICommunicator comm)
       distributed_data_(),
       cell_scatter_gather_interfaces_(new InterfaceMap),
       point_scatter_gather_interfaces_(new InterfaceMap),
-      //global_id_set_(*current_view_data_)
       global_id_set_ptr_(std::make_shared<cpgrid::GlobalIdSet>(*current_view_data_))
-{}
+{
+    // data_.push_back(std::make_shared<cpgrid::CpGridData>()); // comm
+}
 
 std::vector<int>
 CpGrid::zoltanPartitionWithoutScatter([[maybe_unused]] const std::vector<cpgrid::OpmWellType> * wells,
@@ -432,7 +434,7 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
 
 
         // distributed_data should be empty at this point.
-        distributed_data_.push_back(std::make_shared<cpgrid::CpGridData>(cc));
+        distributed_data_.push_back(std::make_shared<cpgrid::CpGridData>()); // cc
         distributed_data_[0]->setUniqueBoundaryIds(data_[0]->uniqueBoundaryIds());
         // Just to be sure we assume that only master knows
         cc.broadcast(&distributed_data_[0]->use_unique_boundary_ids_, 1, 0);
@@ -1396,7 +1398,7 @@ void CpGrid::createGridWithLgr(const std::array<int,3>& cells_per_dim, const std
     // To store the leaf view (mixed grid: with (non parents) coarse and (children) refined entities).
     typedef Dune::FieldVector<double,3> PointType;
     std::shared_ptr<Dune::cpgrid::CpGridData> leaf_view_ptr =
-        std::make_shared<Dune::cpgrid::CpGridData>((*(this-> data_[0])).ccobj_);
+        std::make_shared<Dune::cpgrid::CpGridData>(); // (*(this-> data_[0])).ccobj_
     auto& leaf_view = *leaf_view_ptr;
     Dune::cpgrid::DefaultGeometryPolicy& leaf_geometries = leaf_view.geometry_;
     std::vector<std::array<int,8>>& leaf_cell_to_point = leaf_view.cell_to_point_;

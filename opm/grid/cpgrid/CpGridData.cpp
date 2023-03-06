@@ -1897,7 +1897,7 @@ const std::tuple< const std::shared_ptr<CpGridData>,
 CpGridData::refineSingleCell(const std::array<int,3>& cells_per_dim, const int& parent_idx) const
 {
     // To store the LGR/refined-grid.
-    std::shared_ptr<CpGridData> refined_grid_ptr = std::make_shared<CpGridData>(ccobj_);
+    std::shared_ptr<CpGridData> refined_grid_ptr = std::make_shared<CpGridData>(); // ccobj_
     auto& refined_grid = *refined_grid_ptr;
     DefaultGeometryPolicy& refined_geometries = refined_grid.geometry_;
     std::vector<std::array<int,8>>& refined_cell_to_point = refined_grid.cell_to_point_;
@@ -2044,7 +2044,7 @@ CpGridData::refinePatch(const std::array<int,3>& cells_per_dim, const std::array
         OPM_THROW(std::logic_error, "Grid is not Cartesian. Patch cannot be refined.");
     }
     // To store LGR/refined-grid.
-    std::shared_ptr<CpGridData> refined_grid_ptr = std::make_shared<CpGridData>(ccobj_);
+    std::shared_ptr<CpGridData> refined_grid_ptr = std::make_shared<CpGridData>(); // ccobj_
     auto& refined_grid = *refined_grid_ptr;
     DefaultGeometryPolicy& refined_geometries = refined_grid.geometry_;
     std::vector<std::array<int,8>>& refined_cell_to_point = refined_grid.cell_to_point_;
