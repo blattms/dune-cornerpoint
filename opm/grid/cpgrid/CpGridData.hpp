@@ -170,6 +170,7 @@ class CpGridData
 
 private:
     CpGridData(const CpGridData& g);
+    // CpGridData(const CpGridData& g, const Dune::CpGrid grid);
     
 public:
     enum{
@@ -645,7 +646,7 @@ private:
     std::shared_ptr<PartitionTypeIndicator> partition_type_indicator_;
     // NEW MEMBERS
     /** Grid. */
-    CpGrid* grid_;
+    std::shared_ptr<CpGrid> grid_;
     /** Level of the current CpGridData (in which entry of grid_.data_ is stored). */
     int level_;
     std::vector<std::shared_ptr<CpGridData>>* dataTmp_;
