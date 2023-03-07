@@ -59,7 +59,7 @@ CpGridData::CpGridData()
 CpGridData::CpGridData(std::vector<std::shared_ptr<CpGridData>>& data)
     : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
       global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
-      data_copy_(&data),
+      data_copy_(),
       // level_(),
       ccobj_(Dune::MPIHelper::getCommunicator()), use_unique_boundary_ids_(false)
 #if HAVE_MPI
@@ -69,6 +69,7 @@ CpGridData::CpGridData(std::vector<std::shared_ptr<CpGridData>>& data)
 #if HAVE_MPI
     cell_interfaces_=std::make_tuple(Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_));
 #endif
+     data_copy_ = data;
 }
 
 CpGridData::CpGridData(MPIHelper::MPICommunicator comm)
@@ -89,7 +90,7 @@ CpGridData::CpGridData(MPIHelper::MPICommunicator comm)
 CpGridData::CpGridData(MPIHelper::MPICommunicator comm,  std::vector<std::shared_ptr<CpGridData>>& data)
     : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
       global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
-      data_copy_(&data),
+      data_copy_(),
       // level_(),
       ccobj_(comm), use_unique_boundary_ids_(false)
 #if HAVE_MPI
@@ -100,6 +101,7 @@ CpGridData::CpGridData(MPIHelper::MPICommunicator comm,  std::vector<std::shared
     cell_interfaces_=std::make_tuple(Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_));
 #endif
     //level_ = -1;
+    data_copy_ = data;
 }
 
 #if HAVE_MPI

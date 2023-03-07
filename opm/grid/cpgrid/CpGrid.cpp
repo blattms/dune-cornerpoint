@@ -574,7 +574,7 @@ int CpGrid::maxLevel() const
     if (!distributed_data_.empty()){
         OPM_THROW(std::logic_error, "Distributed data is not empty. Cannot compute maximum level.");
     }
-    return this -> data_.size() - 1; // Assuming last entry of data_ is the LeafView
+    return this -> data_.size() - 2; // Assuming last entry of data_ is the LeafView, recall it starts with level 0
 }
 
 template<int codim>
@@ -1363,7 +1363,7 @@ void CpGrid::createGridWithLgr(const std::array<int,3>& cells_per_dim, const std
     //
     // LEVEL 0, definition/declaration of some members:
     // std::vector<std::shared_ptr<CpGridData>> l0_data;
-    (*data_[0]).data_copy_ = &(this -> data_);
+    (*data_[0]).data_copy_ = this -> data_;
     (*data_[0]).level_ = 0;
     // Relation between level and leafview cell indices.
     std::map<int,int>& l0_to_leaf_cells = (*data_[0]).level_to_leaf_cells_;
@@ -1393,7 +1393,7 @@ void CpGrid::createGridWithLgr(const std::array<int,3>& cells_per_dim, const std
         }
     }
     // LEVEL 1, definition/declaration of some members:
-    (*data_[1]).data_copy_ = &(this -> data_);
+    (*data_[1]).data_copy_ = this -> data_;
     //std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>> l1_data = this -> data_;
     (*data_[1]).level_ = 1;
     // Relation between level and leafview cell indices.
