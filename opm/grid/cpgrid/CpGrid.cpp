@@ -442,8 +442,7 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
         // distributed_data should be empty at this point.
         distributed_data_.push_back(std::make_shared<cpgrid::CpGridData>(cc, distributed_data_)); 
         distributed_data_[0]->setUniqueBoundaryIds(data_[0]->uniqueBoundaryIds());
-        distributed_data_[0]-> index_set_.reset(new IndexSet(distributed_data_[0]->cell_to_face_.size(),
-                                                             distributed_data_[0]-> geomVector<3>().size());
+       
         // Just to be sure we assume that only master knows
         cc.broadcast(&distributed_data_[0]->use_unique_boundary_ids_, 1, 0);
         
@@ -466,6 +465,8 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
         distributed_data_[0]->distributeGlobalGrid(*this,*this->current_view_data_, computedCellPart);
         // global_id_set_.insertIdSet(*distributed_data_[0]);
         (*global_id_set_ptr_).insertIdSet(*distributed_data_[0]);
+         // distributed_data_[0]-> index_set_.reset(new IndexSet(distributed_data_[0]->cell_to_face_.size(),
+        //   distributed_data_[0]-> geomVector<3>().size());
        
 
 

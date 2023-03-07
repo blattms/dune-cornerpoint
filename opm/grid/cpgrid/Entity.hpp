@@ -399,9 +399,9 @@ bool Entity<codim>::isValid() const
 template <int codim>
 int Entity<codim>::level() const
 {
-    if (this->isLeaf()){
+    /*  if (this->isLeaf()){
         OPM_THROW(std::logic_error, "Entity has no level, it's leaf.");
-    }
+        }*/
     /*  if ((pgrid_-> level_) == -1){ // Let's set level_ = -1 for the LeafView. Then actual levels are 0 and 1, to be extended: 2,3,...
         OPM_THROW(std::logic_error, "Entity has no level, it's leaf.");
     }
@@ -410,7 +410,14 @@ int Entity<codim>::level() const
     if ((*(pgrid_ -> data_copy_)).size() == 0){
         return 0;
     }
-    return pgrid_-> level_; // level_ = -1 -> Leaf? 
+    if (this -> isLeaf()){
+        return std::size_t((*(pgrid_ -> data_copy_)).size() -1);
+    }
+    else
+    {
+        return pgrid_-> level_; // level_ = -1 -> Leaf?
+    }
+    
     
 }
 
@@ -426,9 +433,10 @@ bool Entity<codim>::isLeaf() const
     {
         numCells 
         }*/
-    const auto& leaf_level = (*(pgrid_ -> data_copy_)).size() -1;
-    return (std::size_t(this-> level()) == leaf_level);//
-        // ( pgrid_ == (*(pgrid_->data_copy_)).back().get()); 
+    //  const auto& leaf_level = (*(pgrid_ -> data_copy_)).size() -1;
+    // const auto& level = this->level();
+    return //(std::size_t(level) == std::size_t(leaf_level));//
+        ( pgrid_ == (*(pgrid_->data_copy_)).back().get()); 
 }
 
 
