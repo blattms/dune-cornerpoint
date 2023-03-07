@@ -465,8 +465,8 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
         distributed_data_[0]->distributeGlobalGrid(*this,*this->current_view_data_, computedCellPart);
         // global_id_set_.insertIdSet(*distributed_data_[0]);
         (*global_id_set_ptr_).insertIdSet(*distributed_data_[0]);
-         // distributed_data_[0]-> index_set_.reset(new IndexSet(distributed_data_[0]->cell_to_face_.size(),
-        //   distributed_data_[0]-> geomVector<3>().size());
+        distributed_data_[0]-> index_set_.reset(new cpgrid::IndexSet(distributed_data_[0]->cell_to_face_.size(),
+                                                                     distributed_data_[0]-> geomVector<3>().size()));
        
 
 

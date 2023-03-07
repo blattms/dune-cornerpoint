@@ -425,9 +425,9 @@ int Entity<codim>::level() const
 template<int codim>
 bool Entity<codim>::isLeaf() const
 {
-    /* if ((*(pgrid_ -> data_copy_)).size() == 0){
-        OPM_THROW(std::logic_error, "Global grid coincides with LeafView");
-        }*/
+    if ((*(pgrid_ -> data_copy_)).size() == 0){
+       return 0;
+        }
     /* const auto& numCells = 0;
     for (long unsigned int level = 0; level < *(pgrid_->data_copy_).size(); ++level)
     {
