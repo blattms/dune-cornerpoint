@@ -44,6 +44,7 @@ CpGridData::CpGridData(const CpGridData& g)
 CpGridData::CpGridData()
     : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
       global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
+      //level_(),
       ccobj_(Dune::MPIHelper::getCommunicator()), use_unique_boundary_ids_(false)
 #if HAVE_MPI
     , cell_comm_(Dune::MPIHelper::getCommunicator())
@@ -52,12 +53,14 @@ CpGridData::CpGridData()
 #if HAVE_MPI
     cell_interfaces_=std::make_tuple(Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_));
 #endif
+    // level_ = -1;
 }
 
 CpGridData::CpGridData(std::vector<std::shared_ptr<CpGridData>>& data)
     : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
       global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
       data_copy_(&data),
+      // level_(),
       ccobj_(Dune::MPIHelper::getCommunicator()), use_unique_boundary_ids_(false)
 #if HAVE_MPI
     , cell_comm_(Dune::MPIHelper::getCommunicator())
@@ -79,6 +82,7 @@ CpGridData::CpGridData(MPIHelper::MPICommunicator comm)
 #if HAVE_MPI
     cell_interfaces_=std::make_tuple(Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_));
 #endif
+    // level_ = -1;
 }
 
 
@@ -86,6 +90,7 @@ CpGridData::CpGridData(MPIHelper::MPICommunicator comm,  std::vector<std::shared
     : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
       global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
       data_copy_(&data),
+      // level_(),
       ccobj_(comm), use_unique_boundary_ids_(false)
 #if HAVE_MPI
     , cell_comm_(comm)
@@ -94,6 +99,7 @@ CpGridData::CpGridData(MPIHelper::MPICommunicator comm,  std::vector<std::shared
 #if HAVE_MPI
     cell_interfaces_=std::make_tuple(Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_));
 #endif
+    //level_ = -1;
 }
 
 #if HAVE_MPI

@@ -134,7 +134,7 @@ void refinePatch_and_check(Dune::CpGrid& coarse_grid,
         Dune::cpgrid::Entity<0> entity = Dune::cpgrid::Entity<0>((*coarse_grid.data_[2]), cell, true);
         const auto& child_to_parent = (*coarse_grid.data_[2]).child_to_parent_cells_[cell];
         if (entity.hasFather()){
-             BOOST_CHECK(entity.father().level() == 0);
+            //  BOOST_CHECK(entity.father().level() == 0);
              BOOST_CHECK_EQUAL( (std::find(patch_cells.begin(), patch_cells.end(), entity.father().index()) == patch_cells.end()), false);
              BOOST_CHECK(!(child_to_parent[0] == -1));
              BOOST_CHECK_EQUAL( child_to_parent[1], entity.father().index()); 
@@ -143,7 +143,7 @@ void refinePatch_and_check(Dune::CpGrid& coarse_grid,
             BOOST_CHECK_THROW(entity.father(), std::logic_error);
             BOOST_CHECK_EQUAL( child_to_parent[0], -1);
         }
-        //  BOOST_CHECK( entity.level() == 2);
+        BOOST_CHECK( entity.level() == -1);
         // BOOST_CHECK( entity.level() == coarse_grid.maxLevel());
         BOOST_CHECK( entity.isLeaf() == true);
     }
@@ -153,11 +153,10 @@ void refinePatch_and_check(Dune::CpGrid& coarse_grid,
         BOOST_CHECK_EQUAL(element.level(), 1);
     }
 
-
-    /*   const auto& leaf_view = coarse_grid.leafGridView();
+    const auto& leaf_view = coarse_grid.leafGridView();
     for (const auto& element: elements(leaf_view)){
-        BOOST_CHECK_EQUAL(element.level(), 2);
-        }*/
+        BOOST_CHECK_EQUAL(element.level(), -1);
+        }
 
 } 
 

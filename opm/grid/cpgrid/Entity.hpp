@@ -399,12 +399,15 @@ bool Entity<codim>::isValid() const
 template <int codim>
 int Entity<codim>::level() const
 {
-    if (this->isLeaf()){
+    /*if (this->isLeaf()){
+        OPM_THROW(std::logic_error, "Entity has no level, it's leaf.");
+        }*/
+    /*  if ((pgrid_-> level_) == -1){ // Let's set level_ = -1 for the LeafView. Then actual levels are 0 and 1, to be extended: 2,3,...
         OPM_THROW(std::logic_error, "Entity has no level, it's leaf.");
     }
-    else {
-        return pgrid_-> level_;
-    }
+    else {*/
+    return pgrid_-> level_; // level_ = -1 -> Leaf? 
+    
 }
 
 
@@ -417,7 +420,7 @@ bool Entity<codim>::isLeaf() const
         numCells 
         }*/
     
-    return ( pgrid_ == (*(pgrid_->data_copy_)).back().get()); 
+    return (this-> level() == -1);//( pgrid_ == (*(pgrid_->data_copy_)).back().get()); 
 }
 
 
@@ -442,7 +445,7 @@ Entity<0> Entity<codim>::father() const
     }
     const int& coarse_level = pgrid_ -> child_to_parent_cells_[this->index()][0];
     const int& parent_index = pgrid_ -> child_to_parent_cells_[this->index()][1];
-    const auto& coarse_grid = (*(pgrid_ -> data_copy_))[coarse_level]; 
+    const auto& coarse_grid = (*(pgrid_ -> data_copy_))[coarse_level].get(); 
     return Entity<0>( *coarse_grid, parent_index, true); 
 }
 

@@ -1659,6 +1659,7 @@ void CpGrid::createGridWithLgr(const std::array<int,3>& cells_per_dim, const std
     //  Add Leaf View to data_.
     (this-> data_).push_back(leaf_view_ptr);
     current_view_data_ = data_[2].get();
+    (*data_[2]).level_ = -1;
     // Define grid_ for leaf_view level 
     // (*data_[2]).data_copy_ = &(this-> data_);
 }
