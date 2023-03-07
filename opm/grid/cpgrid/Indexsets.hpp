@@ -79,7 +79,7 @@ namespace Dune
             {
                 geom_types_[0].emplace_back(Dune::GeometryTypes::cube(3));
                 geom_types_[3].emplace_back(Dune::GeometryTypes::cube(0));
-                size_codim_map_[0] =  numCells; //grid.cell_to_face_.size(); grid.geomVector<3>().size();
+                size_codim_map_[0] =  numCells; 
                 size_codim_map_[3] = numPoints; 
             }
 

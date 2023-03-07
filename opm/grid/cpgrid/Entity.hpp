@@ -406,6 +406,10 @@ int Entity<codim>::level() const
         OPM_THROW(std::logic_error, "Entity has no level, it's leaf.");
     }
     else {*/
+
+    if ((*(pgrid_ -> data_copy_)).size() == 0){
+        return 0;
+    }
     return pgrid_-> level_; // level_ = -1 -> Leaf? 
     
 }
@@ -414,16 +418,17 @@ int Entity<codim>::level() const
 template<int codim>
 bool Entity<codim>::isLeaf() const
 {
-    if ((*(pgrid_ -> data_copy_)).size() == 0){
+    /* if ((*(pgrid_ -> data_copy_)).size() == 0){
         OPM_THROW(std::logic_error, "Global grid coincides with LeafView");
-    }
+        }*/
     /* const auto& numCells = 0;
     for (long unsigned int level = 0; level < *(pgrid_->data_copy_).size(); ++level)
     {
         numCells 
         }*/
-    
-    return (std::size_t(this-> level()) == std::size_t((*(pgrid_ -> data_copy_)).size() -1));//( pgrid_ == (*(pgrid_->data_copy_)).back().get()); 
+    const auto& leaf_level = (*(pgrid_ -> data_copy_)).size() -1;
+    return (std::size_t(this-> level()) == leaf_level);//
+        // ( pgrid_ == (*(pgrid_->data_copy_)).back().get()); 
 }
 
 

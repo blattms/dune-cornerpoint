@@ -135,7 +135,6 @@ CpGrid::CpGrid()
     
 }
 
-
 CpGrid::CpGrid(MPIHelper::MPICommunicator comm)
     : //data_({std::make_shared<cpgrid::CpGridData>(comm)}),
     current_view_data_(),//(data_[0].get()),
@@ -443,14 +442,19 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
         // distributed_data should be empty at this point.
         distributed_data_.push_back(std::make_shared<cpgrid::CpGridData>(cc, distributed_data_)); 
         distributed_data_[0]->setUniqueBoundaryIds(data_[0]->uniqueBoundaryIds());
+        distributed_data_[0]-> index_set_.reset(new IndexSet(distributed_data_[0]->cell_to_face_.size(),
+                                                             distributed_data_[0]-> geomVector<3>().size());
         // Just to be sure we assume that only master knows
         cc.broadcast(&distributed_data_[0]->use_unique_boundary_ids_, 1, 0);
+        
+
 
         // Create indexset
         distributed_data_[0]->cellIndexSet().beginResize();
         for(const auto& entry: importList)
         {
-            distributed_data_[0]->cellIndexSet().add(std::get<0>(entry), ParallelIndexSet::LocalIndex(std::get<3>(entry), AttributeSet(std::get<2>(entry)), true));
+            distributed_data_[0]->cellIndexSet()
+                .add(std::get<0>(entry),ParallelIndexSet::LocalIndex(std::get<3>(entry),AttributeSet(std::get<2>(entry)), true));
         }
         distributed_data_[0]->cellIndexSet().endResize();
         // add an interface for gathering/scattering data with communication
@@ -462,6 +466,7 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
         distributed_data_[0]->distributeGlobalGrid(*this,*this->current_view_data_, computedCellPart);
         // global_id_set_.insertIdSet(*distributed_data_[0]);
         (*global_id_set_ptr_).insertIdSet(*distributed_data_[0]);
+       
 
 
         current_view_data_ = distributed_data_[0].get();
@@ -584,7 +589,7 @@ int CpGrid::maxLevel() const
         return 0;
     }
     else {
-        return this -> data_.size() - 1; // last entry is leafView, and it starts in level 0 
+        return this -> data_.size() - 2; // last entry is leafView, and it starts in level 0 
     } // Assuming last entry of data_ is the LeafView, recall it starts with level 0
 }
 
