@@ -399,9 +399,9 @@ bool Entity<codim>::isValid() const
 template <int codim>
 int Entity<codim>::level() const
 {
-    /*if (this->isLeaf()){
+    if (this->isLeaf()){
         OPM_THROW(std::logic_error, "Entity has no level, it's leaf.");
-        }*/
+    }
     /*  if ((pgrid_-> level_) == -1){ // Let's set level_ = -1 for the LeafView. Then actual levels are 0 and 1, to be extended: 2,3,...
         OPM_THROW(std::logic_error, "Entity has no level, it's leaf.");
     }
@@ -414,13 +414,16 @@ int Entity<codim>::level() const
 template<int codim>
 bool Entity<codim>::isLeaf() const
 {
+    if ((*(pgrid_ -> data_copy_)).size() == 0){
+        OPM_THROW(std::logic_error, "Global grid coincides with LeafView");
+    }
     /* const auto& numCells = 0;
     for (long unsigned int level = 0; level < *(pgrid_->data_copy_).size(); ++level)
     {
         numCells 
         }*/
     
-    return (this-> level() == -1);//( pgrid_ == (*(pgrid_->data_copy_)).back().get()); 
+    return (std::size_t(this-> level()) == std::size_t((*(pgrid_ -> data_copy_)).size() -1));//( pgrid_ == (*(pgrid_->data_copy_)).back().get()); 
 }
 
 
@@ -445,7 +448,7 @@ Entity<0> Entity<codim>::father() const
     }
     const int& coarse_level = pgrid_ -> child_to_parent_cells_[this->index()][0];
     const int& parent_index = pgrid_ -> child_to_parent_cells_[this->index()][1];
-    const auto& coarse_grid = (pgrid_ -> data_copy_)[coarse_level].get(); 
+    const auto& coarse_grid = (*(pgrid_ -> data_copy_))[coarse_level].get(); 
     return Entity<0>( *coarse_grid, parent_index, true); 
 }
 

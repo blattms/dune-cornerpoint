@@ -169,8 +169,7 @@ class CpGridData
                                const Dune::CpGrid&);
 
 private:
-    CpGridData(const CpGridData& g); //, std::vector<std::shared_ptr<CpGridData>>& data);
-    // CpGridData(const CpGridData& g, const Dune::CpGrid grid);
+    CpGridData(const CpGridData& g); 
     
 public:
     enum{
@@ -194,17 +193,18 @@ public:
     /// Constructor for parallel grid data.
     /// \param comm The MPI communicator
     /// Default constructor.
-    explicit CpGridData(MPIHelper::MPICommunicator comm);
+    // explicit CpGridData(MPIHelper::MPICommunicator comm);
     explicit CpGridData(MPIHelper::MPICommunicator comm,  std::vector<std::shared_ptr<CpGridData>>& data);
 
  
     
     /// Constructor
-    CpGridData();
+    CpGridData(std::vector<std::shared_ptr<CpGridData>>& data);
+    //CpGridData();
     /// Destructor
     ~CpGridData();
     /// Another constructor
-    CpGridData(std::vector<std::shared_ptr<CpGridData>>& data);
+   
     
     
     /// number of leaf entities per codim in this process
@@ -655,8 +655,8 @@ private:
     // /** Grid. */
     // CpGrid* grid_;
     /** Level of the current CpGridData (in which entry of grid_.data_ is stored). */
-    int level_ = {-1};
-    std::vector<std::shared_ptr<CpGridData>> data_copy_;
+    int level_;
+    std::vector<std::shared_ptr<CpGridData>>* data_copy_;
     // SUITABLE FOR ALL LEVELS EXCEPT FOR LEAFVIEW
     /** Map between level and leafview (maxLevel) cell indices. Only cells (from that level) that appear in leafview count. */  
     std::map<int,int> level_to_leaf_cells_; // {level cell index, leafview cell index}

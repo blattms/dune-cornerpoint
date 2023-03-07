@@ -41,7 +41,7 @@ CpGridData::CpGridData(const CpGridData& g)
 #endif
 }
 
-CpGridData::CpGridData()
+/*CpGridData::CpGridData()
     : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
       global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
       //level_(),
@@ -53,14 +53,12 @@ CpGridData::CpGridData()
 #if HAVE_MPI
     cell_interfaces_=std::make_tuple(Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_));
 #endif
-    // level_ = -1;
-}
+}*/
 
 CpGridData::CpGridData(std::vector<std::shared_ptr<CpGridData>>& data)
     : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
       global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
       data_copy_(),
-      // level_(),
       ccobj_(Dune::MPIHelper::getCommunicator()), use_unique_boundary_ids_(false)
 #if HAVE_MPI
     , cell_comm_(Dune::MPIHelper::getCommunicator())
@@ -69,10 +67,10 @@ CpGridData::CpGridData(std::vector<std::shared_ptr<CpGridData>>& data)
 #if HAVE_MPI
     cell_interfaces_=std::make_tuple(Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_));
 #endif
-     data_copy_ = data;
+     data_copy_ = &data;
 }
 
-CpGridData::CpGridData(MPIHelper::MPICommunicator comm)
+/*CpGridData::CpGridData(MPIHelper::MPICommunicator comm)
     : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
       global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
       ccobj_(comm), use_unique_boundary_ids_(false)
@@ -84,14 +82,13 @@ CpGridData::CpGridData(MPIHelper::MPICommunicator comm)
     cell_interfaces_=std::make_tuple(Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_));
 #endif
     // level_ = -1;
-}
+}*/
 
 
 CpGridData::CpGridData(MPIHelper::MPICommunicator comm,  std::vector<std::shared_ptr<CpGridData>>& data)
     : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
       global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
       data_copy_(),
-      // level_(),
       ccobj_(comm), use_unique_boundary_ids_(false)
 #if HAVE_MPI
     , cell_comm_(comm)
@@ -100,8 +97,7 @@ CpGridData::CpGridData(MPIHelper::MPICommunicator comm,  std::vector<std::shared
 #if HAVE_MPI
     cell_interfaces_=std::make_tuple(Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_));
 #endif
-    //level_ = -1;
-    data_copy_ = data;
+    data_copy_ = &data;
 }
 
 #if HAVE_MPI
@@ -2081,7 +2077,8 @@ CpGridData::refinePatch(const std::array<int,3>& cells_per_dim, const std::array
         OPM_THROW(std::logic_error, "Grid is not Cartesian. Patch cannot be refined.");
     }
     // To store LGR/refined-grid.
-    std::shared_ptr<CpGridData> refined_grid_ptr = std::make_shared<CpGridData>(); // ccobj_
+    std::vector<std::shared_ptr<CpGridData>> refined_data;
+    std::shared_ptr<CpGridData> refined_grid_ptr = std::make_shared<CpGridData>(refined_data); // ccobj_
     auto& refined_grid = *refined_grid_ptr;
     DefaultGeometryPolicy& refined_geometries = refined_grid.geometry_;
     std::vector<std::array<int,8>>& refined_cell_to_point = refined_grid.cell_to_point_;

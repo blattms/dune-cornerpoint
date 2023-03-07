@@ -121,28 +121,33 @@ namespace Dune
 {
 
 CpGrid::CpGrid()
-    : data_({std::make_shared<cpgrid::CpGridData>()}), // data_
-      current_view_data_(data_[0].get()),
+    : //data_({std::make_shared<cpgrid::CpGridData>()}), // data_
+    //data_(),
+    current_view_data_(),// (data_[0].get()),
       distributed_data_(),
       cell_scatter_gather_interfaces_(new InterfaceMap),
       point_scatter_gather_interfaces_(new InterfaceMap),
-      global_id_set_ptr_(std::make_shared<cpgrid::GlobalIdSet>(*current_view_data_))
+    global_id_set_ptr_()//std::make_shared<cpgrid::GlobalIdSet>(*current_view_data_))
 {
-    /*  std::vector<std::shared_ptr<cpgrid::CpGridData>> data;
-        data_.push_back(std::make_shared<cpgrid::CpGridData>(data));*/
+    data_.push_back(std::make_shared<cpgrid::CpGridData>(data_));
+    current_view_data_ = data_[0].get();
+    global_id_set_ptr_ = std::make_shared<cpgrid::GlobalIdSet>(*current_view_data_);
+    
 }
 
 
 CpGrid::CpGrid(MPIHelper::MPICommunicator comm)
-    : data_({std::make_shared<cpgrid::CpGridData>(comm)}),
-      current_view_data_(data_[0].get()),
+    : //data_({std::make_shared<cpgrid::CpGridData>(comm)}),
+    current_view_data_(),//(data_[0].get()),
       distributed_data_(),
       cell_scatter_gather_interfaces_(new InterfaceMap),
       point_scatter_gather_interfaces_(new InterfaceMap),
-      global_id_set_ptr_(std::make_shared<cpgrid::GlobalIdSet>(*current_view_data_))
+    global_id_set_ptr_()//std::make_shared<cpgrid::GlobalIdSet>(*current_view_data_))
 {
-    /*  std::vector<std::shared_ptr<cpgrid::CpGridData>> data;
-        data_.push_back(std::make_shared<cpgrid::CpGridData>(comm, data));*/
+    data_.push_back(std::make_shared<cpgrid::CpGridData>(comm, data_));
+    current_view_data_= data_[0].get();
+    global_id_set_ptr_ = std::make_shared<cpgrid::GlobalIdSet>(*current_view_data_);
+    
 }
 
 std::vector<int>
@@ -436,7 +441,7 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
 
 
         // distributed_data should be empty at this point.
-        distributed_data_.push_back(std::make_shared<cpgrid::CpGridData>(cc)); 
+        distributed_data_.push_back(std::make_shared<cpgrid::CpGridData>(cc, distributed_data_)); 
         distributed_data_[0]->setUniqueBoundaryIds(data_[0]->uniqueBoundaryIds());
         // Just to be sure we assume that only master knows
         cc.broadcast(&distributed_data_[0]->use_unique_boundary_ids_, 1, 0);
@@ -569,12 +574,18 @@ std::string CpGrid::name() const
 {
     return "CpGrid";
 }
+
 int CpGrid::maxLevel() const
 {
     if (!distributed_data_.empty()){
         OPM_THROW(std::logic_error, "Distributed data is not empty. Cannot compute maximum level.");
     }
-    return this -> data_.size() - 2; // Assuming last entry of data_ is the LeafView, recall it starts with level 0
+    if (this -> data_.size() == 0){
+        return 0;
+    }
+    else {
+        return this -> data_.size() - 1; // last entry is leafView, and it starts in level 0 
+    } // Assuming last entry of data_ is the LeafView, recall it starts with level 0
 }
 
 template<int codim>
@@ -1363,7 +1374,7 @@ void CpGrid::createGridWithLgr(const std::array<int,3>& cells_per_dim, const std
     //
     // LEVEL 0, definition/declaration of some members:
     // std::vector<std::shared_ptr<CpGridData>> l0_data;
-    (*data_[0]).data_copy_ = this -> data_;
+    (*data_[0]).data_copy_ = &(this -> data_);
     (*data_[0]).level_ = 0;
     // Relation between level and leafview cell indices.
     std::map<int,int>& l0_to_leaf_cells = (*data_[0]).level_to_leaf_cells_;
@@ -1393,7 +1404,7 @@ void CpGrid::createGridWithLgr(const std::array<int,3>& cells_per_dim, const std
         }
     }
     // LEVEL 1, definition/declaration of some members:
-    (*data_[1]).data_copy_ = this -> data_;
+    (*data_[1]).data_copy_ = &(this -> data_);
     //std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>> l1_data = this -> data_;
     (*data_[1]).level_ = 1;
     // Relation between level and leafview cell indices.
@@ -1659,7 +1670,7 @@ void CpGrid::createGridWithLgr(const std::array<int,3>& cells_per_dim, const std
     //  Add Leaf View to data_.
     (this-> data_).push_back(leaf_view_ptr);
     current_view_data_ = data_[2].get();
-    (*data_[2]).level_ = -1;
+    (*data_[2]).level_ = 2;
     // Define grid_ for leaf_view level 
     // (*data_[2]).data_copy_ = &(this-> data_);
 }

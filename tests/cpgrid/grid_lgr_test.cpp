@@ -144,7 +144,7 @@ void refinePatch_and_check(Dune::CpGrid& coarse_grid,
             BOOST_CHECK_THROW(entity.father(), std::logic_error);
             BOOST_CHECK_EQUAL( child_to_parent[0], -1);
         }
-        BOOST_CHECK( entity.level() == -1);
+        BOOST_CHECK( entity.level() == 2);
         BOOST_CHECK( entity.isLeaf() == true);
     }
 
