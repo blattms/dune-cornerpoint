@@ -5,7 +5,7 @@
 // Created: Fri May 29 14:04:50 2009
 //
 // Author(s): Atgeirr F Rasmussen <atgeirr@sintef.no>
-//            B�rd Skaflestad     <bard.skaflestad@sintef.no>
+//            Bård Skaflestad     <bard.skaflestad@sintef.no>
 //
 // $Date$
 //
@@ -56,9 +56,12 @@ BOOST_AUTO_TEST_CASE(entity)
     int m_argc = boost::unit_test::framework::master_test_suite().argc;
     char** m_argv = boost::unit_test::framework::master_test_suite().argv;
     Dune::MPIHelper::instance(m_argc, m_argv);
-    // const auto aux_nullptr = std::make_shared<cpgrid::CpGridData>(nullptr);
-    std::vector<std::shared_ptr<cpgrid::CpGridData>>& data = {}; // (); = {aux_nullptr};
-    cpgrid::CpGridData g(data); 
+    std::shared_ptr<cpgrid::CpGridData> my_nullptr;
+    std::vector<std::shared_ptr<cpgrid::CpGridData>> data = {my_nullptr};
+    cpgrid::CpGridData g(data);
+    // data.push_back(std::make_shared<cpgrid::CpGridData>(g)); PRIVACY error:
+    // ‘Dune::cpgrid::CpGridData::CpGridData(const Dune::cpgrid::CpGridData&)’ is private within this context
+    // Do we really need this line?
     cpgrid::Entity<0> e1(g, 0, true);
     cpgrid::Entity<0> e2(g, 0, false);
     cpgrid::Entity<0> e3(g, 1, true);
