@@ -56,7 +56,8 @@ BOOST_AUTO_TEST_CASE(entity)
     int m_argc = boost::unit_test::framework::master_test_suite().argc;
     char** m_argv = boost::unit_test::framework::master_test_suite().argv;
     Dune::MPIHelper::instance(m_argc, m_argv);
-    std::vector<std::shared_ptr<cpgrid::CpGridData>> data;
+    // const auto aux_nullptr = std::make_shared<cpgrid::CpGridData>(nullptr);
+    std::vector<std::shared_ptr<cpgrid::CpGridData>>& data = {}; // (); = {aux_nullptr};
     cpgrid::CpGridData g(data); 
     cpgrid::Entity<0> e1(g, 0, true);
     cpgrid::Entity<0> e2(g, 0, false);

@@ -407,9 +407,9 @@ int Entity<codim>::level() const
     }
     else {*/
 
-    if ((*(pgrid_ -> data_copy_)).size() == 0){
+    /* if ((*(pgrid_ -> data_copy_)).size() == 1){
         return 0;
-    }
+        }*/
     if (this -> isLeaf()){
         return std::size_t((*(pgrid_ -> data_copy_)).size() -1);
     }
@@ -425,8 +425,8 @@ int Entity<codim>::level() const
 template<int codim>
 bool Entity<codim>::isLeaf() const
 {
-    if ((*(pgrid_ -> data_copy_)).size() == 0){
-       return 0;
+    if ((*(pgrid_ -> data_copy_)).size() == 1){
+       return true;
         }
     /* const auto& numCells = 0;
     for (long unsigned int level = 0; level < *(pgrid_->data_copy_).size(); ++level)

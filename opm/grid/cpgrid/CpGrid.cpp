@@ -584,13 +584,10 @@ std::string CpGrid::name() const
 int CpGrid::maxLevel() const
 {
     if (!distributed_data_.empty()){
-        OPM_THROW(std::logic_error, "Distributed data is not empty. Cannot compute maximum level.");
-    }
-    if (this -> data_.size() == 0){
         return 0;
     }
-    else {
-        return this -> data_.size() - 2; // last entry is leafView, and it starts in level 0 
+    else { // add assert to check data_.size() =  1 or 3 ? If 1, maxLevel =0, if 3, maxLevel =1. 
+        return double(this -> data_.size() - 1)/2; // last entry is leafView, and it starts in level 0 
     } // Assuming last entry of data_ is the LeafView, recall it starts with level 0
 }
 
@@ -1418,9 +1415,9 @@ void CpGrid::createGridWithLgr(const std::array<int,3>& cells_per_dim, const std
     //
     // To store the leaf view (mixed grid: with (non parents) coarse and (children) refined entities).
     typedef Dune::FieldVector<double,3> PointType;
-    std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>> leaf_data = this -> data_;
+    std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>>& leaf_data = this -> data_;
     std::shared_ptr<Dune::cpgrid::CpGridData> leaf_view_ptr =
-        std::make_shared<Dune::cpgrid::CpGridData>(leaf_data); //((*(this-> data_[0])).ccobj_); 
+        std::make_shared<Dune::cpgrid::CpGridData>((*(this-> data_[0])).ccobj_, leaf_data);
     auto& leaf_view = *leaf_view_ptr;
     Dune::cpgrid::DefaultGeometryPolicy& leaf_geometries = leaf_view.geometry_;
     std::vector<std::array<int,8>>& leaf_cell_to_point = leaf_view.cell_to_point_;
