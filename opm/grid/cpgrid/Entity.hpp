@@ -118,7 +118,7 @@ namespace Dune
             {
             }
 
-            /// Constructor taking a grid, entity index and orientation.
+            /// Constructor taking a grid, entity index, and orientation.
             Entity(const CpGridData& grid, int index_arg, bool orientation_arg)
                 : EntityRep<codim>(index_arg, orientation_arg), pgrid_(&grid)
             {
@@ -150,9 +150,11 @@ namespace Dune
             /// @brief Return the level of the entity in the grid hierarchy. Level = 0 represents the coarsest grid.
             int level() const;
 
-            /// @brief Check if the entity is in the leafview, i.e., maximum level. TO BE MODIFIED
+            /// @brief Check if the entity is in the leafview.
+            ///
+            ///        @TODO: Modify the definition to cover serial and parallel cases.
             ///        Serial: an element is a leaf <-> hbegin and hend return the same iterator
-            ///        Parallel: returns true <-> the element is a leaf entity of the global refinement hierarchy.
+            ///        Parallel: true <-> the element is a leaf entity of the global refinement hierarchy.
             bool isLeaf() const;
             
             /// Refinement is not defined for CpGrid.
@@ -176,29 +178,28 @@ namespace Dune
             unsigned int subEntities ( const unsigned int cc ) const;
             
             /// @brief Obtain subentity.
-            ///        Example: If cc = 3 and i = 5, it returns the 5th corner of the entity.
+            ///        Example: If cc = 3 and i = 5, it returns the 5th corner/vertex of the entity.
             template <int cc>
             typename Codim<cc>::Entity subEntity(int i) const;
 
-            /// Start iterator for the cell-cell intersections of this entity.
+            /// Start level-iterator for the cell-cell intersections of this entity.
             inline LevelIntersectionIterator ilevelbegin() const;
 
-            /// End iterator for the cell-cell intersections of this entity.
+            /// End level-iterator for the cell-cell intersections of this entity.
             inline LevelIntersectionIterator ilevelend() const;
 
-            /// Start iterator for the cell-cell intersections of this entity.
+            /// Start leaf-iterator for the cell-cell intersections of this entity.
             inline LeafIntersectionIterator ileafbegin() const;
 
-            /// End iterator for the cell-cell intersections of this entity.
+            /// End leaf-iterator for the cell-cell intersections of this entity.
             inline LeafIntersectionIterator ileafend() const;
 
-            /// TO DO
+            
             /// @brief Iterator begin over the children. [If requested, also over descendants more than one generation away.]
-            HierarchicIterator hbegin(int) const; // argument int maxlevel
-
-            /// TO DO
+            HierarchicIterator hbegin(int) const;
+            
             /// @brief Iterator end over the children/beyond last child iterator.
-            HierarchicIterator hend(int) const; // argument int maxlevel
+            HierarchicIterator hend(int) const; 
 
             /// \brief Returns true, if the entity has been created during the last call to adapt(). Dummy.
             bool isNew() const
@@ -214,8 +215,9 @@ namespace Dune
 
             /// @brief ONLY FOR CELLS (Entity<0>)
             ///        Check if the entity comes from an LGR, i.e., it has been created via refinement from coarser level.
-            ///        [When distributed_data_ is not empty: Check whether the father element exists on the
-            ///        local process, and which can be used to test whether it is safe to call father.]
+            ///
+            ///        @TODO: When distributed_data_ is not empty, check whether the father element exists on the
+            ///        local process, which can be used to test whether it is safe to call father.
             bool hasFather() const;
 
             /// @brief  ONLY FOR CELLS (Entity<0>). Get the father Entity, in case entity.hasFather() is true.
@@ -223,14 +225,11 @@ namespace Dune
             /// @return father-entity
             Entity<0> father() const; 
 
-            /// @brief Returning ------------------- when hasFather() is true.
-            ///
-            /*
-geometryInFather() returns a LocalGeometry. It says "the embedding of this element into its father element", 
-provides information about how the sons partition the father element geometrically, the embedding of the 
-element into its own father element. Apparently, this means a map from the element's reference element into 
-the reference element of its father. 
-            */
+            /// @brief Return LocalGeometry representing the embedding of the entity inti its father (when hasFather() is true).
+            ///        Map from the entity's reference element into the reference element of its father.
+            ///        Currently, LGR is built via refinement of a block-shaped patch from the coarse grid. So the LocalGeometry
+            ///        of an entity coming from the LGR is one of the refined cells of the unit cube, with suitable amount of cells
+            ///        in each direction.
             Dune::cpgrid::Geometry<3,3> geometryInFather();
             
             /// Returns true if any of my intersections are on the boundary.
