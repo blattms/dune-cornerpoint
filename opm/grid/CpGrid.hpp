@@ -38,6 +38,15 @@
 #ifndef OPM_CPGRID_HEADER
 #define OPM_CPGRID_HEADER
 
+//#include <string>  //OK
+//#include <map>  // OK
+//#include <array> // OK
+//#include <unordered_set>  // OK
+//#include <opm/common/ErrorMacros.hpp> // OK
+
+// Warning suppression for Dune includes.
+//#include <opm/grid/utility/platform_dependent/disable_warnings.h>  // OK
+
 #include <dune/common/version.hh>
 
 #if HAVE_MPI
@@ -48,10 +57,19 @@
 #endif
 #endif
 
-#include <dune/grid/common/grid.hh>
+//#include <dune/grid/common/capabilities.hh> // OK
+#include <dune/grid/common/grid.hh>  // 
+//#include <dune/grid/common/gridenums.hh> // OK
 #include "cpgrid/CpGridData.hpp"
-#include "common/GridEnums.hpp"
-#include <opm/grid/utility/OpmWellType.hpp>
+//#include <opm/grid/utility/platform_dependent/reenable_warnings.h> // OK
+//#include "cpgrid/Intersection.hpp"   // OK
+//#include "cpgrid/Geometry.hpp"   // OK
+//#include "cpgrid/Indexsets.hpp"  // OK global_id_set_ turned into shared-pointer. 
+//#include "cpgrid/DefaultGeometryPolicy.hpp"  // OK
+#include "common/GridEnums.hpp"   // OK
+//#include "common/Volumes.hpp"   // OK
+//#include <opm/grid/cpgpreprocess/preprocess.h>  // OK
+#include <opm/grid/utility/OpmWellType.hpp>  // OK
 
 #include <iostream>
 #if ! HAVE_MPI
@@ -1142,10 +1160,18 @@ int boundaryId(int face) const;
         /// comm.forward(handle);
         /// \endcode
 const InterfaceMap& cellScatterGatherInterface() const;
+/*
+        {
+            return *cell_scatter_gather_interfaces_;
+            }*/
 
         /// \brief Get an interface for gathering/scattering data attached to points with communication.
         /// \see cellScatterGatherInterface
 const InterfaceMap& pointScatterGatherInterface() const;
+
+/*  {
+            return *point_scatter_gather_interfaces_;
+            }*/
 
         /// \brief Switch to the global view.
 void switchToGlobalView();
@@ -1243,7 +1269,10 @@ const std::vector<int>& sortedNumAquiferCells() const;
         /**
          * @brief The global id set (also used as local one).
          */
-        std::shared_ptr<cpgrid::GlobalIdSet> global_id_set_ptr_;
+// cpgrid::GlobalIdSet global_id_set_;
+std::shared_ptr<cpgrid::GlobalIdSet> global_id_set_ptr_;
+
+
         /**
          * @brief Zoltan partitioning parameters
          */
@@ -1251,6 +1280,9 @@ const std::vector<int>& sortedNumAquiferCells() const;
 
     }; // end Class CpGrid
 
+
+#include <opm/grid/cpgrid/Entity.hpp>
+#include <opm/grid/cpgrid/Iterators.hpp>
 /*#include <opm/grid/cpgrid/PersistentContainer.hpp>
 #include <opm/grid/cpgrid/CartesianIndexMapper.hpp>
 #include <opm/grid/cpgrid/GridHelpers.hpp>
@@ -1303,5 +1335,6 @@ const std::vector<int>& sortedNumAquiferCells() const;
 
 } // namespace Dune
 
-
+#include <opm/grid/cpgrid/PersistentContainer.hpp>
+#include <opm/grid/cpgrid/CartesianIndexMapper.hpp>
 #endif // OPM_CPGRID_HEADER
