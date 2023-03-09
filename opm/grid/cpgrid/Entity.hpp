@@ -41,7 +41,7 @@
 #include <dune/grid/common/gridenums.hh>
 
 #include "PartitionTypeIndicator.hpp"
-//#include "EntityRep.hpp"
+
 
 namespace Dune
 {
@@ -256,7 +256,6 @@ namespace Dune
 
         protected:
             const CpGridData* pgrid_;
-            // std::shared_ptr<cpgrid::CpGridData> e_data_;
         };
 
     } // namespace cpgrid
@@ -265,7 +264,6 @@ namespace Dune
 // now we include the Iterators.hh We need to do this here because for hbegin/hend the compiler
 // needs to know the size of hierarchicIterator
 #include "Iterators.hpp"
-//#include "Entity.hpp"
 #include "Intersection.hpp"
 namespace Dune
 {
@@ -325,7 +323,6 @@ namespace Dune
 
 #include <opm/grid/CpGrid.hpp>
 #include <opm/grid/cpgrid/CpGridData.hpp>
-//#include <opm/grid/cpgrid/Intersection.hpp>
 
 namespace Dune {
 namespace cpgrid {
@@ -398,28 +395,13 @@ bool Entity<codim>::isValid() const
 template <int codim>
 int Entity<codim>::level() const
 {
-    /*  if (this->isLeaf()){
-        OPM_THROW(std::logic_error, "Entity has no level, it's leaf.");
-        }*/
-    /*  if ((pgrid_-> level_) == -1){ // Let's set level_ = -1 for the LeafView. Then actual levels are 0 and 1, to be extended: 2,3,...
-        OPM_THROW(std::logic_error, "Entity has no level, it's leaf.");
-    }
-    else {*/
-
-    /* if ((*(pgrid_ -> data_copy_)).size() == 1){
-        return 0;
-        }*/
     if (this -> isLeaf()){
         return std::size_t((*(pgrid_ -> data_copy_)).size() -1);
     }
-    else
-    {
-        return pgrid_-> level_; // level_ = -1 -> Leaf?
+    else {
+        return pgrid_-> level_;
     }
-    
-    
 }
-
 
 template<int codim>
 bool Entity<codim>::isLeaf() const
@@ -427,17 +409,8 @@ bool Entity<codim>::isLeaf() const
     if ((*(pgrid_ -> data_copy_)).size() == 1){
        return true;
         }
-    /* const auto& numCells = 0;
-    for (long unsigned int level = 0; level < *(pgrid_->data_copy_).size(); ++level)
-    {
-        numCells 
-        }*/
-    //  const auto& leaf_level = (*(pgrid_ -> data_copy_)).size() -1;
-    // const auto& level = this->level();
-    return //(std::size_t(level) == std::size_t(leaf_level));//
-        ( pgrid_ == (*(pgrid_->data_copy_)).back().get()); 
+    return (pgrid_ == (*(pgrid_->data_copy_)).back().get());
 }
-
 
 template<int codim>
 bool Entity<codim>::hasFather() const
@@ -450,7 +423,6 @@ bool Entity<codim>::hasFather() const
         return  (parent != -1);
     }
 }
-
 
 template<int codim>
 Entity<0> Entity<codim>::father() const
@@ -471,7 +443,7 @@ Dune::cpgrid::Geometry<3,3> Dune::cpgrid::Entity<codim>::geometryInFather()
         OPM_THROW(std::logic_error, "Entity has no father.");
     }
     else{
-         //
+        //
         DefaultGeometryPolicy local_geometry;
         std::array<int,8> localEntity_to_point;
         std::array<int,8> allcorners_localEntity;
@@ -500,25 +472,25 @@ Dune::cpgrid::Geometry<3,3> Dune::cpgrid::Entity<codim>::geometryInFather()
             { double(eIJK[0])/grid_dim[0], (double(eIJK[1])+1)/grid_dim[1], (double(eIJK[2])+1)/grid_dim[2] },
             // corner '7'
             { (double(eIJK[0])+1)/grid_dim[0], (double(eIJK[1])+1)/grid_dim[1], (double(eIJK[2])+1)/grid_dim[2] }};
-         // Compute the center of the 'local-entity'.
+        // Compute the center of the 'local-entity'.
         Dune::FieldVector<double, 3> local_center = {0., 0.,0.};
         for (int corn = 0; corn < 8; ++corn) {
             local_center += local_corners[corn].center()/8.;
         }
         // Compute the volume of the 'local-entity'.
         double local_volume = double(1)/(grid_dim[0]*grid_dim[1]*grid_dim[2]);
-         // Indices of 'all the corners', in this case, 0-7 (required to construct a Geometry<3,3> object).
+        // Indices of 'all the corners', in this case, 0-7 (required to construct a Geometry<3,3> object).
         allcorners_localEntity= {0,1,2,3,4,5,6,7};
         // Create a pointer to the first element of "cellfiedPatch_to_point" (required to construct a Geometry<3,3> object).
         const int* localEntity_indices_storage_ptr = &allcorners_localEntity[0];
         // Construct (and return) the Geometry<3,3> of the 'cellified patch'.
         return Dune::cpgrid::Geometry<3,3>(local_center, local_volume,
-                             local_geometry.geomVector(std::integral_constant<int,3>()), localEntity_indices_storage_ptr); 
+                                           local_geometry.geomVector(std::integral_constant<int,3>()), localEntity_indices_storage_ptr);
     }
 }
 
-
-}}
+} // namespace cpgrid
+} // namespace Dune
 
 
 #endif // OPM_ENTITY_HEADER

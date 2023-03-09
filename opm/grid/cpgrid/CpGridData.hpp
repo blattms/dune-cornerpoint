@@ -260,7 +260,8 @@ public:
     /// \param turn_normals if true, all normals will be turned. This is intended for handling inputs with wrong orientations.
     /// \param clip_z if true, the grid will be clipped so that the top and bottom will be planar.
     std::vector<std::size_t> processEclipseFormat(const Opm::EclipseGrid* ecl_grid, Opm::EclipseState* ecl_state,
-                                                  bool periodic_extension, bool turn_normals = false, bool clip_z = false, bool pinchActive = true);
+                                                  bool periodic_extension, bool turn_normals = false, bool clip_z = false,
+                                                  bool pinchActive = true);
 #endif
 
     /// Read the Eclipse grid format ('grdecl').
@@ -301,16 +302,10 @@ private:
     /// @param [in]  startIJK  Cartesian triplet index where the patch starts.
     /// @param [in]  endIJK    Cartesian triplet index where the patch ends.
     ///                        Last cell part of the lgr will be {endijk[0]-1, ... endIJK[2]-1}.
-
-
-
     ///
     /// @return patch_dim Patch dimension {#cells in x-direction, #cells in y-direction, #cells in z-direction}.
-    const std::array<int,3> getPatchDim(const std::array<int,3>& startIJK, const std::array<int,3>& endIJK) const
-    {
-        return {endIJK[0]-startIJK[0], endIJK[1]-startIJK[1], endIJK[2]-startIJK[2]};
-    }
-
+    const std::array<int,3> getPatchDim(const std::array<int,3>& startIJK, const std::array<int,3>& endIJK) const;
+    
     /// @brief Compute corner, face, and cell indices of a patch of cells. (Cartesian grid required).
     ///
     /// @param [in]  startIJK  Cartesian triplet index where the patch starts.
@@ -651,11 +646,9 @@ private:
     std::shared_ptr<LevelGlobalIdSet> global_id_set_;
     /** @brief The indicator of the partition type of the entities */
     std::shared_ptr<PartitionTypeIndicator> partition_type_indicator_;
-    // NEW MEMBERS
-    // /** Grid. */
-    // CpGrid* grid_;
-    /** Level of the current CpGridData (in which entry of grid_.data_ is stored). */
+    /** Level of the current CpGridData (0 when it's "GLOBAL", 1 for LGR, 2 for LeafView, created via CpGrid::createGridWithLgr()). */
     int level_;
+    /** Copy of (CpGrid object).data_ associated with the CpGridData object, via created via CpGrid::createGridWithLgr(). */
     std::vector<std::shared_ptr<CpGridData>>* data_copy_;
     // SUITABLE FOR ALL LEVELS EXCEPT FOR LEAFVIEW
     /** Map between level and leafview (maxLevel) cell indices. Only cells (from that level) that appear in leafview count. */  

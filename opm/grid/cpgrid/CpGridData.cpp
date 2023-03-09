@@ -26,7 +26,6 @@ namespace Dune
 namespace cpgrid
 {
 
-
 CpGridData::CpGridData(const CpGridData& g)
     : index_set_(new IndexSet(g.cell_to_face_.size(), g.geomVector<3>().size())),
       local_id_set_(new IdSet(*this)),
@@ -40,20 +39,6 @@ CpGridData::CpGridData(const CpGridData& g)
     cell_interfaces_=std::make_tuple(Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_));
 #endif
 }
-
-/*CpGridData::CpGridData()
-    : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
-      global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
-      //level_(),
-      ccobj_(Dune::MPIHelper::getCommunicator()), use_unique_boundary_ids_(false)
-#if HAVE_MPI
-    , cell_comm_(Dune::MPIHelper::getCommunicator())
-#endif 
-{
-#if HAVE_MPI
-    cell_interfaces_=std::make_tuple(Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_));
-#endif
-}*/
 
 CpGridData::CpGridData(std::vector<std::shared_ptr<CpGridData>>& data)
     : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
@@ -69,21 +54,6 @@ CpGridData::CpGridData(std::vector<std::shared_ptr<CpGridData>>& data)
 #endif
      data_copy_ = &data;
 }
-
-/*CpGridData::CpGridData(MPIHelper::MPICommunicator comm)
-    : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
-      global_id_set_(new LevelGlobalIdSet(local_id_set_, this)), partition_type_indicator_(new PartitionTypeIndicator(*this)),
-      ccobj_(comm), use_unique_boundary_ids_(false)
-#if HAVE_MPI
-    , cell_comm_(comm)
-#endif       
-{
-#if HAVE_MPI
-    cell_interfaces_=std::make_tuple(Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_),Interface(ccobj_));
-#endif
-    // level_ = -1;
-}*/
-
 
 CpGridData::CpGridData(MPIHelper::MPICommunicator comm,  std::vector<std::shared_ptr<CpGridData>>& data)
     : index_set_(new IndexSet()), local_id_set_(new IdSet(*this)),
@@ -1759,13 +1729,11 @@ void CpGridData::distributeGlobalGrid(CpGrid& grid,
 #endif
 }
 
+const std::array<int,3> CpGridData::getPatchDim(const std::array<int,3>& startIJK, const std::array<int,3>& endIJK) const
+{
+    return {endIJK[0]-startIJK[0], endIJK[1]-startIJK[1], endIJK[2]-startIJK[2]};
+}
 
-/// @brief Compute corner, face, and cell indices of a patch of cells. (Cartesian grid required).
-///
-/// @param [in]  startIJK  Cartesian triplet index where the patch starts.
-/// @param [in]  endIJK    Cartesian triplet index where the patch ends.
-///
-/// @return {patch_corners, patch_faces, patch_cells} Indices of corners, faces, and cells of the patch of cells.
 const std::array<std::vector<int>,3>
 CpGridData::getPatchGeomIndices(const std::array<int,3>& startIJK, const std::array<int,3>& endIJK) const
 {
@@ -1828,20 +1796,6 @@ CpGridData::getPatchGeomIndices(const std::array<int,3>& startIJK, const std::ar
     return {patch_corners, patch_faces, patch_cells};
 }
 
-/// @brief Construct a 'fake cell (Geometry<3,3> object)' out of a patch of cells.(Cartesian grid required).
-///
-/// cellifyPatch() builds a Geometry<3,3> object, 'a celliFIED patch', from a connected patch formed
-/// by the product of consecutive cells in each direction; selecting 8 corners of the patch boundary,
-/// computing center and volume.
-///
-/// @param [in] startIJK                   Cartesian triplet index where the patch starts.
-/// @param [in] endIJK                     Cartesian triplet index where the patch ends.
-/// @param [in] patch_cells                Cell indices from the block-shaped patch.
-/// @param [out] cellifiedPatch_geometry   Required as an argument when creating a Geomtry<3,3> object.
-/// @param [out] cellifiedPatch_to_point   To store the 8 corners of the created cellifiedPatch.
-/// @param [out] allcorners_cellifiedPatch Required to build a Geometry<3,3> object.
-///
-/// @return 'cellifiedPatchCell'         Geometry<3,3> object.
 const Geometry<3,3> CpGridData::cellifyPatch(const std::array<int,3>& startIJK, const std::array<int,3>& endIJK,
                                              const std::vector<int>& patch_cells, DefaultGeometryPolicy& cellifiedPatch_geometry,
                                              std::array<int,8>& cellifiedPatch_to_point,
@@ -1898,28 +1852,6 @@ const Geometry<3,3> CpGridData::cellifyPatch(const std::array<int,3>& startIJK, 
     }
 }
 
-
-/// @brief Refine a single cell and return a shared pointer of CpGridData type.
-///
-/// refineSingleCell() takes a cell and refines it in a chosen amount of cells (per direction); creating the
-/// geometries, topological relations, etc. Stored in a CpGridData object. Additionally, containers for
-/// parent-to-new-born entities are buil, as well as, new-born-to-parent. Maps(<int,bool>) to detect parent
-/// faces or cells are also provided. (Cell with 6 faces required).
-///
-/// @param [in] cells_per_dim                 Number of (refined) cells in each direction that each parent cell should be refined to.
-/// @param [in] parent_idx                    Parent cell index, cell to be refined.
-///
-/// @return refined_grid_ptr                  Shared pointer pointing at refined_grid.
-/// @return parent_to_refined_corners         For each corner of the parent cell, we store the index of the
-///                                           refined corner that coincides with the old one.
-///                                           We assume they are ordered 0,1,..7
-///                                                              6---7
-///                                                      2---3   |   | TOP FACE
-///                                                      |   |   4---5
-///                                                      0---1 BOTTOM FACE
-/// @return parent_to_children_faces/cell     For each parent face/cell, we store its child-face/cell indices.
-///                                           {parent face/cell index in coarse level, {indices of its children in refined level}}
-/// @return child_to_parent_faces/cells       {child index, parent index}
 const std::tuple< const std::shared_ptr<CpGridData>,
                   const std::vector<std::array<int,2>>,                // parent_to_refined_corners(~boundary_old_to_new_corners)
                   const std::vector<std::tuple<int,std::vector<int>>>, // parent_to_children_faces (~boundary_old_to_new_faces)
@@ -2048,17 +1980,6 @@ CpGridData::refineSingleCell(const std::array<int,3>& cells_per_dim, const int& 
         child_to_parent_faces, child_to_parent_cell};
 }
 
-/// @brief Refine a (connected block-shaped) patch of cells. Based on the patch, a Geometry<3,3> object is created and refined.
-///
-/// @param [in] cells_per_dim            Number of (refined) cells in each direction that each parent cell should be refined to.
-/// @param [in] startIJK                 Cartesian triplet index where the patch starts.
-/// @param [in] endIJK                   Cartesian triplet index where the patch ends.
-///
-/// @return refined_grid_ptr                   Shared pointer of CpGridData type, pointing at the refined_grid
-/// @return boundary_old_to_new_corners/faces  Corner/face indices on the patch-boundary associated with new-born-entity indices.
-/// @return parent_to_children_faces/cell      For each parent face/cell, we store its child-face/cell indices.
-///                                            {parent face/cell index in coarse level, {indices of its children in refined level}}
-/// @return child_to_parent_faces/cells        {child index, parent index}
 const std::tuple< std::shared_ptr<CpGridData>,
                   const std::vector<std::array<int,2>>,                // boundary_old_to_new_corners
                   const std::vector<std::tuple<int,std::vector<int>>>, // boundary_old_to_new_faces
