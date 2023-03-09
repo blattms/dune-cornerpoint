@@ -1246,27 +1246,27 @@ void CpGrid::switchToDistributedView()
     current_view_data_=distributed_data_[0].get();
 }
 
-const cpgrid::CpGridData::CommunicationType& CpGrid::cellCommunication() const
+const cpgrid::CpGridDataTraits::CommunicationType& CpGrid::cellCommunication() const
 {
     return current_view_data_->cellCommunication();
 }
 
-cpgrid::CpGridData::ParallelIndexSet& CpGrid::getCellIndexSet()
+cpgrid::CpGridDataTraits::ParallelIndexSet& CpGrid::getCellIndexSet()
 {
     return current_view_data_->cellIndexSet();
 }
 
-cpgrid::CpGridData::RemoteIndices& CpGrid::getCellRemoteIndices()
+cpgrid::CpGridDataTraits::RemoteIndices& CpGrid::getCellRemoteIndices()
 {
     return current_view_data_->cellRemoteIndices();
 }
 
-const cpgrid::CpGridData::ParallelIndexSet& CpGrid::getCellIndexSet() const
+const cpgrid::CpGridDataTraits::ParallelIndexSet& CpGrid::getCellIndexSet() const
 {
     return current_view_data_->cellIndexSet();
 }
 
-const cpgrid::CpGridData::RemoteIndices& CpGrid::getCellRemoteIndices() const
+const cpgrid::CpGridDataTraits::RemoteIndices& CpGrid::getCellRemoteIndices() const
 {
     return current_view_data_->cellRemoteIndices();
 }

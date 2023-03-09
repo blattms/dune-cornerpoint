@@ -158,6 +158,7 @@ list (APPEND PUBLIC_HEADER_FILES
   opm/grid/common/WellConnections.hpp
   opm/grid/cpgrid/CartesianIndexMapper.hpp
   opm/grid/cpgrid/CpGridData.hpp
+  opm/grid/cpgrid/CpGridDataTraits
   opm/grid/cpgrid/DataHandleWrappers.hpp
   opm/grid/cpgrid/DefaultGeometryPolicy.hpp
   opm/grid/cpgrid/dgfparser.hh

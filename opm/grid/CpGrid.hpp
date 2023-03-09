@@ -49,18 +49,10 @@
 
 #include <dune/common/version.hh>
 
-#if HAVE_MPI
-#if DUNE_VERSION_NEWER(DUNE_GRID, 2, 7)
-#include <dune/common/parallel/variablesizecommunicator.hh>
-#else
-#include <opm/grid/utility/VariableSizeCommunicator.hpp>
-#endif
-#endif
-
 //#include <dune/grid/common/capabilities.hh> // OK
 #include <dune/grid/common/grid.hh>  // 
 //#include <dune/grid/common/gridenums.hh> // OK
-#include "cpgrid/CpGridData.hpp"
+#include <opm/grid/cpgrid/CpGridDataTraits.hpp>
 //#include <opm/grid/utility/platform_dependent/reenable_warnings.h> // OK
 //#include "cpgrid/Intersection.hpp"   // OK
 //#include "cpgrid/Geometry.hpp"   // OK
@@ -179,15 +171,9 @@ namespace Dune
         typedef GlobalIdSet LocalIdSet;
 
         /// \brief The type of the collective communication.
+        using Communication = cpgrid::CpGridDataTraits::Communication;
+        using CollectiveCommunication = cpgrid::CpGridDataTraits::CollectiveCommunication;
 
-    typedef Dune::MPIHelper::MPICommunicator MPICommunicator;
-#if DUNE_VERSION_NEWER(DUNE_GRID, 2, 7)
-    using Communication = Dune::Communication<MPICommunicator>;
-    using CollectiveCommunication = Communication;
-#else
-    using CollectiveCommunication = Dune::CollectiveCommunication<MPICommunicator>;
-    using Communication = Dune::CollectiveCommunication<MPICommunicator>;
-#endif
     };
 
     ////////////////////////////////////////////////////////////////////////
@@ -1115,21 +1101,10 @@ int boundaryId(int face) const;
             (void) handle;
 #endif
         }
-#if HAVE_MPI
-#if DUNE_VERSION_NEWER(DUNE_GRID, 2, 7)
-        /// \brief The type of the map describing communication interfaces.
-        using InterfaceMap = VariableSizeCommunicator<>::InterfaceMap;
-#else
-        /// \brief The type of the map describing communication interfaces.
-        using InterfaceMap = Opm::VariableSizeCommunicator<>::InterfaceMap;
-#endif
-#else
-        // bogus definition for the non parallel type. VariableSizeCommunicator not
-        // availabe
+
 
         /// \brief The type of the map describing communication interfaces.
-        typedef std::map<int, std::list<int> > InterfaceMap;
-#endif
+        using InterfaceMap = cpgrid::CpGridDataTraits::InterfaceMap;
 
         /// \brief Get an interface for gathering/scattering data attached to cells with communication.
         ///
@@ -1182,12 +1157,12 @@ void switchToDistributedView();
 
 #if HAVE_MPI
         /// \brief The type of the parallel index set
-        typedef cpgrid::CpGridData::ParallelIndexSet ParallelIndexSet;
+        using ParallelIndexSet = cpgrid::CpGridDataTraits::ParallelIndexSet;
         /// \brief The type of the remote indices information
-        typedef cpgrid::CpGridData::RemoteIndices RemoteIndices;
+        using RemoteIndices = cpgrid::CpGridDataTraits::RemoteIndices;
 
         /// \brief The type of the owner-overlap-copy communication
-        using CommunicationType = cpgrid::CpGridData::CommunicationType;
+        using CommunicationType = cpgrid::CpGridDataTraits::CommunicationType;
 
         /// \brief Get the owner-overlap-copy communication for cells
         ///
