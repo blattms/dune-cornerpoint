@@ -53,6 +53,7 @@
 #include <dune/grid/common/grid.hh>  // 
 //#include <dune/grid/common/gridenums.hh> // OK
 #include <opm/grid/cpgrid/CpGridDataTraits.hpp>
+#include <opm/grid/cpgpreprocess/preprocess.h>
 //#include <opm/grid/utility/platform_dependent/reenable_warnings.h> // OK
 //#include "cpgrid/Intersection.hpp"   // OK
 //#include "cpgrid/Geometry.hpp"   // OK
@@ -68,6 +69,12 @@
 #include <list>
 #endif
 
+namespace Opm
+{
+class EclipseGrid;
+class EclipseState;
+}
+
 namespace Dune
 {
 
@@ -82,8 +89,32 @@ namespace Dune
     class IntersectionIterator;
     template<int, PartitionIteratorType> class Iterator;
     class LevelGlobalIdSet;
+    class GlobalIdSet;
+    class Intersection;
+    class IntersectionIterator;
+    class IndexSet;
+    class IdSet;
+
     
     }
+}
+    void refine_and_check(const Dune::cpgrid::Geometry<3, 3>&,
+                          const std::array<int, 3>&,
+                          bool);
+
+    void refinePatch_and_check(Dune::CpGrid&,
+                               const std::array<int,3>&,
+                               const std::array<int,3>&,
+                               const std::array<int,3>&);
+
+    void refinePatch_and_check(const std::array<int,3>&,
+                               const std::array<int,3>&,
+                               const std::array<int,3>&);
+
+    void check_global_refine(const Dune::CpGrid&,
+                             const Dune::CpGrid&);
+namespace Dune
+{
 
     ////////////////////////////////////////////////////////////////////////
     //
