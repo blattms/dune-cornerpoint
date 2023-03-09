@@ -47,8 +47,6 @@
 #ifndef OPM_CPGRIDDATA_HEADER
 #define OPM_CPGRIDDATA_HEADER
 
-// Warning suppression for Dune includes.
-#include <opm/grid/utility/platform_dependent/disable_warnings.h>
 
 #include <dune/common/version.hh>
 #include <dune/common/parallel/mpihelper.hh>
@@ -61,35 +59,22 @@
 #else
 #include <dune/common/parallel/collectivecommunication.hh>
 #endif
-#include <dune/common/parallel/indexset.hh>
-#include <dune/common/parallel/interface.hh>
-#include <dune/common/parallel/plocalindex.hh>
 #if DUNE_VERSION_NEWER(DUNE_GRID, 2, 7)
 #include <dune/common/parallel/variablesizecommunicator.hh>
 #else
 #include <opm/grid/utility/VariableSizeCommunicator.hpp>
 #endif
 #include <dune/grid/common/gridenums.hh>
-#include <dune/geometry/type.hh>
-
-#include <opm/grid/utility/platform_dependent/reenable_warnings.h>
 
 #if HAVE_ECL_INPUT
 #include <opm/input/eclipse/EclipseState/Grid/NNC.hpp>
 #endif
 
-#include <array>
-#include <tuple>
-#include <algorithm>
-#include <set>
-
-#include "OrientedEntityTable.hpp"
-#include "DefaultGeometryPolicy.hpp"
 #include <opm/grid/cpgpreprocess/preprocess.h>
 
 #include "Entity2IndexDataHandle.hpp"
-#include "DataHandleWrappers.hpp"
-#include "GlobalIdMapping.hpp"
+//#include "DataHandleWrappers.hpp"
+//#include "GlobalIdMapping.hpp"
 #include "Geometry.hpp"
 
 namespace Opm
