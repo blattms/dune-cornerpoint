@@ -36,9 +36,7 @@
 #ifndef OPM_ENTITY_HEADER
 #define OPM_ENTITY_HEADER
 
-#include <dune/common/version.hh>
 #include <dune/geometry/type.hh>
-#include <dune/grid/common/gridenums.hh>
 
 #include "PartitionTypeIndicator.hpp"
 
@@ -267,78 +265,68 @@ namespace Dune
 #include "Intersection.hpp"
 namespace Dune
 {
-  namespace cpgrid
-  {
-  template<int codim>
-  typename Entity<codim>::LevelIntersectionIterator Entity<codim>::ilevelbegin() const
-  {
-                static_assert(codim == 0, "");
-                return LevelIntersectionIterator(*pgrid_, *this, false);
-            }
+namespace cpgrid
+{
+template<int codim>
+typename Entity<codim>::LevelIntersectionIterator Entity<codim>::ilevelbegin() const
+{
+    static_assert(codim == 0, "");
+    return LevelIntersectionIterator(*pgrid_, *this, false);
+}
 
-  template<int codim>
-  typename Entity<codim>::LevelIntersectionIterator Entity<codim>::ilevelend() const
-  {
-      static_assert(codim == 0, "");
-      return LevelIntersectionIterator(*pgrid_, *this, true);
-  }
+template<int codim>
+typename Entity<codim>::LevelIntersectionIterator Entity<codim>::ilevelend() const
+{
+    static_assert(codim == 0, "");
+    return LevelIntersectionIterator(*pgrid_, *this, true);
+}
 
-  template<int codim>
-  typename Entity<codim>::LeafIntersectionIterator Entity<codim>::ileafbegin() const
-  {
-      static_assert(codim == 0, "");
-      return LeafIntersectionIterator(*pgrid_, *this, false);
-  }
+template<int codim>
+typename Entity<codim>::LeafIntersectionIterator Entity<codim>::ileafbegin() const
+{
+    static_assert(codim == 0, "");
+    return LeafIntersectionIterator(*pgrid_, *this, false);
+}
 
-  template<int codim>
-  typename Entity<codim>::LeafIntersectionIterator Entity<codim>::ileafend() const
-  {
-      static_assert(codim == 0, "");
-      return LeafIntersectionIterator(*pgrid_, *this, true);
-  }
+template<int codim>
+typename Entity<codim>::LeafIntersectionIterator Entity<codim>::ileafend() const
+{
+    static_assert(codim == 0, "");
+    return LeafIntersectionIterator(*pgrid_, *this, true);
+}
 
 
-  template<int codim>
-  HierarchicIterator Entity<codim>::hbegin(int maxLevel) const 
-  {
-      // Creates iterator with first child as target if there is one. Otherwise empty stack and target.
-      return HierarchicIterator(*pgrid_, *this, maxLevel);
-  }
+template<int codim>
+HierarchicIterator Entity<codim>::hbegin(int maxLevel) const
+{
+    // Creates iterator with first child as target if there is one. Otherwise empty stack and target.
+    return HierarchicIterator(*pgrid_, *this, maxLevel);
+}
+template<int codim>
+HierarchicIterator Entity<codim>::hend(int maxLevel) const
+{
+    // Creates iterator with empty stack and target.
+    return HierarchicIterator(maxLevel);
+}
 
-  /// Dummy beyond last child iterator.
-  template<int codim>
-  HierarchicIterator Entity<codim>::hend(int maxLevel) const
-  {
-      // Creates iterator with empty stack and target.
-      return HierarchicIterator(maxLevel);
-  }
-
-    template <int codim>
-    PartitionType Entity<codim>::partitionType() const
-    {
-        return pgrid_->partition_type_indicator_->getPartitionType(*this);
-    }
-    } // namespace cpgrid
-} // namespace Dune
-
-#include <opm/grid/CpGrid.hpp>
-#include <opm/grid/cpgrid/CpGridData.hpp>
-
-namespace Dune {
-namespace cpgrid {
+template <int codim>
+PartitionType Entity<codim>::partitionType() const
+{
+    return pgrid_->partition_type_indicator_->getPartitionType(*this);
+}
 
 template<int codim>
 unsigned int Entity<codim>::subEntities ( const unsigned int cc ) const
 {
     if (cc == codim) {
-            return 1;
+        return 1;
     }
     else if ( codim == 0 ){ // Cell/element/Entity<0>
         if ( cc == 3 ) { // Get number of corners of the element.
             return 8;
         }
     }
-    else if ( codim == 1 ){ // Face/Entity<1> does not exist. Needed for tests. 
+    else if ( codim == 1 ){ // Face/Entity<1> does not exist. Needed for tests.
         if ( cc == 3 ) { // Get number of corner of the face.
             return pgrid_-> face_to_point_[this->index()].size();
         }
@@ -347,7 +335,7 @@ unsigned int Entity<codim>::subEntities ( const unsigned int cc ) const
 }
 
 template <int codim>
-const typename Entity<codim>::Geometry& Entity<codim>::geometry() const 
+const typename Entity<codim>::Geometry& Entity<codim>::geometry() const
 {
     return pgrid_->geomVector<codim>()[*this];
 }
@@ -407,8 +395,8 @@ template<int codim>
 bool Entity<codim>::isLeaf() const
 {
     if ((*(pgrid_ -> data_copy_)).size() == 1){
-       return true;
-        }
+        return true;
+    }
     return (pgrid_ == (*(pgrid_->data_copy_)).back().get());
 }
 
@@ -432,12 +420,12 @@ Entity<0> Entity<codim>::father() const
     }
     const int& coarse_level = pgrid_ -> child_to_parent_cells_[this->index()][0];
     const int& parent_index = pgrid_ -> child_to_parent_cells_[this->index()][1];
-    const auto& coarse_grid = (*(pgrid_ -> data_copy_))[coarse_level].get(); 
-    return Entity<0>( *coarse_grid, parent_index, true); 
+    const auto& coarse_grid = (*(pgrid_ -> data_copy_))[coarse_level].get();
+    return Entity<0>( *coarse_grid, parent_index, true);
 }
 
 template<int codim>
-Dune::cpgrid::Geometry<3,3> Dune::cpgrid::Entity<codim>::geometryInFather() 
+Dune::cpgrid::Geometry<3,3> Dune::cpgrid::Entity<codim>::geometryInFather()
 {
     if (!(this->hasFather())){
         OPM_THROW(std::logic_error, "Entity has no father.");
