@@ -38,31 +38,16 @@
 #ifndef OPM_CPGRID_HEADER
 #define OPM_CPGRID_HEADER
 
-//#include <string>  //OK
-//#include <map>  // OK
-//#include <array> // OK
-//#include <unordered_set>  // OK
-//#include <opm/common/ErrorMacros.hpp> // OK
-
 // Warning suppression for Dune includes.
-//#include <opm/grid/utility/platform_dependent/disable_warnings.h>  // OK
+#include <opm/grid/utility/platform_dependent/disable_warnings.h>  // Not really needed it seems, but alas.
 
 #include <dune/common/version.hh>
-
-//#include <dune/grid/common/capabilities.hh> // OK
-#include <dune/grid/common/grid.hh>  // 
-//#include <dune/grid/common/gridenums.hh> // OK
+#include <dune/grid/common/grid.hh>
 #include <opm/grid/cpgrid/CpGridDataTraits.hpp>
 #include <opm/grid/cpgrid/OrientedEntityTable.hpp>
 #include <opm/grid/cpgpreprocess/preprocess.h>
-//#include <opm/grid/utility/platform_dependent/reenable_warnings.h> // OK
-//#include "cpgrid/Intersection.hpp"   // OK
-//#include "cpgrid/Geometry.hpp"   // OK
-//#include "cpgrid/Indexsets.hpp"  // OK global_id_set_ turned into shared-pointer. 
-//#include "cpgrid/DefaultGeometryPolicy.hpp"  // OK
+#include <opm/grid/utility/platform_dependent/reenable_warnings.h> //  Not really needed it seems, but alas.
 #include "common/GridEnums.hpp"   // OK
-//#include "common/Volumes.hpp"   // OK
-//#include <opm/grid/cpgpreprocess/preprocess.h>  // OK
 #include <opm/grid/utility/OpmWellType.hpp>  // OK
 
 #include <iostream>
@@ -1217,14 +1202,7 @@ std::shared_ptr<cpgrid::GlobalIdSet> global_id_set_ptr_;
 #include <opm/grid/cpgrid/Entity.hpp>
 #include <opm/grid/cpgrid/Iterators.hpp>
 #include <opm/grid/cpgrid/CpGridData.hpp>
-/*#include <opm/grid/cpgrid/PersistentContainer.hpp>
-#include <opm/grid/cpgrid/CartesianIndexMapper.hpp>
-#include <opm/grid/cpgrid/GridHelpers.hpp>
-//#include <attic/BuildCpGrid.hpp> ../..
-#include <opm/grid/common/ZoltanPartition.hpp>
-#include <opm/grid/common/ZoltanGraphFunctions.hpp>
-#include <opm/grid/common/GridAdapter.hpp>
-#include <opm/grid/common/WellConnections.hpp>*/
+
 
 namespace Dune
 {
