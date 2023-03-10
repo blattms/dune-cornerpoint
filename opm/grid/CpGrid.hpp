@@ -98,21 +98,21 @@ namespace Dune
     
     }
 }
-    void refine_and_check(const Dune::cpgrid::Geometry<3, 3>&,
-                          const std::array<int, 3>&,
-                          bool);
+void refine_and_check(const Dune::cpgrid::Geometry<3, 3>&,
+                      const std::array<int, 3>&,
+                      bool);
 
-    void refinePatch_and_check(Dune::CpGrid&,
-                               const std::array<int,3>&,
-                               const std::array<int,3>&,
-                               const std::array<int,3>&);
+void refinePatch_and_check(Dune::CpGrid&,
+                           const std::array<int,3>&,
+                           const std::array<int,3>&,
+                           const std::array<int,3>&);
 
-    void refinePatch_and_check(const std::array<int,3>&,
-                               const std::array<int,3>&,
-                               const std::array<int,3>&);
+void refinePatch_and_check(const std::array<int,3>&,
+                           const std::array<int,3>&,
+                           const std::array<int,3>&);
 
-    void check_global_refine(const Dune::CpGrid&,
-                             const Dune::CpGrid&);
+void check_global_refine(const Dune::CpGrid&,
+                         const Dune::CpGrid&);
 namespace Dune
 {
 
@@ -738,6 +738,7 @@ namespace Dune
             }
             return ret;
         }
+
         /// \brief Distributes this grid and data over the available nodes in a distributed machine.
         /// \param data A data handle describing how to distribute attached data.
         /// \param overlapLayers The number of layers of overlap cells to be added
@@ -847,7 +848,7 @@ namespace Dune
         }
 
         /// \brief Get the collective communication object.
-const typename CpGridTraits::Communication& comm () const;
+        const typename CpGridTraits::Communication& comm () const;
         //@}
 
         // ------------ End of Dune interface, start of simplified interface --------------
@@ -863,18 +864,18 @@ const typename CpGridTraits::Communication& comm () const;
         typedef Dune::FieldVector<double, 3> Vector;
 
 
-const std::vector<double>& zcornData() const;
+        const std::vector<double>& zcornData() const;
 
 
         // Topology
         /// \brief Get the number of cells.
-int numCells() const;
+        int numCells() const;
 
         /// \brief Get the number of faces.
-int numFaces() const;
+        int numFaces() const;
 
         /// \brief Get The number of vertices.
-int numVertices() const;
+        int numVertices() const;
 
 
         /// \brief Get the number of faces of a cell.
@@ -883,17 +884,17 @@ int numVertices() const;
         /// number is quite arbitrary. Its lower bound is 4, but there is
         /// no upper bound.
         /// \parame cell the index identifying the cell.
-int numCellFaces(int cell) const;
+        int numCellFaces(int cell) const;
 
         /// \brief Get a specific face of a cell.
         /// \param cell The index identifying the cell.
         /// \param local_index The local index (in [0,numFaces(cell))) of the face in this cell.
         /// \return The index identifying the face.
-int cellFace(int cell, int local_index) const;
+        int cellFace(int cell, int local_index) const;
 
         /// \brief Get a list of indices identifying all faces of a cell.
         /// \param cell The index identifying the cell.
-const cpgrid::OrientedEntityTable<0,1>::row_type cellFaceRow(int cell) const;
+        const cpgrid::OrientedEntityTable<0,1>::row_type cellFaceRow(int cell) const;
 
         /// \brief Get the index identifying a cell attached to a face.
         ///
@@ -905,7 +906,7 @@ const cpgrid::OrientedEntityTable<0,1>::row_type cellFaceRow(int cell) const;
         /// \return The index identifying a cell or -1 if there is no such
         /// cell due the face being part of the grid boundary or the
         /// cell being stored on another process.
-int faceCell(int face, int local_index) const;
+        int faceCell(int face, int local_index) const;
       
         /// \brief Get the sum of all faces attached to all cells.
         ///
@@ -913,52 +914,52 @@ int faceCell(int face, int local_index) const;
         /// as there are neigboring cells attached to it.
         /// \f$ numCellFaces()=\sum_{c} numCellFaces(c) \f$
         /// \see numCellFaces(int)const
-int numCellFaces() const;
+        int numCellFaces() const;
 
-int numFaceVertices(int face) const;
+        int numFaceVertices(int face) const;
 
         /// \brief Get the index identifying a vertex of a face.
         /// \param cell The index identifying the face.
         /// \param local_index The local_index (in [0,numFaceVertices(vertex) - 1]])
         ///  of the vertex.
-int faceVertex(int face, int local_index) const;
+        int faceVertex(int face, int local_index) const;
 
         /// \brief Get vertical position of cell center ("zcorn" average).
         /// \brief cell_index The index of the specific cell.
-double cellCenterDepth(int cell_index) const;
+        double cellCenterDepth(int cell_index) const;
 
 
-const Vector faceCenterEcl(int cell_index, int face) const;
+        const Vector faceCenterEcl(int cell_index, int face) const;
 
-const Vector faceAreaNormalEcl(int face) const;
+        const Vector faceAreaNormalEcl(int face) const;
 
 
         // Geometry
         /// \brief Get the Position of a vertex.
         /// \param cell The index identifying the cell.
         /// \return The coordinates of the vertex.
-const Vector& vertexPosition(int vertex) const;
+        const Vector& vertexPosition(int vertex) const;
 
         /// \brief Get the area of a face.
         /// \param cell The index identifying the face.
-double faceArea(int face) const;
+        double faceArea(int face) const;
 
         /// \brief Get the coordinates of the center of a face.
         /// \param cell The index identifying the face.
-const Vector& faceCentroid(int face) const;
+        const Vector& faceCentroid(int face) const;
 
         /// \brief Get the unit normal of a face.
         /// \param cell The index identifying the face.
         /// \see faceCell
-const Vector& faceNormal(int face) const;
+        const Vector& faceNormal(int face) const;
 
         /// \brief Get the volume of the cell.
         /// \param cell The index identifying the cell.
-double cellVolume(int cell) const;
+        double cellVolume(int cell) const;
 
         /// \brief Get the coordinates of the center of a cell.
         /// \param cell The index identifying the face.
-const Vector& cellCentroid(int cell) const;
+        const Vector& cellCentroid(int cell) const;
 
         /// \brief An iterator over the centroids of the geometry of the entities.
         /// \tparam codim The co-dimension of the entities.
@@ -1009,14 +1010,14 @@ const Vector& cellCentroid(int cell) const;
             GeometryIterator iter_;
         };
 
-/// \brief Get an iterator over the cell centroids positioned at the first one.
-CentroidIterator<0> beginCellCentroids() const;
+        /// \brief Get an iterator over the cell centroids positioned at the first one.
+        CentroidIterator<0> beginCellCentroids() const;
 
-/// \brief Get an iterator over the face centroids positioned at the first one.
-CentroidIterator<1> beginFaceCentroids() const;
+        /// \brief Get an iterator over the face centroids positioned at the first one.
+        CentroidIterator<1> beginFaceCentroids() const;
 
-// Extra
-int boundaryId(int face) const;
+        // Extra
+        int boundaryId(int face) const;
 
         /// \brief Get the cartesian tag associated with a face tag.
         ///
@@ -1165,7 +1166,7 @@ int boundaryId(int face) const;
         ///                                       grid.cellScatterGatherInterface());
         /// comm.forward(handle);
         /// \endcode
-const InterfaceMap& cellScatterGatherInterface() const;
+        const InterfaceMap& cellScatterGatherInterface() const;
 /*
         {
             return *cell_scatter_gather_interfaces_;
@@ -1173,17 +1174,17 @@ const InterfaceMap& cellScatterGatherInterface() const;
 
         /// \brief Get an interface for gathering/scattering data attached to points with communication.
         /// \see cellScatterGatherInterface
-const InterfaceMap& pointScatterGatherInterface() const;
+        const InterfaceMap& pointScatterGatherInterface() const;
 
 /*  {
             return *point_scatter_gather_interfaces_;
             }*/
 
         /// \brief Switch to the global view.
-void switchToGlobalView();
+        void switchToGlobalView();
 
         /// \brief Switch to the distributed view.
-void switchToDistributedView();
+        void switchToDistributedView();
         //@}
 
 #if HAVE_MPI
@@ -1198,19 +1199,19 @@ void switchToDistributedView();
         /// \brief Get the owner-overlap-copy communication for cells
         ///
         /// Suitable e.g. for parallel linear algebra used by CCFV
-const CommunicationType& cellCommunication() const;
+        const CommunicationType& cellCommunication() const;
 
-ParallelIndexSet& getCellIndexSet();
+        ParallelIndexSet& getCellIndexSet();
 
-RemoteIndices& getCellRemoteIndices();
+        RemoteIndices& getCellRemoteIndices();
 
-const ParallelIndexSet& getCellIndexSet() const;
+        const ParallelIndexSet& getCellIndexSet() const;
 
-const RemoteIndices& getCellRemoteIndices() const;
+        const RemoteIndices& getCellRemoteIndices() const;
 #endif
 
         /// \brief Get sorted active cell indices of numerical aquifer
-const std::vector<int>& sortedNumAquiferCells() const;
+        const std::vector<int>& sortedNumAquiferCells() const;
 
     private:
         /// \brief Scatter a global grid to all processors.
