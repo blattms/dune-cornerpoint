@@ -35,6 +35,7 @@ list (APPEND MAIN_SOURCE_FILES
   opm/grid/cpgrid/DataHandleWrappers.cpp
   opm/grid/cpgrid/GridHelpers.cpp
   opm/grid/cpgrid/Iterators.cpp
+  opm/grid/cpgrid/Indexsets.cpp
   opm/grid/cpgrid/PartitionTypeIndicator.cpp
   opm/grid/cpgrid/processEclipseFormat.cpp
   opm/grid/cpgrid/readSintefLegacyFormat.cpp
