@@ -1246,6 +1246,8 @@ void CpGrid::switchToDistributedView()
     current_view_data_=distributed_data_[0].get();
 }
 
+#if HAVE_MPI
+
 const cpgrid::CpGridDataTraits::CommunicationType& CpGrid::cellCommunication() const
 {
     return current_view_data_->cellCommunication();
@@ -1271,6 +1273,7 @@ const cpgrid::CpGridDataTraits::RemoteIndices& CpGrid::getCellRemoteIndices() co
     return current_view_data_->cellRemoteIndices();
 }
 
+#endif
 /*const std::vector<int>& CpGrid::sortedNumAquiferCells() const
   {
   return current_view_data_->sortedNumAquiferCells();
