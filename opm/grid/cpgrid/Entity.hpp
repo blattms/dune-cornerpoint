@@ -490,7 +490,7 @@ Dune::cpgrid::Geometry<3,3> Dune::cpgrid::Entity<codim>::geometryInFather() cons
         // Transform the local coordinates that comes from the refinemnet in such a way that the
         // reference element of each parent cell is the unit cube. Here, eIJK[*]/cells_per_dim[*]
         // Get the local coordinates of the entity (in the reference unit cube).
-        const std::vector<FieldVector<double, 3>>& corners_in_father_reference_elem_temp = {
+        FieldVector<double, 3> corners_in_father_reference_elem_temp[8] = {
             // corner '0'
             { double(eIJK[0]-child0_IJK[0])/cells_per_dim[0], double(eIJK[1]-child0_IJK[1])/cells_per_dim[1],
               double(eIJK[2]-child0_IJK[2])/cells_per_dim[2] },
