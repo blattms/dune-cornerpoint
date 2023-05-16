@@ -43,6 +43,7 @@
 #include <opm/grid/utility/platform_dependent/disable_warnings.h>
 
 #include <dune/common/version.hh>
+#include <dune/common/shared_ptr.hh>
 #include <dune/geometry/referenceelements.hh>
 #include <dune/grid/common/geometry.hh>
 
@@ -409,11 +410,21 @@ namespace Dune
                      ctype vol,
                      const EntityVariable<cpgrid::Geometry<0, 3>, 3>& allcorners,
                      const int* corner_indices)
-                : pos_(pos), vol_(vol), allcorners_(allcorners.data()), cor_idx_(corner_indices)
+                : pos_(pos), vol_(vol), allcorners_(Dune::stackobject_to_shared_ptr(allcorners)),
+                  cor_idx_(corner_indices)
             {
                 assert(allcorners_ && corner_indices);
             }
 
+            Geometry(const GlobalCoordinate& pos,
+                     ctype vol,
+                     std::shared_ptr<const EntityVariable<cpgrid::Geometry<0, 3>, 3>>&& allcorners,
+                     const int* corner_indices)
+                : pos_(pos), vol_(vol), allcorners_(allcorners),
+                  cor_idx_(corner_indices)
+            {
+                assert(allcorners_ && corner_indices);
+            }
             /// @brief Construct from centroid and volume (1- and
             ///        0-moments).  Note that since corners are not
             ///        given, the geometry provides no mappings, and
@@ -431,7 +442,7 @@ namespace Dune
 
             /// Default constructor, giving a non-valid geometry.
             Geometry()
-                : pos_(0.0), vol_(0.0), allcorners_(0), cor_idx_(0)
+                : pos_(0.0), vol_(0.0), cor_idx_(0)
             {
             }
 
@@ -520,7 +531,7 @@ namespace Dune
             GlobalCoordinate corner(int cor) const
             {
                 assert(allcorners_ && cor_idx_);
-                return allcorners_[cor_idx_[cor]].center();
+                return (allcorners_->data())[cor_idx_[cor]].center();
             }
 
             /// Cell volume.
@@ -988,7 +999,7 @@ namespace Dune
         private:
             GlobalCoordinate pos_;
             double vol_;
-            const cpgrid::Geometry<0, 3>* allcorners_; // For dimension 3 only
+            std::shared_ptr<const EntityVariable<Geometry<0, 3>,3>> allcorners_; // For dimension 3 only
             const int* cor_idx_;               // For dimension 3 only
             
             /// @brief
