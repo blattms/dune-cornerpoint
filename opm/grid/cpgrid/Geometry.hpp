@@ -409,7 +409,9 @@ namespace Dune
                      ctype vol,
                      std::shared_ptr<const EntityVariable<cpgrid::Geometry<0, 3>, 3>>& allcorners_ptr,
                      const int* corner_indices)
-                : pos_(pos), vol_(vol), allcorners_((*allcorners_ptr).data()), cor_idx_(corner_indices)
+                : pos_(pos), vol_(vol),
+                  allcorners_(*allcorners_ptr),
+                  cor_idx_(corner_indices)
             {
                 assert(allcorners_ && corner_indices);
             }
@@ -636,11 +638,11 @@ namespace Dune
                         cpgrid::SignedEntityVariable<PointType, 1>& refined_face_normals) const
             {
                 EntityVariableBase<cpgrid::Geometry<0,3>>& refined_corners =
-                    all_geom.geomVector(std::integral_constant<int,3>());
+                    *(all_geom.geomVector(std::integral_constant<int,3>()));
                 EntityVariableBase<cpgrid::Geometry<2,3>>& refined_faces =
-                    all_geom.geomVector(std::integral_constant<int,1>());
+                    *(all_geom.geomVector(std::integral_constant<int,1>()));
                 EntityVariableBase<cpgrid::Geometry<3,3>>& refined_cells =
-                    all_geom.geomVector(std::integral_constant<int,0>());
+                    *(all_geom.geomVector(std::integral_constant<int,0>()));
                 EntityVariableBase<enum face_tag>& mutable_face_tags = refined_face_tags;
                 EntityVariableBase<PointType>& mutable_face_normals = refined_face_normals;
                 /// --- REFINED CORNERS ---

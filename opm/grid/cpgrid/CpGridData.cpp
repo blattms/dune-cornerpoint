@@ -556,7 +556,9 @@ struct CellGeometryHandle
             buffer.read(pos[i]);
 
         buffer.read(vol);
-        scatterCont_[t] = Geom(pos, vol, pointGeom_, cell2Points_[t.index()].data());
+        scatterCont_[t] = Geom(pos, vol, //std::make_shared<const EntityVariable<cpgrid::Geometry<0, 3>, 3>>(pointGeom_),
+                               pointGeom_,
+                               cell2Points_[t.index()].data());
         double isAquifer;
         buffer.read(isAquifer);
         if (isAquifer == 1.0)
@@ -1230,20 +1232,20 @@ void CpGridData::computeGeometry(CpGrid& grid,
                                  const OrientedEntityTable<0, 1>& cell2Faces,
                                  const std::vector< std::array<int,8> >& cell2Points)
 {
-    FaceGeometryHandle faceGeomHandle(globalGeometry.geomVector(std::integral_constant<int,1>()),
-                                      geometry.geomVector(std::integral_constant<int,1>()));
+    FaceGeometryHandle faceGeomHandle(*globalGeometry.geomVector(std::integral_constant<int,1>()),
+                                      *geometry.geomVector(std::integral_constant<int,1>()));
     FaceViaCellHandleWrapper<FaceGeometryHandle>
         wrappedFaceGeomHandle(faceGeomHandle, globalCell2Faces, cell2Faces);
     grid.scatterData(wrappedFaceGeomHandle);
 
-    PointGeometryHandle pointGeomHandle(globalGeometry.geomVector(std::integral_constant<int,3>()),
-                                             geometry.geomVector(std::integral_constant<int,3>()));
+    PointGeometryHandle pointGeomHandle(*globalGeometry.geomVector(std::integral_constant<int,3>()),
+                                             *geometry.geomVector(std::integral_constant<int,3>()));
     grid.scatterData(pointGeomHandle);
 
-    CellGeometryHandle cellGeomHandle(globalGeometry.geomVector(std::integral_constant<int,0>()),
-                                      geometry.geomVector(std::integral_constant<int,0>()),
+    CellGeometryHandle cellGeomHandle(*globalGeometry.geomVector(std::integral_constant<int,0>()),
+                                      *geometry.geomVector(std::integral_constant<int,0>()),
                                       globalAquiferCells, aquiferCells,
-                                      geometry.geomVector(std::integral_constant<int,3>()),
+                                      *geometry.geomVector(std::integral_constant<int,3>()),
                                       cell2Points);
     grid.scatterData(cellGeomHandle);
 }
@@ -1560,9 +1562,9 @@ void CpGridData::distributeGlobalGrid(CpGrid& grid,
     logical_cartesian_size_=view_data.logical_cartesian_size_;
 
     // Set up the new topology arrays
-    geometry_.geomVector(std::integral_constant<int,1>()).resize(noExistingFaces);
-    geometry_.geomVector(std::integral_constant<int,0>()).resize(cell_to_face_.size());
-    geometry_.geomVector(std::integral_constant<int,3>()).resize(noExistingPoints);
+    geometry_.geomVector(std::integral_constant<int,1>()) -> resize(noExistingFaces);
+    geometry_.geomVector(std::integral_constant<int,0>()) -> resize(cell_to_face_.size());
+    geometry_.geomVector(std::integral_constant<int,3>()) -> resize(noExistingPoints);
 
     computeGeometry(grid, view_data.geometry_, view_data.aquifer_cells_, view_data.cell_to_face_,
                     geometry_, aquifer_cells_, cell_to_face_, cell_to_point_);
@@ -1835,7 +1837,8 @@ CpGridData::getPatchesCells(const std::vector<std::array<int,3>>& startIJK_vec, 
 
 
 Geometry<3,3> CpGridData::cellifyPatch(const std::array<int,3>& startIJK, const std::array<int,3>& endIJK,
-                                       const std::vector<int>& patch_cells, DefaultGeometryPolicy& cellifiedPatch_geometry,
+                                       const std::vector<int>& patch_cells,
+                                       DefaultGeometryPolicy& cellifiedPatch_geometry,
                                        std::array<int,8>& cellifiedPatch_to_point,
                                        std::array<int,8>& allcorners_cellifiedPatch) const
 {
@@ -1843,8 +1846,7 @@ Geometry<3,3> CpGridData::cellifyPatch(const std::array<int,3>& startIJK, const 
         OPM_THROW(std::logic_error, "Empty patch. Cannot convert patch into cell.");
     }
     if (patch_cells.size() == 1){
-        return (this -> geometry_.geomVector(std::integral_constant<int,0>())
-                [EntityRep<0>(patch_cells[0], true)]);
+        return (*(this -> geometry_.geomVector(std::integral_constant<int,0>())))[EntityRep<0>(patch_cells[0], true)];
     }
     else{
         // Get grid dimension.
@@ -1868,7 +1870,7 @@ Geometry<3,3> CpGridData::cellifyPatch(const std::array<int,3>& startIJK, const 
             // Index of corner '7' {endI, endJ, endK}
             (endIJK[1]*(grid_dim[0]+1)*(grid_dim[2]+1)) + (endIJK[0]*(grid_dim[2]+1)) + endIJK[2]};
         EntityVariableBase<cpgrid::Geometry<0,3>>& cellifiedPatch_corners =
-            cellifiedPatch_geometry.geomVector(std::integral_constant<int,3>());
+            *(cellifiedPatch_geometry.geomVector(std::integral_constant<int,3>()));
         cellifiedPatch_corners.resize(8);
         // Compute the center of the 'cellified patch' and its corners.
         Geometry<0,3>::GlobalCoordinate cellifiedPatch_center = {0., 0.,0.};
@@ -1876,16 +1878,16 @@ Geometry<3,3> CpGridData::cellifyPatch(const std::array<int,3>& startIJK, const 
             // FieldVector in DUNE 2.6 is missing operator/ using a loop
             for(int i=0; i < 3; ++i){
                 cellifiedPatch_center[i] +=
-                    (this -> geometry_.geomVector(std::integral_constant<int,3>()).get(cellifiedPatch_to_point[corn]).center())[i]/8.;
+                    (*(this -> geometry_.geomVector(std::integral_constant<int,3>()))).get(cellifiedPatch_to_point[corn]).center())[i]/8.;
             }
             cellifiedPatch_corners[corn] =
-                this -> geometry_.geomVector(std::integral_constant<int,3>()).get(cellifiedPatch_to_point[corn]);
+                (*(this -> geometry_.geomVector(std::integral_constant<int,3>()))).get(cellifiedPatch_to_point[corn]);
         }
         // Compute the volume of the 'cellified patch'.
         double cellifiedPatch_volume = 0.;
         for (const auto& idx : patch_cells) {
-            cellifiedPatch_volume += (this -> geometry_.geomVector(std::integral_constant<int,0>())
-                                      [EntityRep<0>(idx, true)]).volume();
+            cellifiedPatch_volume += (*(this -> geometry_.geomVector(std::integral_constant<int,0>())))
+                                      [EntityRep<0>(idx, true)].volume();
         }
         // Indices of 'all the corners', in this case, 0-7 (required to construct a Geometry<3,3> object).
         allcorners_cellifiedPatch = {0,1,2,3,4,5,6,7};
@@ -1893,7 +1895,9 @@ Geometry<3,3> CpGridData::cellifyPatch(const std::array<int,3>& startIJK, const 
         const int* cellifiedPatch_indices_storage_ptr = &allcorners_cellifiedPatch[0];
         // Construct (and return) the Geometry<3,3> of the 'cellified patch'.
         return Geometry<3,3>(cellifiedPatch_center, cellifiedPatch_volume,
-                             cellifiedPatch_geometry.geomVector(std::integral_constant<int,3>()), cellifiedPatch_indices_storage_ptr);
+                             //cellifiedPatch_geo_ptr,
+                             cellifiedPatch_geometry.geomVector(std::integral_constant<int,3>()), // need a shared_ptr
+                             cellifiedPatch_indices_storage_ptr);
     }
 }
 
@@ -1917,7 +1921,7 @@ CpGridData::refineSingleCell(const std::array<int,3>& cells_per_dim, const int& 
     cpgrid::EntityVariable<enum face_tag,1>& refined_face_tags = refined_grid.face_tag_;
     cpgrid::SignedEntityVariable<Dune::FieldVector<double,3>,1>& refined_face_normals = refined_grid.face_normals_;
     // Get parent cell
-    const cpgrid::Geometry<3,3>& parent_cell = geometry_.geomVector(std::integral_constant<int,0>())[EntityRep<0>(parent_idx, true)];
+    const cpgrid::Geometry<3,3>& parent_cell = (*(geometry_.geomVector(std::integral_constant<int,0>())))[EntityRep<0>(parent_idx, true)];
     // Get parent cell corners.
     const std::array<int,8>& parent_to_point = this->cell_to_point_[parent_idx];
     if (parent_to_point.size() != 8){
