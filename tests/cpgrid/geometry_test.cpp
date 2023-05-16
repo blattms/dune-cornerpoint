@@ -153,7 +153,7 @@ BOOST_AUTO_TEST_CASE(cellgeom)
 //     for (int i = 0; i < 8; ++i) {
 //         std::cout << corners[i] << std::endl;
 //     }
-    std::shared_ptr<cpgrid::EntityVariable<cpgrid::Geometry<0, 3>, 3>> pg;
+    auto pg = std::make_shared<cpgrid::EntityVariable<cpgrid::Geometry<0, 3>, 3>>(); // call empty constructor initialze an object that we point to.
     (*pg).reserve(8);
     for (const auto& crn : corners)
     {
@@ -208,7 +208,7 @@ BOOST_AUTO_TEST_CASE(cellgeom)
     corners[5][2] = 0.0;
     corners[7][2] = 0.0;
 
-    std::shared_ptr<cpgrid::EntityVariable<cpgrid::Geometry<0, 3>, 3>> pg1;
+    auto pg1 = std::make_shared<cpgrid::EntityVariable<cpgrid::Geometry<0, 3>, 3>>();
     (*pg1).reserve(8);
     for (const auto& crn : corners)
     {
@@ -525,7 +525,7 @@ BOOST_AUTO_TEST_CASE(refine_simple_cube)
     const GlobalCoordinate c = {0.5, 0.5, 0.5};
     const Geometry::ctype v = 1.0;
 
-    std::shared_ptr<cpgrid::EntityVariable<cpgrid::Geometry<0, 3>, 3>> pg;
+    auto pg = std::make_shared<cpgrid::EntityVariable<cpgrid::Geometry<0, 3>, 3>>();
     for (const auto& crn : corners) {
         (*pg).push_back(cpgrid::Geometry<0, 3>(crn));
     }
@@ -566,7 +566,7 @@ BOOST_AUTO_TEST_CASE(refine_distorted_cube)
         }
     }
 
-    std::shared_ptr<cpgrid::EntityVariable<cpgrid::Geometry<0, 3>, 3>> pg;
+    auto pg = std::make_shared<cpgrid::EntityVariable<cpgrid::Geometry<0, 3>, 3>>();
     for (const auto& crn : corners) {
         (*pg).push_back(cpgrid::Geometry<0, 3>(crn));
     }

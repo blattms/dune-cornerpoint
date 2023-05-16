@@ -59,7 +59,9 @@ namespace Dune
             /// @brief
             /// @todo Doc me
             DefaultGeometryPolicy()
-            {
+                :cell_geom_ptr_(std::make_shared<EntityVariable<cpgrid::Geometry<3, 3>, 0>>()),
+                  face_geom_ptr_(std::make_shared<EntityVariable<cpgrid::Geometry<2, 3>, 1>>()),
+                  point_geom_ptr_(std::make_shared<EntityVariable<cpgrid::Geometry<0, 3>, 3>>()){
             }
 
             /// @brief
@@ -80,7 +82,7 @@ namespace Dune
             /// @param
             /// @return
             template <int codim>
-            const EntityVariable<cpgrid::Geometry<3 - codim, 3>, codim> geomVector() const
+            const EntityVariable<cpgrid::Geometry<3 - codim, 3>, codim>& geomVector() const
             {
                 static_assert(codim != 2, "");
                 return //std::make_shared<const EntityVariable<cpgrid::Geometry<3 - codim, 3>, codim>>
