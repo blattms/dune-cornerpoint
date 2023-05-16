@@ -1077,7 +1077,7 @@ namespace cpgrid
                                                       const std::array<int,8>& corner_indices)
             {
                 return cpgrid::Geometry<3, 3>(pos, vol,
-                                              std::make_shared<const cpgrid::EntityVariable<cpgrid::Geometry<0, 3>, 3>>(allcorners_),
+                                              std::make_shared< const cpgrid::EntityVariable<cpgrid::Geometry<0, 3>,3>>(allcorners_),
                                               &corner_indices[0]);
             }
         };

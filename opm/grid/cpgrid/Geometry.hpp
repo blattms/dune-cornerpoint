@@ -407,11 +407,10 @@ namespace Dune
             ///                       by (kji), i.e. i running fastest.
             Geometry(const GlobalCoordinate& pos,
                      ctype vol,
-                     std::shared_ptr<const EntityVariable<cpgrid::Geometry<0, 3>, 3>>& allcorners_ptr,
+                     std::shared_ptr<const EntityVariable<cpgrid::Geometry<0, 3>, 3>> allcorners_ptr,
                      const int* corner_indices)
                 : pos_(pos), vol_(vol),
-                  allcorners_(*allcorners_ptr),
-                  cor_idx_(corner_indices)
+                  allcorners_(allcorners_ptr), cor_idx_(corner_indices)
             {
                 assert(allcorners_ && corner_indices);
             }
@@ -522,7 +521,7 @@ namespace Dune
             GlobalCoordinate corner(int cor) const
             {
                 assert(allcorners_ && cor_idx_);
-                return allcorners_[cor_idx_[cor]].center();
+                return (allcorners_->data())[cor_idx_[cor]].center();
             }
 
             /// Cell volume.
@@ -990,7 +989,8 @@ namespace Dune
         private:
             GlobalCoordinate pos_;
             double vol_;
-            const cpgrid::Geometry<0, 3>* allcorners_; // For dimension 3 only
+            // const cpgrid::Geometry<0, 3>* allcorners_; // For dimension 3 only
+            std::shared_ptr<const EntityVariable<Geometry<0, 3>,3>> allcorners_;
             const int* cor_idx_;               // For dimension 3 only
             
             /// @brief

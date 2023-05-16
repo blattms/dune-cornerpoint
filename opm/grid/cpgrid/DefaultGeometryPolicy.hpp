@@ -103,7 +103,7 @@ namespace Dune
                 return face_geom_ptr_;
             }
             /// \brief Get face geometry
-            std::shared_ptr<EntityVariable<cpgrid::Geometry<2, 3>, 1>> geomVector(const std::integral_constant<int, 1>&)
+            std::shared_ptr<EntityVariable<cpgrid::Geometry<2, 3>, 1>>& geomVector(const std::integral_constant<int, 1>&)
             {
                 return face_geom_ptr_;
             }

@@ -1892,9 +1892,10 @@ Geometry<3,3> CpGridData::cellifyPatch(const std::array<int,3>& startIJK, const 
         allcorners_cellifiedPatch = {0,1,2,3,4,5,6,7};
         // Create a pointer to the first element of "cellfiedPatch_to_point" (required to construct a Geometry<3,3> object).
         const int* cellifiedPatch_indices_storage_ptr = &allcorners_cellifiedPatch[0];
+        //const auto& auxiliary = (*(cellifiedPatch_geometry.geomVector(std::integral_constant<int,3>()));
         // Construct (and return) the Geometry<3,3> of the 'cellified patch'.
         return Geometry<3,3>(cellifiedPatch_center, cellifiedPatch_volume,
-                             cellifiedPatch_geometry.geomVector(std::integral_constant<int,3>()), 
+                            cellifiedPatch_geometry.geomVector(std::integral_constant<int,3>()),
                              cellifiedPatch_indices_storage_ptr);
     }
 }
