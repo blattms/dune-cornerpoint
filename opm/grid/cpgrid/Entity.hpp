@@ -265,7 +265,7 @@ namespace Dune
             const CpGridData* pgrid_;
         private:
             // mutable as it is used in a const function
-            /// \brief stores the corner of the geometry in father if geometryInFather is called.
+            /// \brief stores the corners of the geometry in father if geometryInFather is called.
             mutable std::shared_ptr<EntityVariable<cpgrid::Geometry<0, 3>, 3>> in_father_reference_elem_corners_;
             // static to not need any extra storage per Enitity. One object used for all instances
             // constexpr to allow for in-class instantiation

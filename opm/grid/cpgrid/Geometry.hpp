@@ -407,9 +407,9 @@ namespace Dune
             ///                       by (kji), i.e. i running fastest.
             Geometry(const GlobalCoordinate& pos,
                      ctype vol,
-                     const EntityVariable<cpgrid::Geometry<0, 3>, 3>& allcorners,
+                     std::shared_ptr<const EntityVariable<cpgrid::Geometry<0, 3>, 3>>& allcorners_ptr,
                      const int* corner_indices)
-                : pos_(pos), vol_(vol), allcorners_(allcorners.data()), cor_idx_(corner_indices)
+                : pos_(pos), vol_(vol), allcorners_((*allcorners_ptr).data()), cor_idx_(corner_indices)
             {
                 assert(allcorners_ && corner_indices);
             }

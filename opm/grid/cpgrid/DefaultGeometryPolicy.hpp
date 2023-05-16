@@ -68,7 +68,9 @@ namespace Dune
             DefaultGeometryPolicy(const EntityVariable<cpgrid::Geometry<3, 3>, 0>& cell_geom,
                                   const EntityVariable<cpgrid::Geometry<2, 3>, 1>& face_geom,
                                   const EntityVariable<cpgrid::Geometry<0, 3>, 3>& point_geom)
-                : cell_geom_(cell_geom), face_geom_(face_geom), point_geom_(point_geom)
+                : cell_geom_ptr_(std::make_shared<EntityVariable<cpgrid::Geometry<3, 3>, 0>>(cell_geom)),
+                  face_geom_ptr_(std::make_shared<EntityVariable<cpgrid::Geometry<2, 3>, 1>>(face_geom)),
+                  point_geom_ptr_(std::make_shared<EntityVariable<cpgrid::Geometry<0, 3>, 3>>(point_geom))
             {
             }
 
@@ -87,22 +89,22 @@ namespace Dune
             /// \brief Get cell geometry
             const EntityVariable<cpgrid::Geometry<3, 3>, 0>& geomVector(const std::integral_constant<int, 0>&) const
             {
-                return cell_geom_;
+                return *cell_geom_ptr_;
             }
             /// \brief Get cell geometry
             EntityVariable<cpgrid::Geometry<3, 3>, 0>& geomVector(const std::integral_constant<int, 0>&)
             {
-                return cell_geom_;
+                return *cell_geom_ptr_;
             }
             /// \brief Get face geometry
             const EntityVariable<cpgrid::Geometry<2, 3>, 1>& geomVector(const std::integral_constant<int, 1>&) const
             {
-                return face_geom_;
+                return *face_geom_ptr_;
             }
             /// \brief Get face geometry
             EntityVariable<cpgrid::Geometry<2, 3>, 1>& geomVector(const std::integral_constant<int, 1>&)
             {
-                return face_geom_;
+                return *face_geom_ptr_;
             }
 
             /// \brief Get point geometry
@@ -110,19 +112,19 @@ namespace Dune
             const EntityVariable<cpgrid::Geometry<0, 3>, 3>& geomVector(const std::integral_constant<int, codim>&) const
             {
                 static_assert(codim==3, "Codim has to be 3");
-                return point_geom_;
+                return *point_geom_ptr_;
             }/// \brief Get point geometry
             template<int codim>
             EntityVariable<cpgrid::Geometry<0, 3>, 3>& geomVector(const std::integral_constant<int, codim>&)
             {
                 static_assert(codim==3, "Codim has to be 3");
-                return point_geom_;
+                return *point_geom_ptr_;
             }
             
         private:
-            EntityVariable<cpgrid::Geometry<3, 3>, 0> cell_geom_;
-            EntityVariable<cpgrid::Geometry<2, 3>, 1> face_geom_;
-            EntityVariable<cpgrid::Geometry<0, 3>, 3> point_geom_;
+            std::shared_ptr<EntityVariable<cpgrid::Geometry<3, 3>, 0>> cell_geom_ptr_;
+            std::shared_ptr<EntityVariable<cpgrid::Geometry<2, 3>, 1>> face_geom_ptr_;
+            std::shared_ptr<EntityVariable<cpgrid::Geometry<0, 3>, 3>> point_geom_ptr_;
         };
 
 
