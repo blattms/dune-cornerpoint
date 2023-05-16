@@ -556,8 +556,7 @@ struct CellGeometryHandle
             buffer.read(pos[i]);
 
         buffer.read(vol);
-        scatterCont_[t] = Geom(pos, vol, //std::make_shared<const EntityVariable<cpgrid::Geometry<0, 3>, 3>>(pointGeom_),
-                               pointGeom_,
+        scatterCont_[t] = Geom(pos, vol, std::make_shared<const EntityVariable<cpgrid::Geometry<0, 3>, 3>>(pointGeom_),
                                cell2Points_[t.index()].data());
         double isAquifer;
         buffer.read(isAquifer);
@@ -1878,7 +1877,7 @@ Geometry<3,3> CpGridData::cellifyPatch(const std::array<int,3>& startIJK, const 
             // FieldVector in DUNE 2.6 is missing operator/ using a loop
             for(int i=0; i < 3; ++i){
                 cellifiedPatch_center[i] +=
-                    (*(this -> geometry_.geomVector(std::integral_constant<int,3>()))).get(cellifiedPatch_to_point[corn]).center())[i]/8.;
+                    (*(this -> geometry_.geomVector(std::integral_constant<int,3>()))).get(cellifiedPatch_to_point[corn]).center()[i]/8.;
             }
             cellifiedPatch_corners[corn] =
                 (*(this -> geometry_.geomVector(std::integral_constant<int,3>()))).get(cellifiedPatch_to_point[corn]);
@@ -1895,8 +1894,7 @@ Geometry<3,3> CpGridData::cellifyPatch(const std::array<int,3>& startIJK, const 
         const int* cellifiedPatch_indices_storage_ptr = &allcorners_cellifiedPatch[0];
         // Construct (and return) the Geometry<3,3> of the 'cellified patch'.
         return Geometry<3,3>(cellifiedPatch_center, cellifiedPatch_volume,
-                             //cellifiedPatch_geo_ptr,
-                             cellifiedPatch_geometry.geomVector(std::integral_constant<int,3>()), // need a shared_ptr
+                             cellifiedPatch_geometry.geomVector(std::integral_constant<int,3>()), 
                              cellifiedPatch_indices_storage_ptr);
     }
 }

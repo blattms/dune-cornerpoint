@@ -358,8 +358,8 @@ namespace cpgrid
         }
 #endif
         std::sort(aquifer_cells_.begin(), aquifer_cells_.end());
-        buildGeom(output, cell_to_face_, cell_to_point_, face_to_output_face, aquifer_cell_volumes_local, geometry_.geomVector(std::integral_constant<int,0>()),
-                  geometry_.geomVector(std::integral_constant<int,1>()), geometry_.geomVector(std::integral_constant<int,3>()),
+        buildGeom(output, cell_to_face_, cell_to_point_, face_to_output_face, aquifer_cell_volumes_local, *(geometry_.geomVector(std::integral_constant<int,0>())),
+                  *( geometry_.geomVector(std::integral_constant<int,1>())), *(geometry_.geomVector(std::integral_constant<int,3>())),
                   face_normals_, turn_normals);
 
 #ifdef VERBOSE
@@ -1076,7 +1076,9 @@ namespace cpgrid
                                                       double vol,
                                                       const std::array<int,8>& corner_indices)
             {
-                return cpgrid::Geometry<3, 3>(pos, vol, allcorners_, &corner_indices[0]);
+                return cpgrid::Geometry<3, 3>(pos, vol,
+                                              std::make_shared<const cpgrid::EntityVariable<cpgrid::Geometry<0, 3>, 3>>(allcorners_),
+                                              &corner_indices[0]);
             }
         };
 
