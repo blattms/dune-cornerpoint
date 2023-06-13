@@ -1,6 +1,6 @@
 //===========================================================================
 //
-// File: LookUpData.hpp
+// File: LookUpData.hh
 //
 // Created: Tue May 23 14:44:00 2023
 //
@@ -44,22 +44,22 @@ class LookUpData
 public:
     // Constructor taking a CpGrid object
     LookUpData(const GridType& grid) :
-        leaf_view_(grid.leafGridView()),
-        leafMapper_(leaf_view_, Dune::mcmgElementLayout()),
-        leafCartMapper_(grid)
+        gridView_(grid.leafGridView()),
+        elemMapper_(gridView_, Dune::mcmgElementLayout()),
+        cartMapper_(grid)
     {
     }
 
     template<typename feature_type>
     int operator()(const Dune::cpgrid::Entity<0>& elem, const std::vector<feature_type>& feature_vec)
     {
-        // Assuming there is no LGR, so level 0 = leafview = "GLOBAL"
-        return feature_vec[leafMapper_.index(elem)];
+        // Assuming feature is given for gridView_
+        return feature_vec[elemMapper_.index(elem)];
     }
 protected:
-    typename GridType::LeafGridView leaf_view_;
-    Dune::MultipleCodimMultipleGeomTypeMapper<typename GridType::LeafGridView> leafMapper_;
-    Dune::CartesianIndexMapper<GridType> leafCartMapper_; // currently not supported for general grid?
+    typename GridType::LeafGridView gridView_;
+    Dune::MultipleCodimMultipleGeomTypeMapper<typename GridType::LeafGridView> elemMapper_;
+    Dune::CartesianIndexMapper<GridType> cartMapper_; 
 
 
 }; // end LookUpData class
