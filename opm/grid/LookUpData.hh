@@ -42,11 +42,21 @@ template <typename GridType>
 class LookUpData
 {
 public:
-    // Constructor taking a CpGrid object
+    // Constructor taking a Grid object
     LookUpData(const GridType& grid) :
         gridView_(grid.leafGridView()),
         elemMapper_(gridView_, Dune::mcmgElementLayout()),
         cartMapper_(grid)
+    {
+    }
+
+    // Constructor taking a GridView, ElementMapper, CartesianMapper
+    LookUpData(const  typename GridType::LeafGridView& gridView,
+               const  Dune::MultipleCodimMultipleGeomTypeMapper<typename GridType::LeafGridView>& elemMapper,
+               const  Dune::CartesianIndexMapper<GridType>& cartMapper) :
+        gridView_(gridView),
+        elemMapper_(gridView_, Dune::mcmgElementLayout()),
+        cartMapper_(gridView_.grid())
     {
     }
 
@@ -56,6 +66,12 @@ public:
         // Assuming feature is given for gridView_
         return feature_vec[elemMapper_.index(elem)];
     }
+
+    int cartesianIndex(int idx)
+    {
+         return cartMapper_.cartesianIndex(idx);
+    }
+    
 protected:
     typename GridType::LeafGridView gridView_;
     Dune::MultipleCodimMultipleGeomTypeMapper<typename GridType::LeafGridView> elemMapper_;
