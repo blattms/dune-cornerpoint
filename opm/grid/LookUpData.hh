@@ -61,15 +61,21 @@ public:
     }
 
     template<typename EntityType, typename FeatureType>
-    int operator()(const EntityType& elem, const std::vector<FeatureType>& feature_vec)
+    FeatureType operator()(const EntityType& elem, const std::vector<FeatureType>& feature_vec) const
     {
+        assert(0 <= elemMapper_.index(elem) && static_cast<int>(feature_vec.size()) > elemMapper_.index(elem));
         // Assuming feature is given for gridView_
         return feature_vec[elemMapper_.index(elem)];
     }
 
-    int cartesianIndex(int idx) const
+
+    template<typename FeatureType>
+    //FeatureType lookUpDataWithCartesianIndex(const int& elemIdx, const std::vector<FeatureType> feature_vec) const
+    FeatureType operator()(const int& elemIdx, const std::vector<FeatureType> feature_vec) const
     {
-         return cartMapper_.cartesianIndex(idx);
+        const int& cartIdx = cartMapper_.cartesianIndex(elemIdx); 
+        assert(0 <= cartIdx && static_cast<int>(feature_vec.size()) > cartIdx);
+        return feature_vec[cartIdx]; 
     }
     
 protected:
