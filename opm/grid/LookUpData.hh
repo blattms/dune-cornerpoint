@@ -60,8 +60,8 @@ public:
     {
     }
 
-    template<typename feature_type>
-    int operator()(const Dune::cpgrid::Entity<0>& elem, const std::vector<feature_type>& feature_vec)
+    template<typename EntityType, typename FeatureType>
+    int operator()(const EntityType& elem, const std::vector<FeatureType>& feature_vec)
     {
         // Assuming feature is given for gridView_
         return feature_vec[elemMapper_.index(elem)];
