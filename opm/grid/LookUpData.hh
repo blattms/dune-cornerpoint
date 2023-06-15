@@ -67,7 +67,7 @@ public:
         return feature_vec[elemMapper_.index(elem)];
     }
 
-    int cartesianIndex(int idx)
+    int cartesianIndex(int idx) const
     {
          return cartMapper_.cartesianIndex(idx);
     }
