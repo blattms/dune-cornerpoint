@@ -70,7 +70,6 @@ public:
 
 
     template<typename FeatureType>
-    //FeatureType lookUpDataWithCartesianIndex(const int& elemIdx, const std::vector<FeatureType> feature_vec) const
     FeatureType operator()(const int& elemIdx, const std::vector<FeatureType> feature_vec) const
     {
         const int& cartIdx = cartMapper_.cartesianIndex(elemIdx); 
