@@ -76,6 +76,20 @@ public:
         assert(0 <= cartIdx && static_cast<int>(feature_vec.size()) > cartIdx);
         return feature_vec[cartIdx]; 
     }
+
+   
+    // getOriginIdx() For general grids: retunrs a copy of the same index.
+    //                For CpGrid: returns index of origin cell (parent cell or equivalent cell when no father) in level 0
+    int getOriginIndex(const int& elemIdx) // elemIdx is supposed to be an index of a leafview cell
+    {
+        if (std::is_same<GridType,Dune::CpGrid>::value) {
+            const Dune::cpgrid::Entity<0>& elem = Dune::cpgrid::Entity<0>(gridView_, elemIdx, true);
+            return elem.getOrigin().index();
+        }
+        else{
+            return elemIdx;
+        }
+    }
     
 protected:
     typename GridType::LeafGridView gridView_;
