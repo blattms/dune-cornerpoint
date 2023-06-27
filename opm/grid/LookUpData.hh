@@ -38,12 +38,12 @@ along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace Dune
 {
-template <typename GridType>
+template <typename Grid, typename GridView>
 class LookUpData
 {
 public:
     // Constructor taking a Grid object
-    LookUpData(const GridType& grid) :
+    LookUpData(const Grid& grid) :
         gridView_(grid.leafGridView()),
         elemMapper_(gridView_, Dune::mcmgElementLayout()),
         cartMapper_(grid)
@@ -51,9 +51,10 @@ public:
     }
 
     // Constructor taking a GridView, ElementMapper, CartesianMapper
-    LookUpData(const  typename GridType::LeafGridView& gridView,
-               const  Dune::MultipleCodimMultipleGeomTypeMapper<typename GridType::LeafGridView>& elemMapper,
-               const  Dune::CartesianIndexMapper<GridType>& cartMapper) :
+    //template<typename GridView>
+    LookUpData(const  GridView& gridView,
+               const  Dune::MultipleCodimMultipleGeomTypeMapper<GridView>& elemMapper,
+               const  Dune::CartesianIndexMapper<Grid>& cartMapper) :
         gridView_(gridView),
         elemMapper_(gridView_, Dune::mcmgElementLayout()),
         cartMapper_(gridView_.grid())
@@ -61,7 +62,8 @@ public:
     }
 
      // Constructor taking a GridView
-    LookUpData(const  typename GridType::LeafGridView& gridView):
+    //template <typename GridView>
+    LookUpData(const GridView& gridView) :
         gridView_(gridView)
     {
     }
@@ -88,7 +90,7 @@ public:
     //                For CpGrid: returns index of origin cell (parent cell or equivalent cell when no father) in level 0
     int getOriginIndex(const int& elemIdx) // elemIdx is supposed to be an index of a leafview cell
     {
-        if (std::is_same<GridType,Dune::CpGrid>::value) {
+        if (std::is_same<Grid,Dune::CpGrid>::value) {
             const Dune::cpgrid::Entity<0>& elem = Dune::cpgrid::Entity<0>(gridView_, elemIdx, true);
             return elem.getOrigin().index();
         }
@@ -98,9 +100,9 @@ public:
     }
     
 protected:
-    typename GridType::LeafGridView gridView_;
-    Dune::MultipleCodimMultipleGeomTypeMapper<typename GridType::LeafGridView> elemMapper_;
-    Dune::CartesianIndexMapper<GridType> cartMapper_; 
+    GridView gridView_;
+    Dune::MultipleCodimMultipleGeomTypeMapper<GridView> elemMapper_;
+    Dune::CartesianIndexMapper<Grid> cartMapper_; 
 
 
 }; // end LookUpData class
