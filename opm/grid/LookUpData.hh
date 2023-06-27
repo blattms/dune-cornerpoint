@@ -60,6 +60,12 @@ public:
     {
     }
 
+     // Constructor taking a GridView
+    LookUpData(const  typename GridType::LeafGridView& gridView):
+        gridView_(gridView)
+    {
+    }
+
     template<typename EntityType, typename FeatureType>
     FeatureType operator()(const EntityType& elem, const std::vector<FeatureType>& feature_vec) const
     {
