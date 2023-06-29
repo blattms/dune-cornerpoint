@@ -51,7 +51,6 @@ public:
     }
 
     // Constructor taking a GridView, ElementMapper, CartesianMapper
-    //template<typename GridView>
     LookUpData(const  GridView& gridView,
                const  Dune::MultipleCodimMultipleGeomTypeMapper<GridView>& elemMapper,
                const  Dune::CartesianIndexMapper<Grid>& cartMapper) :
@@ -91,7 +90,7 @@ public:
     int getOriginIndex(const int& elemIdx) // elemIdx is supposed to be an index of a leafview cell
     {
         if (std::is_same<Grid,Dune::CpGrid>::value) {
-            const Dune::cpgrid::Entity<0>& elem = Dune::cpgrid::Entity<0>(gridView_, elemIdx, true);
+            const Dune::cpgrid::Entity<0>& elem = Dune::cpgrid::Entity<0>(gridView_.impl(), elemIdx, true);
             return elem.getOrigin().index();
         }
         else{
