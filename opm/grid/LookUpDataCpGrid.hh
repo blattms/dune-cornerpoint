@@ -54,6 +54,15 @@ public:
         return feature_vec[elem.getOrigin().index()];
     }
 
+     // getOriginIdx() For general grids: retunrs a copy of the same index.
+    //                For CpGrid: returns index of origin cell (parent cell or equivalent cell when no father) in level 0
+    int getOriginIndex(const int& elemIdx) // elemIdx is supposed to be an index of a leafview cell
+    {
+            const Dune::cpgrid::Entity<0>& elem = Dune::cpgrid::Entity<0>(this->gridView_, elemIdx, true);
+            return elem.getOrigin().index();
+            
+    }
+
 }; // end LookUpData<CpGrid> class
 }
 // end namespace Dune

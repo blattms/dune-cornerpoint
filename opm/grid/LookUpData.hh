@@ -51,9 +51,9 @@ public:
     }
 
     // Constructor taking a GridView, ElementMapper, CartesianMapper
-    LookUpData(const  GridView& gridView,
-               const  Dune::MultipleCodimMultipleGeomTypeMapper<GridView>& elemMapper,
-               const  Dune::CartesianIndexMapper<Grid>& cartMapper) :
+    LookUpData(const  GridView& gridView) :
+    //const  Dune::MultipleCodimMultipleGeomTypeMapper<GridView>& elemMapper,
+    //const  Dune::CartesianIndexMapper<Grid>& cartMapper) :
         gridView_(gridView),
         elemMapper_(gridView_, Dune::mcmgElementLayout()),
         cartMapper_(gridView_.grid())
@@ -62,10 +62,10 @@ public:
 
      // Constructor taking a GridView
     //template <typename GridView>
-    LookUpData(const GridView& gridView) :
+    /* LookUpData(const GridView& gridView) :
         gridView_(gridView)
     {
-    }
+    }*/
 
     template<typename EntityType, typename FeatureType>
     FeatureType operator()(const EntityType& elem, const std::vector<FeatureType>& feature_vec) const
@@ -89,13 +89,13 @@ public:
     //                For CpGrid: returns index of origin cell (parent cell or equivalent cell when no father) in level 0
     int getOriginIndex(const int& elemIdx) // elemIdx is supposed to be an index of a leafview cell
     {
-        if (std::is_same<Grid,Dune::CpGrid>::value) {
+        /* if constexpr (std::is_same<Grid,Dune::CpGrid>::value) {
             const Dune::cpgrid::Entity<0>& elem = Dune::cpgrid::Entity<0>(gridView_.impl(), elemIdx, true);
             return elem.getOrigin().index();
-        }
-        else{
+            }*/
+        //else{
             return elemIdx;
-        }
+            //  }
     }
     
 protected:
