@@ -14,22 +14,22 @@
 //===========================================================================
 
 /*
-Copyright 2023 Equinor ASA.
+  Copyright 2023 Equinor ASA.
 
-This file is part of The Open Porous Media project  (OPM).
+  This file is part of The Open Porous Media project  (OPM).
 
-OPM is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+  OPM is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
 
-OPM is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+  OPM is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with OPM.  If not, see <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU General Public License
+  along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <dune/grid/common/mcmgmapper.hh>
@@ -52,20 +52,11 @@ public:
 
     // Constructor taking a GridView, ElementMapper, CartesianMapper
     LookUpData(const  GridView& gridView) :
-    //const  Dune::MultipleCodimMultipleGeomTypeMapper<GridView>& elemMapper,
-    //const  Dune::CartesianIndexMapper<Grid>& cartMapper) :
         gridView_(gridView),
         elemMapper_(gridView_, Dune::mcmgElementLayout()),
         cartMapper_(gridView_.grid())
     {
     }
-
-     // Constructor taking a GridView
-    //template <typename GridView>
-    /* LookUpData(const GridView& gridView) :
-        gridView_(gridView)
-    {
-    }*/
 
     template<typename EntityType, typename FeatureType>
     FeatureType operator()(const EntityType& elem, const std::vector<FeatureType>& feature_vec) const
@@ -79,29 +70,22 @@ public:
     template<typename FeatureType>
     FeatureType operator()(const int& elemIdx, const std::vector<FeatureType> feature_vec) const
     {
-        const int& cartIdx = cartMapper_.cartesianIndex(elemIdx); 
+        const int& cartIdx = cartMapper_.cartesianIndex(elemIdx);
         assert(0 <= cartIdx && static_cast<int>(feature_vec.size()) > cartIdx);
-        return feature_vec[cartIdx]; 
+        return feature_vec[cartIdx];
     }
 
-   
     // getOriginIdx() For general grids: retunrs a copy of the same index.
-    //                For CpGrid: returns index of origin cell (parent cell or equivalent cell when no father) in level 0
+    //                [For CpGrid: returns index of origin cell (parent cell or equivalent cell when no father) in level 0]
     int getOriginIndex(const int& elemIdx) // elemIdx is supposed to be an index of a leafview cell
     {
-        /* if constexpr (std::is_same<Grid,Dune::CpGrid>::value) {
-            const Dune::cpgrid::Entity<0>& elem = Dune::cpgrid::Entity<0>(gridView_.impl(), elemIdx, true);
-            return elem.getOrigin().index();
-            }*/
-        //else{
-            return elemIdx;
-            //  }
+        return elemIdx;
     }
-    
+
 protected:
     GridView gridView_;
     Dune::MultipleCodimMultipleGeomTypeMapper<GridView> elemMapper_;
-    Dune::CartesianIndexMapper<Grid> cartMapper_; 
+    Dune::CartesianIndexMapper<Grid> cartMapper_;
 
 
 }; // end LookUpData class
