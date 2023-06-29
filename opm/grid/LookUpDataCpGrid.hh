@@ -34,13 +34,13 @@
 
 namespace Dune
 {
-template <typename GridType>
+template <typename Grid, typename GridView>
 class LookUpData
 {
 };
 /// Specialization for CpGrid
-template<>
-class LookUpData<Dune::CpGrid>
+template<typename GridView>
+class LookUpData<Dune::CpGrid, GridView>
 {
 public:
     // Constructor taking a CpGrid object
