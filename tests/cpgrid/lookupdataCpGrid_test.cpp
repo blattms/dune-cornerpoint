@@ -72,6 +72,7 @@ void lookup_check(const Dune::CpGrid& grid)
     const auto& leaf_view = grid.leafGridView();
 
     Dune::LookUpData<Dune::CpGrid, Dune::GridView<Dune::DefaultLevelGridViewTraits<Dune::CpGrid>>> lookUpData(grid);
+    // Dune::GridView<Dune::DefaultLevelGridViewTraits<Dune::CpGrid> >
 
     const auto& level0_view = grid.levelGridView(0);
     Dune::MultipleCodimMultipleGeomTypeMapper<Dune::CpGrid::LeafGridView> leafMapper(leaf_view, Dune::mcmgElementLayout());
