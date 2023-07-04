@@ -33,8 +33,6 @@
 */
 
 #include <dune/grid/common/mcmgmapper.hh>
-#include <opm/grid/cpgrid/Entity.hpp>
-#include <opm/grid/common/CartesianIndexMapper.hpp> // "CartesianIndexMapper not specialized for given grid"
 
 namespace Dune
 {
@@ -42,7 +40,7 @@ template <typename Grid, typename GridView>
 class LookUpData
 {
 public:
-    // Constructor taking a Grid object
+    // Constructor taking a Grid
     LookUpData(const Grid& grid) :
         gridView_(grid.leafGridView()),
         elemMapper_(gridView_, Dune::mcmgElementLayout()),
@@ -50,7 +48,7 @@ public:
     {
     }
 
-    // Constructor taking a GridView, ElementMapper, CartesianMapper
+    // Constructor taking a GridView
     LookUpData(const  GridView& gridView) :
         gridView_(gridView),
         elemMapper_(gridView_, Dune::mcmgElementLayout()),
@@ -58,36 +56,53 @@ public:
     {
     }
 
+    // operator()(Entity, Vector) Call operator taking an EntityObject and a FeatureVector.
+    //                            Return feature of the entity, via (ACTIVE) INDEX
+    //                            For general grids, the feature vector is given for the gridView_.
+    //                            [For CpGrid, the feature vector is given for level 0.]
     template<typename EntityType, typename FeatureType>
-    FeatureType operator()(const EntityType& elem, const std::vector<FeatureType>& feature_vec) const
-    {
-        assert(0 <= elemMapper_.index(elem) && static_cast<int>(feature_vec.size()) > elemMapper_.index(elem));
-        // Assuming feature is given for gridView_
-        return feature_vec[elemMapper_.index(elem)];
-    }
+    FeatureType operator()(const EntityType& elem, const std::vector<FeatureType>& feature_vec) const;
 
-
+    // operator()(EntityIndex, Vector) Call operator taking an EntityObject and a FeatureVector.
+    //                                 Return feature of the entity, via CARTESIAN INDEX
+    //                                 For general grids, the feature vector is given for the gridView_.
+    //                                 [For CpGrid, the feature vector is given for level 0.]
     template<typename FeatureType>
-    FeatureType operator()(const int& elemIdx, const std::vector<FeatureType> feature_vec) const
-    {
-        const int& cartIdx = cartMapper_.cartesianIndex(elemIdx);
-        assert(0 <= cartIdx && static_cast<int>(feature_vec.size()) > cartIdx);
-        return feature_vec[cartIdx];
-    }
+    FeatureType operator()(const int& elemIdx, const std::vector<FeatureType> feature_vec) const;
 
     // getOriginIdx() For general grids: retunrs a copy of the same index.
     //                [For CpGrid: returns index of origin cell (parent cell or equivalent cell when no father) in level 0]
-    int getOriginIndex(const int& elemIdx) // elemIdx is supposed to be an index of a leafview cell
-    {
-        return elemIdx;
-    }
+    int getOriginIndex(const int& elemIdx) const; // elemIdx is supposed to be an index of a leafview cell
 
-protected:
+protected: // Why protrected and not private?
     GridView gridView_;
     Dune::MultipleCodimMultipleGeomTypeMapper<GridView> elemMapper_;
     Dune::CartesianIndexMapper<Grid> cartMapper_;
 
-
 }; // end LookUpData class
 }
 // end namespace Dune
+
+template<typename Grid, typename GridView>
+template<typename EntityType, typename FeatureType>
+FeatureType Dune::LookUpData<Grid,GridView>::operator()(const EntityType& elem, const std::vector<FeatureType>& feature_vec) const
+{
+    assert(0 <= elemMapper_.index(elem) && static_cast<int>(feature_vec.size()) > elemMapper_.index(elem));
+    // Assuming feature is given for gridView_
+    return feature_vec[elemMapper_.index(elem)];
+}
+
+template<typename Grid, typename GridView>
+template<typename FeatureType>
+FeatureType Dune::LookUpData<Grid,GridView>::operator()(const int& elemIdx, const std::vector<FeatureType> feature_vec) const
+{
+    const int& cartIdx = cartMapper_.cartesianIndex(elemIdx);
+    assert(0 <= cartIdx && static_cast<int>(feature_vec.size()) > cartIdx);
+    return feature_vec[cartIdx];
+}
+
+template<typename Grid, typename GridView>
+int Dune::LookUpData<Grid,GridView>::getOriginIndex(const int& elemIdx) const
+{
+    return elemIdx;
+}
