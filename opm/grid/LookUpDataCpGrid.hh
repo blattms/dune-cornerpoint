@@ -40,12 +40,17 @@ class LookUpData
 };
 /// Specialization for CpGrid
 template<typename GridView>
-class LookUpData<Dune::CpGrid, GridView>
+class LookUpData<CpGrid, GridView>
 {
 public:
     // Constructor taking a CpGrid object
-    LookUpData(const Dune::CpGrid&){
+    LookUpData(const GridView&,
+               const CartesianIndexMapper<CpGrid>&){
     }
+
+    // Constructor taking a CpGrid object
+    LookUpData(const GridView&)
+    {}
 
     template<typename feature_type>
     int operator()(const Dune::cpgrid::Entity<0>& elem, const std::vector<feature_type>& feature_vec)

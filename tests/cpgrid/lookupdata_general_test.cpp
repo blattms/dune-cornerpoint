@@ -71,7 +71,8 @@ void lookup_check(const Dune::CpGrid& grid)
     std::iota(fake_feature.begin(), fake_feature.end(), 3);
 
     const auto& leaf_view = grid.leafGridView();
-    Dune::LookUpData<Dune::CpGrid> lookUpData(grid);
+    using GridView = std::remove_cv_t< typename std::remove_reference<decltype(grid.leafGridView())>::type>;
+    Dune::LookUpData<Dune::CpGrid, GridView> lookUpData(leaf_view);
 
     for (const auto& elem : elements(leaf_view)) {
         auto featureInElem = lookUpData(elem, fake_feature);

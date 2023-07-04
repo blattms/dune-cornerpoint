@@ -74,7 +74,7 @@ void lookup_check(const Dune::CpGrid& grid)
     std::iota(fake_feature.begin(), fake_feature.end(), 3);
     const auto& leaf_view = grid.leafGridView();
 
-    Dune::LookUpData<Dune::CpGrid, Dune::GridView<Dune::DefaultLevelGridViewTraits<Dune::CpGrid>>> lookUpData(grid);
+    Dune::LookUpData<Dune::CpGrid, Dune::GridView<Dune::DefaultLeafGridViewTraits<Dune::CpGrid>>> lookUpData(leaf_view);
 
     const auto& level0_view = grid.levelGridView(0);
     Dune::MultipleCodimMultipleGeomTypeMapper<Dune::CpGrid::LeafGridView> leafMapper(leaf_view, Dune::mcmgElementLayout());
