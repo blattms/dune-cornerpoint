@@ -35,9 +35,9 @@
 namespace Dune
 {
 template <typename Grid, typename GridView>
-class LookUpData
-{
-};
+class LookUpData;
+
+
 /// Specialization for CpGrid
 template<typename GridView>
 class LookUpData<CpGrid, GridView>
