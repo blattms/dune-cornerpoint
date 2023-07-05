@@ -44,9 +44,6 @@
 
 #include <dune/grid/common/mcmgmapper.hh>
 
-#include <sstream>
-#include <iostream>
-
 struct Fixture
 {
     Fixture()
@@ -95,6 +92,8 @@ void lookup_check(const Dune::CpGrid& grid)
             BOOST_CHECK(elem.father().index() == parent_id);
             BOOST_CHECK(elem.father().index() == level0Mapper.index(elem.father()));
         }
+        // begin - Lines to be removed. Not related to LookUpData.
+        // end - Lines to be removed.
     }
 }
 

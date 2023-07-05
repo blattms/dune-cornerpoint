@@ -52,21 +52,36 @@ public:
     LookUpData(const GridView&)
     {}
 
-    template<typename feature_type>
-    int operator()(const Dune::cpgrid::Entity<0>& elem, const std::vector<feature_type>& feature_vec)
-    {
-        // elem.getOrigin() Get entity in level 0 (either parent cell, or equivalent cell, or 'itself' if grid_ = level 0)
-        return feature_vec[elem.getOrigin().index()];
-    }
+    // operator()(Entity, Vector) Call operator taking an Entity and a FeatureVector.
+    //                            Return feature of the entity, via CARTESIAN INDEX
+    //                            For CpGrid, the feature vector is given for level 0.
+    //                            [For general grids, the feature vector is given for the gridView_.]
+    template<typename FeatureType>
+    FeatureType operator()(const Dune::cpgrid::Entity<0>& elem, const std::vector<FeatureType>& feature_vec) const;
 
     // getOriginIdx() For CpGrid: returns index of origin cell (parent cell or equivalent cell when no father) in level 0
     //                [For general grids: retunrs a copy of the same index.]
-    int getOriginIndex(const int& elemIdx) // elemIdx is supposed to be an index of a leafview cell
-    {
-        const Dune::cpgrid::Entity<0>& elem = Dune::cpgrid::Entity<0>(this->gridView_, elemIdx, true);
-        return elem.getOrigin().index();
-    }
+    int getOriginIndex(const int& elemIdx) const; // elemIdx is supposed to be an index of a leafview cell
+
+protected:
+    GridView grid_view_;
 
 }; // end LookUpData<CpGrid> class
 }
 // end namespace Dune
+
+template<typename GridView>
+template<typename FeatureType>
+FeatureType Dune::LookUpData<Dune::CpGrid, GridView>::operator()(const Dune::cpgrid::Entity<0>& elem,
+                                                                 const std::vector<FeatureType>& feature_vec) const
+{
+    // elem.getOrigin() Get entity in level 0 (either parent cell, or equivalent cell, or 'itself' if grid_ = level 0)
+    return feature_vec[elem.getOrigin().index()];
+}
+
+template<typename GridView>
+int  Dune::LookUpData<Dune::CpGrid, GridView>::getOriginIndex(const int& elemIdx) const
+{
+    const Dune::cpgrid::Entity<0>& elem = Dune::cpgrid::Entity<0>(this->gridView_, elemIdx, true);
+    return elem.getOrigin().index();
+}
