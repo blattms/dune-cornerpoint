@@ -416,8 +416,10 @@ BOOST_AUTO_TEST_CASE(threeLgrs)
     }
     }
 
-/*BOOST_AUTO_TEST_CASE(atLeastOneLgr_per_process_attempt)
+BOOST_AUTO_TEST_CASE(atLeastOneLgr_per_process_attempt)
 {
+    std::cout << "atLeastOneLgr_per_process_attempt"<<std::endl;
+    
     // Create a grid
     Dune::CpGrid grid;
     const std::array<double, 3> cell_sizes = {1.0, 1.0, 1.0};
@@ -441,7 +443,7 @@ BOOST_AUTO_TEST_CASE(threeLgrs)
 
         refinePatch_and_check(grid, cells_per_dim_vec, startIJK_vec, endIJK_vec, lgr_name_vec);
     }
-    }*/
+    }
 
 /*BOOST_AUTO_TEST_CASE(singleCell)
 {
