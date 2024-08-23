@@ -395,18 +395,28 @@ CpGrid::scatterGrid(EdgeWeightMethod method,
             // Print some statistics without communication
             std::vector<int> ownedCells(cc.size(), 0);
             std::vector<int> overlapCells(cc.size(), 0);
+            std::vector<std::vector<int>> ownedCellIndices(cc.size());
             for (const auto& entry: exportList)
             {
                 if(std::get<2>(entry) == AttributeSet::owner)
                 {
                     ++ownedCells[std::get<1>(entry)];
+                    ownedCellIndices[std::get<1>(entry)].push_back(std::get<0>(entry));
                 }
                 else
                 {
                     ++overlapCells[std::get<1>(entry)];
                 }
             }
-
+            int r=0;
+            for (const auto& cells: ownedCellIndices)
+            {
+                std::cout<< "rank "<<r++<<":";
+                for(const auto& cell: cells)
+                    std::cout<<cell<<" ";
+                std::cout<<std::endl;
+            }
+            
             for(const auto& cellsOnProc: ownedCells)
             {
                 procsWithZeroCells += (cellsOnProc == 0);
