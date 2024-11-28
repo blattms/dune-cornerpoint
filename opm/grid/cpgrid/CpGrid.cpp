@@ -1020,6 +1020,10 @@ void CpGrid::globalRefine (int refCount)
             OPM_THROW(std::logic_error, "Global refinement of a mixed grid with coarse and refined cells is not supported yet.");
         }
     }
+    // For a distributed grid, global refinement can be called only once - for now.
+    if ( (refCount>1) && (!distributed_data_.empty()) ) {
+        OPM_THROW(std::logic_error, "Multiple calls of global refinement on a distributed grid are not supported yet.");
+    }
     if (refCount>0) {
         for (int refinedLevel = 0; refinedLevel < refCount; ++refinedLevel) {
             // Mark all the elements of the current leaf grid view for refinement
@@ -1247,33 +1251,30 @@ bool CpGrid::nonNNCsSelectedCellsLGR( const std::vector<std::array<int,3>>& star
     return true;
 }
 
-void CpGrid::markElemAssignLevel(const std::vector<std::array<int,3>>& startIJK_vec,
-                                 const std::vector<std::array<int,3>>& endIJK_vec,
-                                 std::vector<int>& assignRefinedLevel)
+std::pair<std::vector<int>, std::vector<int>> CpGrid::markElemAssignLevelDetectActiveLgrs(const std::vector<std::array<int,3>>& startIJK_vec,
+                                                                                          const std::vector<std::array<int,3>>& endIJK_vec,
+                                                                                          bool onlyDetectLgrs)
 {
-    // Find out which (ACTIVE) elements belong to the block cells defined by startIJK and endIJK values.
-    for(const auto& element: elements(this->leafGridView())) {
-        std::array<int,3> ijk;
-        getIJK(element.index(), ijk);
-        for (std::size_t level = 0; level < startIJK_vec.size(); ++level) {
-            bool belongsToLevel = true;
-            for (int c = 0; c < 3; ++c) {
-                belongsToLevel = belongsToLevel && ( (ijk[c] >= startIJK_vec[level][c]) && (ijk[c] < endIJK_vec[level][c]) );
-                if (!belongsToLevel)
-                    break;
-            }
-            if(belongsToLevel) {
-                this-> mark(1, element);
-                assignRefinedLevel[element.index()] = level+1; // shifted since starting grid is level 0, and refined grids levels are >= 1.
-            }
+    // Auxiliary function.
+    // If onlyDetectLgrs == true, then only activeLgrs gets populated.
+    // Otherwise, both activeLgrs and assignLevel get populated.
+    auto detectLgrs_maybeAssignLevel = [this](const Dune::cpgrid::Entity<0>& element,
+                                              int level,
+                                              std::vector<int>& active_lgrs,
+                                              std::vector<int>& assign_level,
+                                              bool only_detect_lgrs)
+    {
+        // shifted since starting grid is level 0, and refined grids levels are >= 1.
+        active_lgrs[level] = 1;
+        if (!only_detect_lgrs)
+        {
+            this-> mark(1, element);
+            assign_level[element.index()] = level+1; // shifted since starting grid is level 0, and refined grids levels are >= 1.
         }
-    }
-}
+    };
 
-void CpGrid::detectActiveLgrs(const std::vector<std::array<int,3>>& startIJK_vec,
-                              const std::vector<std::array<int,3>>& endIJK_vec,
-                              std::vector<int>& lgr_with_at_least_one_active_cell)
-{
+    std::vector<int> activeLgrs(startIJK_vec.size());
+    std::vector<int> assignLevel(onlyDetectLgrs ? 0 : currentData().back()->size(0));
     // Find out which (ACTIVE) elements belong to the block cells defined by startIJK and endIJK values.
     for(const auto& element: elements(this->leafGridView())) {
         std::array<int,3> ijk;
@@ -1286,11 +1287,11 @@ void CpGrid::detectActiveLgrs(const std::vector<std::array<int,3>>& startIJK_vec
                     break;
             }
             if(belongsToLevel) {
-                // shifted since starting grid is level 0, and refined grids levels are >= 1.
-                lgr_with_at_least_one_active_cell[level] = 1;
+                detectLgrs_maybeAssignLevel(element, level, activeLgrs, assignLevel, onlyDetectLgrs);
             }
         }
     }
+    return std::make_pair<std::vector<int>, std::vector<int>>(std::move(activeLgrs), std::move(assignLevel));
 }
 
 void CpGrid::predictMinCellAndPointGlobalIdPerProcess([[maybe_unused]] const std::vector<int>& assignRefinedLevel,
@@ -1987,8 +1988,11 @@ bool CpGrid::adapt(const std::vector<std::array<int,3>>& cells_per_dim_vec,
     // To determine if an LGR is not empty in a given process, we set
     // lgr_with_at_least_one_active_cell[in that level] to 1 if it contains
     // at least one active cell, and to 0 otherwise.
-    std::vector<int> lgr_with_at_least_one_active_cell(levels);
-    detectActiveLgrs(startIJK_vec, endIJK_vec, lgr_with_at_least_one_active_cell);
+    // "rubissh" denotes an empty vector. The method 'markElemAssignLevelDetectActiveLgrs' skips marking elements and the assignment of their
+    // level when the passed boolean is 'true' ("onlyDetectLgrs").
+    const auto& [lgr_with_at_least_one_active_cell, rubissh] = markElemAssignLevelDetectActiveLgrs(startIJK_vec,
+                                                                                                   endIJK_vec,
+                                                                                                   true /*onlyDetectLgrs*/);
 
     // To store/build refined level grids.
     std::vector<std::vector<std::shared_ptr<Dune::cpgrid::CpGridData>>> refined_data_vec(levels, data);
@@ -2414,7 +2418,7 @@ bool CpGrid::adapt(const std::vector<std::array<int,3>>& cells_per_dim_vec,
         this->global_id_set_ptr_->insertIdSet(*data[refinedLevelGridIdx]);
     }
 
-     // Only for parallel runs
+    // Only for parallel runs
     // - Define global ids for refined level grids (level 1, 2, ..., maxLevel)
     // - Define GlobalIdMapping (cellMapping, faceMapping, pointMapping required per level)
     // - Define ParallelIndex for overlap cells and their neighbors
@@ -2605,19 +2609,13 @@ void CpGrid::addLgrsUpdateLeafView(const std::vector<std::array<int,3>>& cells_p
         OPM_THROW(std::logic_error, "NNC face on a cell containing LGR is not supported yet.");
     }
 
-    // Determine the assigned level for the refinement of each marked cell
-    std::vector<int> assignRefinedLevel(current_view_data_->size(0));
-    markElemAssignLevel(startIJK_vec,
-                        endIJK_vec,
-                        assignRefinedLevel);
-
     // To determine if an LGR is not empty in a given process, we set
     // lgr_with_at_least_one_active_cell[in that level] to 1 if it contains
     // at least one active cell, and to 0 otherwise.
-    std::vector<int> lgr_with_at_least_one_active_cell(startIJK_vec.size());
-    detectActiveLgrs(startIJK_vec,
-                     endIJK_vec,
-                     lgr_with_at_least_one_active_cell);
+    // Determine the assigned level for the refinement of each marked cell
+    const auto& [lgr_with_at_least_one_active_cell, assignRefinedLevel] =  markElemAssignLevelDetectActiveLgrs(startIJK_vec,
+                                                                                                               endIJK_vec,
+                                                                                                               false /*onlydetecLgrs*/);
 
     int non_empty_lgrs = 0;
     for (std::size_t level = 0; level < startIJK_vec.size(); ++level) {
