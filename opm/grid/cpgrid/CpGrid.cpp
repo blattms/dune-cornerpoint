@@ -1247,9 +1247,10 @@ bool CpGrid::nonNNCsSelectedCellsLGR( const std::vector<std::array<int,3>>& star
     return true;
 }
 
-void CpGrid::markElemAssignLevel(const std::vector<std::array<int,3>>& startIJK_vec,
+template<class T>
+void CpGrid::computeOnLgrParents(const std::vector<std::array<int,3>>& startIJK_vec,
                                  const std::vector<std::array<int,3>>& endIJK_vec,
-                                 std::vector<int>& assignRefinedLevel)
+                                 T func)
 {
     // Find out which (ACTIVE) elements belong to the block cells defined by startIJK and endIJK values.
     for(const auto& element: elements(this->leafGridView())) {
@@ -1263,34 +1264,34 @@ void CpGrid::markElemAssignLevel(const std::vector<std::array<int,3>>& startIJK_
                     break;
             }
             if(belongsToLevel) {
-                this-> mark(1, element);
-                assignRefinedLevel[element.index()] = level+1; // shifted since starting grid is level 0, and refined grids levels are >= 1.
+                func(element, level);
             }
         }
     }
+}
+
+void CpGrid::markElemAssignLevel(const std::vector<std::array<int,3>>& startIJK_vec,
+                                 const std::vector<std::array<int,3>>& endIJK_vec,
+                                 std::vector<int>& assignRefinedLevel)
+{
+    auto assignAndMark = [this, &assignRefinedLevel](const cpgrid::Entity<0>& element, int level)
+    {
+        mark(1, element);
+        assignRefinedLevel[element.index()] = level+1;
+    };
+    computeOnLgrParents(startIJK_vec, endIJK_vec, assignAndMark);
 }
 
 void CpGrid::detectActiveLgrs(const std::vector<std::array<int,3>>& startIJK_vec,
                               const std::vector<std::array<int,3>>& endIJK_vec,
                               std::vector<int>& lgr_with_at_least_one_active_cell)
 {
-    // Find out which (ACTIVE) elements belong to the block cells defined by startIJK and endIJK values.
-    for(const auto& element: elements(this->leafGridView())) {
-        std::array<int,3> ijk;
-        getIJK(element.index(), ijk);
-        for (std::size_t level = 0; level < startIJK_vec.size(); ++level) {
-            bool belongsToLevel = true;
-            for (int c = 0; c < 3; ++c) {
-                belongsToLevel = belongsToLevel && ( (ijk[c] >= startIJK_vec[level][c]) && (ijk[c] < endIJK_vec[level][c]) );
-                if (!belongsToLevel)
-                    break;
-            }
-            if(belongsToLevel) {
-                // shifted since starting grid is level 0, and refined grids levels are >= 1.
-                lgr_with_at_least_one_active_cell[level] = 1;
-            }
-        }
-    }
+    auto markLgr = [&lgr_with_at_least_one_active_cell]([[maybe_unused]] const cpgrid::Entity<0>& element, int level)
+    {
+        // shifted since starting grid is level 0, and refined grids levels are >= 1.
+        lgr_with_at_least_one_active_cell[level] = 1;
+    };
+    computeOnLgrParents(startIJK_vec, endIJK_vec, markLgr);
 }
 
 void CpGrid::predictMinCellAndPointGlobalIdPerProcess([[maybe_unused]] const std::vector<int>& assignRefinedLevel,

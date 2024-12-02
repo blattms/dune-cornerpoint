@@ -1111,6 +1111,11 @@ namespace Dune
                               const std::vector<std::array<int,3>>& endIJK_vec,
                               std::vector<int>& lgr_with_at_least_one_active_cell);
 
+        template<class T>
+        void computeOnLgrParents(const std::vector<std::array<int,3>>& startIJK_vec,
+                                 const std::vector<std::array<int,3>>& endIJK_vec,
+                                 T func);
+
         /// @brief Predict minimum cell and point global ids per process.
         ///
         /// Predict how many new cells/points (born in refined level grids) need new globalIds, so we can assign unique
